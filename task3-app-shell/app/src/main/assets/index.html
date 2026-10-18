@@ -286,149 +286,88 @@
             }
         }
 
-        // Top V input driver
+        // 暂存用户输入：输入过程中不自动计算/显示另一项答案
+        const editedSide = { 1: 'v', 2: 'v', 3: 'v', 4: 'v' };
+
         interactiveVTitle.addEventListener('input', () => {
             if (activeTierIndex > 4) return;
-            const val = interactiveVTitle.value.trim();
-            const { vInput, hInput } = getCurrentInputs();
-            if (!vInput || !hInput) return;
-
-            if (!confirmedTiers[activeTierIndex]) {
-                vInput.value = val;
-                const mm = calculateRainfallFromV(val);
-                if (mm !== null) {
-                    hInput.value = mm.toFixed(2);
-                } else {
-                    hInput.value = '';
-                }
-            }
+            const { vInput } = getCurrentInputs();
+            if (!vInput || confirmedTiers[activeTierIndex]) return;
+            editedSide[activeTierIndex] = 'v';
+            vInput.value = interactiveVTitle.value.trim();
         });
 
-        // Table V inputs
-        tableV1.addEventListener('input', () => {
-            if (confirmedTiers[1]) return;
-            const val = tableV1.value.trim();
-            syncTopVTitleWithValue(val);
-            const mm = calculateRainfallFromV(val);
-            rangeT1Max.value = (mm !== null) ? mm.toFixed(2) : '';
+        [tableV1, tableV2, tableV3, tableV4].forEach((input, index) => {
+            const tier = index + 1;
+            input.addEventListener('input', () => {
+                if (confirmedTiers[tier]) return;
+                if (tier !== activeTierIndex) return;
+                editedSide[tier] = 'v';
+                syncTopVTitleWithValue(input.value.trim());
+                // 这里不计算降雨量；等待点击“确定本档”
+            });
         });
 
-        tableV2.addEventListener('input', () => {
-            if (confirmedTiers[2] || !confirmedTiers[1]) return;
-            const val = tableV2.value.trim();
-            syncTopVTitleWithValue(val);
-            const mm = calculateRainfallFromV(val);
-            rangeT2Max.value = (mm !== null) ? mm.toFixed(2) : '';
+        [rangeT1Max, rangeT2Max, rangeT3Max, rangeT4Max].forEach((input, index) => {
+            const tier = index + 1;
+            input.addEventListener('input', () => {
+                if (confirmedTiers[tier] || tier !== activeTierIndex) return;
+                editedSide[tier] = 'h';
+                // 这里只记录学生输入的降雨量，不自动反推出 V
+            });
         });
 
-        tableV3.addEventListener('input', () => {
-            if (confirmedTiers[3] || !confirmedTiers[2]) return;
-            const val = tableV3.value.trim();
-            syncTopVTitleWithValue(val);
-            const mm = calculateRainfallFromV(val);
-            rangeT3Max.value = (mm !== null) ? mm.toFixed(2) : '';
-        });
-
-        tableV4.addEventListener('input', () => {
-            if (confirmedTiers[4] || !confirmedTiers[3]) return;
-            const val = tableV4.value.trim();
-            syncTopVTitleWithValue(val);
-            const mm = calculateRainfallFromV(val);
-            rangeT4Max.value = (mm !== null) ? mm.toFixed(2) : '';
-        });
-
-        // Table Rainfall h inputs
-        rangeT1Max.addEventListener('input', () => {
-            if (confirmedTiers[1]) return;
-            const hVal = rangeT1Max.value.trim();
-            const v = calculateVFromRainfall(hVal);
-            if (v !== null) {
-                const roundedV = Math.round(v);
-                tableV1.value = roundedV;
-                syncTopVTitleWithValue(roundedV);
-            } else {
-                tableV1.value = '';
-                syncTopVTitleWithValue('');
-            }
-        });
-
-        rangeT2Max.addEventListener('input', () => {
-            if (confirmedTiers[2] || !confirmedTiers[1]) return;
-            const hVal = rangeT2Max.value.trim();
-            const v = calculateVFromRainfall(hVal);
-            if (v !== null) {
-                const roundedV = Math.round(v);
-                tableV2.value = roundedV;
-                syncTopVTitleWithValue(roundedV);
-            } else {
-                tableV2.value = '';
-                syncTopVTitleWithValue('');
-            }
-        });
-
-        rangeT3Max.addEventListener('input', () => {
-            if (confirmedTiers[3] || !confirmedTiers[2]) return;
-            const hVal = rangeT3Max.value.trim();
-            const v = calculateVFromRainfall(hVal);
-            if (v !== null) {
-                const roundedV = Math.round(v);
-                tableV3.value = roundedV;
-                syncTopVTitleWithValue(roundedV);
-            } else {
-                tableV3.value = '';
-                syncTopVTitleWithValue('');
-            }
-        });
-
-        rangeT4Max.addEventListener('input', () => {
-            if (confirmedTiers[4] || !confirmedTiers[3]) return;
-            const hVal = rangeT4Max.value.trim();
-            const v = calculateVFromRainfall(hVal);
-            if (v !== null) {
-                const roundedV = Math.round(v);
-                tableV4.value = roundedV;
-                syncTopVTitleWithValue(roundedV);
-            } else {
-                tableV4.value = '';
-                syncTopVTitleWithValue('');
-            }
-        });
-
-        // Confirm Button Logic
+        // 点击“确定本档”后，才计算并显示对应答案
         btnConfirmTier.addEventListener('click', () => {
             if (activeTierIndex > 4) return;
 
+            const tier = activeTierIndex;
             const { vInput, hInput } = getCurrentInputs();
-            const vVal = vInput.value.trim();
-            const hVal = hInput.value.trim();
+            if (!vInput || !hInput) return;
 
-            if (vVal === '' || hVal === '') {
-                return;
+            const side = editedSide[tier] || 'v';
+            if (side === 'v') {
+                const vVal = vInput.value.trim();
+                if (vVal === '' || !Number.isFinite(Number(vVal)) || Number(vVal) < 0) {
+                    confirmStatusTip.textContent = '请先输入有效的 V待消积水，再点击确定。';
+                    return;
+                }
+                const mm = calculateRainfallFromV(vVal);
+                if (mm === null || !Number.isFinite(mm)) return;
+                hInput.value = mm.toFixed(2);
+                syncTopVTitleWithValue(vVal);
+            } else {
+                const hVal = hInput.value.trim();
+                if (hVal === '' || !Number.isFinite(Number(hVal)) || Number(hVal) < 0) {
+                    confirmStatusTip.textContent = '请先输入有效的 3 小时预报降雨量，再点击确定。';
+                    return;
+                }
+                const v = calculateVFromRainfall(hVal);
+                if (v === null || !Number.isFinite(v)) return;
+                const roundedV = Math.round(v);
+                vInput.value = roundedV;
+                syncTopVTitleWithValue(roundedV);
             }
 
-            // Lock this tier
-            confirmedTiers[activeTierIndex] = true;
+            const vVal = vInput.value.trim();
+            const hVal = hInput.value.trim();
+            if (vVal === '' || hVal === '') return;
+
+            confirmedTiers[tier] = true;
             vInput.readOnly = true;
             hInput.readOnly = true;
             vInput.classList.add('bg-slate-100', 'font-bold', 'text-blue-900');
             hInput.classList.add('bg-slate-100', 'font-bold', 'text-blue-900');
 
-            // Pass upper bound to next tier's lower bound
             const upperVal = hInput.value.trim();
-            if (activeTierIndex === 1) {
-                rangeT2Min.textContent = upperVal;
-            } else if (activeTierIndex === 2) {
-                rangeT3Min.textContent = upperVal;
-            } else if (activeTierIndex === 3) {
-                rangeT4Min.textContent = upperVal;
-            }
+            if (tier === 1) rangeT2Min.textContent = upperVal;
+            else if (tier === 2) rangeT3Min.textContent = upperVal;
+            else if (tier === 3) rangeT4Min.textContent = upperVal;
 
-            // Clear top title for next step
             interactiveVTitle.value = '';
-
             updateTierBadge();
             if (activeTierIndex <= 4) {
-                confirmStatusTip.textContent = `第 ${activeTierIndex - 1} 档已成功锁定！请继续完成第 ${activeTierIndex} 档。`;
+                confirmStatusTip.textContent = `第 ${tier} 档已确定并锁定！请继续完成第 ${tier + 1} 档。`;
             }
         });
 

@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>任务三《阳光小区分级防汛响应对照表》</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .input-underline {
+            background: transparent;
+            border: none;
+            border-bottom: 1.5px solid #64748b;
+            border-radius: 0;
+            padding: 0 4px;
+            outline: none;
+            text-align: center;
+            font-weight: 600;
+            color: #1e40af;
+        }
+        .input-underline:focus {
+            border-bottom-color: #2563eb;
+            box-shadow: none;
+        }
+        .v-title-input {
+            background: transparent;
+            border: none;
+            border-bottom: 2px dashed #2563eb;
+            border-radius: 0;
+            padding: 0 4px;
+            outline: none;
+            text-align: center;
+            font-weight: 700;
+            color: #1e40af;
+            min-width: 120px;
+            cursor: pointer;
+        }
+        .v-title-input:focus {
+            border-bottom-style: solid;
+            background-color: #eff6ff;
+        }
+        input[type=number]::-webkit-inner-spin-button, 
+        input[type=number]::-webkit-outer-spin-button { 
+            -webkit-appearance: none;
+            margin: 0; 
+        }
+        input[type=number] {
+            -moz-appearance: textfield;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col justify-between p-4 md:p-8">
+
+    <main class="max-w-5xl mx-auto w-full bg-white border border-slate-300 shadow-sm rounded-xl overflow-hidden my-auto">
+        
+        <!-- Document Title Block -->
+        <div class="border-b border-slate-300 bg-white p-6 text-center">
+            <h1 class="text-2xl font-bold text-slate-900 tracking-tight">任务三《阳光小区分级防汛响应对照表》</h1>
+        </div>
+
+        <div class="p-6 space-y-6">
+            <!-- Equipment Tips Block -->
+            <div class="border border-slate-200 rounded-lg overflow-hidden text-sm">
+                <div class="bg-slate-100 font-bold px-4 py-2 border-b border-slate-200 text-slate-800">
+                    装备小贴士
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-slate-200 bg-slate-50/50">
+                    <div class="p-3 text-slate-700"><strong>沙袋墙：</strong>能拦 900 m³</div>
+                    <div class="p-3 text-slate-700"><strong>潜水泵：</strong>最多 3 台，每台 3 小时可抽 2000 m³</div>
+                    <div class="p-3 text-slate-700"><strong>储水井：</strong>最多 6 口，每口可蓄 300 m³</div>
+                </div>
+            </div>
+
+            <!-- Water Formula Block with Interactive Clickable V待消水量 and Confirm Button -->
+            <div class="space-y-3 bg-blue-50/40 p-4 rounded-xl border border-blue-100">
+                <div class="text-slate-800 flex flex-wrap items-center gap-2 text-xl md:text-2xl font-bold">
+                    <span>需处理水量：</span>
+                    <div class="inline-flex items-center gap-1 text-xl md:text-2xl font-bold text-blue-900">
+                        <input type="text" id="interactive-v-title" placeholder="V待消水量" class="v-title-input text-xl md:text-2xl" title="点击输入 V待消水量 (m³)" />
+                        <span class="text-xl md:text-2xl font-bold text-slate-900">= 67500h − 4950</span>
+                    </div>
+                    <span class="text-xs md:text-sm font-normal text-slate-600 w-full sm:w-auto mt-1 sm:mt-0">（x 是 3 小时降雨量，单位用“米”，如 156 mm 要写成 0.156 m）</span>
+                </div>
+                <div class="flex items-center gap-3 pt-1">
+                    <button id="btn-confirm-tier" class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm rounded-lg shadow-sm transition active:scale-95">
+                        确定
+                    </button>
+                    <span id="confirm-status-tip" class="text-xs text-slate-500">点击确定后将锁定当前档位的计算结果并开放下一档联动</span>
+                </div>
+            </div>
+
+            <!-- Table Block -->
+            <div class="border border-slate-200 rounded-lg overflow-hidden">
+                <div class="bg-slate-100 font-bold px-4 py-3 border-b border-slate-200 text-slate-800 flex justify-between items-center">
+                    <span>小区防汛分级响应对照表</span>
+                    <span id="current-tier-badge" class="text-xs font-semibold px-2.5 py-1 rounded-full bg-blue-100 text-blue-700">当前操作：第 1 档</span>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse text-sm">
+                        <thead>
+                            <tr class="bg-slate-50 text-slate-700 border-b border-slate-200 font-semibold text-xs">
+                                <th class="py-3 px-4 border-r border-slate-200 whitespace-nowrap">档位</th>
+                                <th class="py-3 px-4 border-r border-slate-200 whitespace-nowrap">3小时预报降雨量 h（mm）</th>
+                                <th class="py-3 px-4 border-r border-slate-200 text-center whitespace-nowrap">预警级别</th>
+                                <th class="py-3 px-4 border-r border-slate-200 whitespace-nowrap">积水判断</th>
+                                <th class="py-3 px-4 border-r border-slate-200 whitespace-nowrap">阳光小区行动指令</th>
+                                <th class="py-3 px-4 whitespace-nowrap">V待消积水（m³）</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-200">
+                            <!-- Tier 1 -->
+                            <tr id="row-tier-1" class="hover:bg-slate-50/80 transition">
+                                <td class="py-3 px-4 font-medium border-r border-slate-200 whitespace-nowrap">第 1 档</td>
+                                <td class="py-3 px-4 border-r border-slate-200 font-mono text-xs whitespace-nowrap">
+                                    <div class="inline-flex items-center gap-1 whitespace-nowrap">
+                                        <span>x &le;</span>
+                                        <input type="number" id="range-t1-max" step="any" class="w-20 input-underline text-xs" placeholder="">
+                                    </div>
+                                </td>
+                                <td class="py-3 px-4 border-r border-slate-200 text-center">
+                                    <span class="px-2 py-0.5 rounded text-xs font-bold bg-blue-100 text-blue-700 border border-blue-200">蓝</span>
+                                </td>
+                                <td class="py-3 px-4 border-r border-slate-200 text-slate-700">水位安全（&le;15cm）</td>
+                                <td class="py-3 px-4 border-r border-slate-200 text-slate-800">巡查管道，自然排水</td>
+                                <td class="py-3 px-4">
+                                    <input type="number" id="table-v-1" placeholder="输入 V" class="w-24 bg-slate-50 border border-slate-300 rounded px-2 py-1 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                                </td>
+                            </tr>
+
+                            <!-- Tier 2 -->
+                            <tr id="row-tier-2" class="hover:bg-slate-50/80 transition opacity-90">
+                                <td class="py-3 px-4 font-medium border-r border-slate-200 whitespace-nowrap">第 2 档</td>
+                                <td class="py-3 px-4 border-r border-slate-200 font-mono text-xs whitespace-nowrap">
+                                    <div class="inline-flex items-center gap-1 whitespace-nowrap">
+                                        <span id="range-t2-min" class="font-semibold text-blue-700 min-w-[2.5rem] inline-block text-center border-b-[1.5px] border-slate-500">______</span>
+                                        <span>&lt; x &le;</span>
+                                        <input type="number" id="range-t2-max" step="any" class="w-20 input-underline text-xs" placeholder="">
+                                    </div>
+                                </td>
+                                <td class="py-3 px-4 border-r border-slate-200 text-center">
+                                    <span class="px-2 py-0.5 rounded text-xs font-bold bg-yellow-100 text-yellow-800 border border-yellow-200">黄</span>
+                                </td>
+                                <td class="py-3 px-4 border-r border-slate-200 text-slate-700">超出警戒线</td>
+                                <td class="py-3 px-4 border-r border-slate-200 text-slate-800">启动【拦】，铺设沙袋防汛墙</td>
+                                <td class="py-3 px-4">
+                                    <input type="number" id="table-v-2" placeholder="输入 V" class="w-24 bg-slate-50 border border-slate-300 rounded px-2 py-1 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                                </td>
+                            </tr>
+
+                            <!-- Tier 3 -->
+                            <tr id="row-tier-3" class="hover:bg-slate-50/80 transition opacity-90">
+                                <td class="py-3 px-4 font-medium border-r border-slate-200 whitespace-nowrap">第 3 档</td>
+                                <td class="py-3 px-4 border-r border-slate-200 font-mono text-xs whitespace-nowrap">
+                                    <div class="inline-flex items-center gap-1 whitespace-nowrap">
+                                        <span id="range-t3-min" class="font-semibold text-blue-700 min-w-[2.5rem] inline-block text-center border-b-[1.5px] border-slate-500">______</span>
+                                        <span>&lt; x &le;</span>
+                                        <input type="number" id="range-t3-max" step="any" class="w-20 input-underline text-xs" placeholder="">
+                                    </div>
+                                </td>
+                                <td class="py-3 px-4 border-r border-slate-200 text-center">
+                                    <span class="px-2 py-0.5 rounded text-xs font-bold bg-orange-100 text-orange-800 border border-orange-200">橙</span>
+                                </td>
+                                <td class="py-3 px-4 border-r border-slate-200 text-slate-700">明显威胁</td>
+                                <td class="py-3 px-4 border-r border-slate-200 text-slate-800">启动【拦+排】，沙袋＋潜水泵</td>
+                                <td class="py-3 px-4">
+                                    <input type="number" id="table-v-3" placeholder="输入 V" class="w-24 bg-slate-50 border border-slate-300 rounded px-2 py-1 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                                </td>
+                            </tr>
+
+                            <!-- Tier 4 -->
+                            <tr id="row-tier-4" class="hover:bg-slate-50/80 transition opacity-90">
+                                <td class="py-3 px-4 font-medium border-r border-slate-200 whitespace-nowrap">第 4 档</td>
+                                <td class="py-3 px-4 border-r border-slate-200 font-mono text-xs whitespace-nowrap">
+                                    <div class="inline-flex items-center gap-1 whitespace-nowrap">
+                                        <span id="range-t4-min" class="font-semibold text-blue-700 min-w-[2.5rem] inline-block text-center border-b-[1.5px] border-slate-500">______</span>
+                                        <span>&lt; x &le;</span>
+                                        <input type="number" id="range-t4-max" step="any" class="w-20 input-underline text-xs" placeholder="">
+                                    </div>
+                                </td>
+                                <td class="py-3 px-4 border-r border-slate-200 text-center">
+                                    <span class="px-2 py-0.5 rounded text-xs font-bold bg-red-100 text-red-700 border border-red-200">红</span>
+                                </td>
+                                <td class="py-3 px-4 border-r border-slate-200 text-slate-700">严重内涝</td>
+                                <td class="py-3 px-4 border-r border-slate-200 text-slate-800">启动【拦+排+蓄】，沙袋＋潜水泵＋储水井</td>
+                                <td class="py-3 px-4">
+                                    <input type="number" id="table-v-4" placeholder="输入 V" class="w-24 bg-slate-50 border border-slate-300 rounded px-2 py-1 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Notes Section and Reset Button -->
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 pt-2">
+                <div class="border border-slate-200 rounded-lg p-4 bg-slate-50/50 text-xs text-slate-700 space-y-1.5 flex-1 w-full">
+                    <div class="font-bold text-slate-800 text-sm mb-1">备注：</div>
+                    <div><strong>临界点 1：</strong>啥措施都不用，绝对安全的极限降雨量</div>
+                    <div><strong>临界点 2：</strong>仅靠铺沙袋【拦】，能顶住的最大降雨量</div>
+                    <div><strong>临界点 3：</strong>仅靠铺沙袋【拦+排】，能顶住的最大降雨量是</div>
+                    <div><strong>临界点 4：</strong>仅靠铺沙袋【拦+排+蓄】，能顶住的最大降雨量</div>
+                </div>
+                <div>
+                    <button id="btn-reset" class="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold text-xs rounded-lg transition active:scale-95 whitespace-nowrap">
+                        重置
+                    </button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const interactiveVTitle = document.getElementById('interactive-v-title');
+        const btnConfirmTier = document.getElementById('btn-confirm-tier');
+        const btnReset = document.getElementById('btn-reset');
+        const currentTierBadge = document.getElementById('current-tier-badge');
+        const confirmStatusTip = document.getElementById('confirm-status-tip');
+
+        const rangeT1Max = document.getElementById('range-t1-max');
+        const rangeT2Min = document.getElementById('range-t2-min');
+        const rangeT2Max = document.getElementById('range-t2-max');
+        const rangeT3Min = document.getElementById('range-t3-min');
+        const rangeT3Max = document.getElementById('range-t3-max');
+        const rangeT4Min = document.getElementById('range-t4-min');
+        const rangeT4Max = document.getElementById('range-t4-max');
+
+        const tableV1 = document.getElementById('table-v-1');
+        const tableV2 = document.getElementById('table-v-2');
+        const tableV3 = document.getElementById('table-v-3');
+        const tableV4 = document.getElementById('table-v-4');
+
+        let activeTierIndex = 1; // 1 to 4
+        const confirmedTiers = { 1: false, 2: false, 3: false, 4: false };
+
+        function updateTierBadge() {
+            if (!confirmedTiers[1]) {
+                activeTierIndex = 1;
+                currentTierBadge.textContent = '当前操作：第 1 档';
+            } else if (!confirmedTiers[2]) {
+                activeTierIndex = 2;
+                currentTierBadge.textContent = '当前操作：第 2 档';
+            } else if (!confirmedTiers[3]) {
+                activeTierIndex = 3;
+                currentTierBadge.textContent = '当前操作：第 3 档';
+            } else if (!confirmedTiers[4]) {
+                activeTierIndex = 4;
+                currentTierBadge.textContent = '当前操作：第 4 档';
+            } else {
+                activeTierIndex = 5;
+                currentTierBadge.textContent = '所有档位已全部确定锁定';
+                btnConfirmTier.disabled = true;
+                btnConfirmTier.classList.add('opacity-50', 'cursor-not-allowed');
+                confirmStatusTip.textContent = '所有防汛响应档位已成功确定完成！';
+            }
+        }
+
+        // Formula: V = 67500 * (h_mm / 1000) - 4950  =>  h_mm = ((V + 4950) / 67500) * 1000
+        function calculateRainfallFromV(vVal) {
+            if (vVal === '' || isNaN(vVal)) return null;
+            const v = parseFloat(vVal);
+            const hMm = ((v + 4950) / 67500) * 1000;
+            return hMm;
+        }
+
+        function calculateVFromRainfall(hMmVal) {
+            if (hMmVal === '' || isNaN(hMmVal)) return null;
+            const hMm = parseFloat(hMmVal);
+            const hM = hMm / 1000;
+            const v = 67500 * hM - 4950;
+            return v;
+        }
+
+        function syncTopVTitleWithValue(vVal) {
+            interactiveVTitle.value = (vVal !== '' && !isNaN(vVal)) ? vVal : '';
+        }
+
+        function getCurrentInputs() {
+            switch(activeTierIndex) {
+                case 1: return { vInput: tableV1, hInput: rangeT1Max };
+                case 2: return { vInput: tableV2, hInput: rangeT2Max };
+                case 3: return { vInput: tableV3, hInput: rangeT3Max };
+                case 4: return { vInput: tableV4, hInput: rangeT4Max };
+                default: return { vInput: null, hInput: null };
+            }
+        }
+
+        // Top V input driver
+        interactiveVTitle.addEventListener('input', () => {
+            if (activeTierIndex > 4) return;
+            const val = interactiveVTitle.value.trim();
+            const { vInput, hInput } = getCurrentInputs();
+            if (!vInput || !hInput) return;
+
+            if (!confirmedTiers[activeTierIndex]) {
+                vInput.value = val;
+                const mm = calculateRainfallFromV(val);
+                if (mm !== null) {
+                    hInput.value = mm.toFixed(2);
+                } else {
+                    hInput.value = '';
+                }
+            }
+        });
+
+        // Table V inputs
+        tableV1.addEventListener('input', () => {
+            if (confirmedTiers[1]) return;
+            const val = tableV1.value.trim();
+            syncTopVTitleWithValue(val);
+            const mm = calculateRainfallFromV(val);
+            rangeT1Max.value = (mm !== null) ? mm.toFixed(2) : '';
+        });
+
+        tableV2.addEventListener('input', () => {
+            if (confirmedTiers[2] || !confirmedTiers[1]) return;
+            const val = tableV2.value.trim();
+            syncTopVTitleWithValue(val);
+            const mm = calculateRainfallFromV(val);
+            rangeT2Max.value = (mm !== null) ? mm.toFixed(2) : '';
+        });
+
+        tableV3.addEventListener('input', () => {
+            if (confirmedTiers[3] || !confirmedTiers[2]) return;
+            const val = tableV3.value.trim();
+            syncTopVTitleWithValue(val);
+            const mm = calculateRainfallFromV(val);
+            rangeT3Max.value = (mm !== null) ? mm.toFixed(2) : '';
+        });
+
+        tableV4.addEventListener('input', () => {
+            if (confirmedTiers[4] || !confirmedTiers[3]) return;
+            const val = tableV4.value.trim();
+            syncTopVTitleWithValue(val);
+            const mm = calculateRainfallFromV(val);
+            rangeT4Max.value = (mm !== null) ? mm.toFixed(2) : '';
+        });
+
+        // Table Rainfall h inputs
+        rangeT1Max.addEventListener('input', () => {
+            if (confirmedTiers[1]) return;
+            const hVal = rangeT1Max.value.trim();
+            const v = calculateVFromRainfall(hVal);
+            if (v !== null) {
+                const roundedV = Math.round(v);
+                tableV1.value = roundedV;
+                syncTopVTitleWithValue(roundedV);
+            } else {
+                tableV1.value = '';
+                syncTopVTitleWithValue('');
+            }
+        });
+
+        rangeT2Max.addEventListener('input', () => {
+            if (confirmedTiers[2] || !confirmedTiers[1]) return;
+            const hVal = rangeT2Max.value.trim();
+            const v = calculateVFromRainfall(hVal);
+            if (v !== null) {
+                const roundedV = Math.round(v);
+                tableV2.value = roundedV;
+                syncTopVTitleWithValue(roundedV);
+            } else {
+                tableV2.value = '';
+                syncTopVTitleWithValue('');
+            }
+        });
+
+        rangeT3Max.addEventListener('input', () => {
+            if (confirmedTiers[3] || !confirmedTiers[2]) return;
+            const hVal = rangeT3Max.value.trim();
+            const v = calculateVFromRainfall(hVal);
+            if (v !== null) {
+                const roundedV = Math.round(v);
+                tableV3.value = roundedV;
+                syncTopVTitleWithValue(roundedV);
+            } else {
+                tableV3.value = '';
+                syncTopVTitleWithValue('');
+            }
+        });
+
+        rangeT4Max.addEventListener('input', () => {
+            if (confirmedTiers[4] || !confirmedTiers[3]) return;
+            const hVal = rangeT4Max.value.trim();
+            const v = calculateVFromRainfall(hVal);
+            if (v !== null) {
+                const roundedV = Math.round(v);
+                tableV4.value = roundedV;
+                syncTopVTitleWithValue(roundedV);
+            } else {
+                tableV4.value = '';
+                syncTopVTitleWithValue('');
+            }
+        });
+
+        // Confirm Button Logic
+        btnConfirmTier.addEventListener('click', () => {
+            if (activeTierIndex > 4) return;
+
+            const { vInput, hInput } = getCurrentInputs();
+            const vVal = vInput.value.trim();
+            const hVal = hInput.value.trim();
+
+            if (vVal === '' || hVal === '') {
+                return;
+            }
+
+            // Lock this tier
+            confirmedTiers[activeTierIndex] = true;
+            vInput.readOnly = true;
+            hInput.readOnly = true;
+            vInput.classList.add('bg-slate-100', 'font-bold', 'text-blue-900');
+            hInput.classList.add('bg-slate-100', 'font-bold', 'text-blue-900');
+
+            // Pass upper bound to next tier's lower bound
+            const upperVal = hInput.value.trim();
+            if (activeTierIndex === 1) {
+                rangeT2Min.textContent = upperVal;
+            } else if (activeTierIndex === 2) {
+                rangeT3Min.textContent = upperVal;
+            } else if (activeTierIndex === 3) {
+                rangeT4Min.textContent = upperVal;
+            }
+
+            // Clear top title for next step
+            interactiveVTitle.value = '';
+
+            updateTierBadge();
+            if (activeTierIndex <= 4) {
+                confirmStatusTip.textContent = `第 ${activeTierIndex - 1} 档已成功锁定！请继续完成第 ${activeTierIndex} 档。`;
+            }
+        });
+
+        // Reset Button Logic
+        btnReset.addEventListener('click', () => {
+            confirmedTiers[1] = false;
+            confirmedTiers[2] = false;
+            confirmedTiers[3] = false;
+            confirmedTiers[4] = false;
+
+            const allInputs = [tableV1, tableV2, tableV3, tableV4, rangeT1Max, rangeT2Max, rangeT3Max, rangeT4Max];
+            allInputs.forEach(input => {
+                input.value = '';
+                input.readOnly = false;
+                input.classList.remove('bg-slate-100', 'font-bold', 'text-blue-900');
+            });
+
+            rangeT2Min.textContent = '______';
+            rangeT3Min.textContent = '______';
+            rangeT4Min.textContent = '______';
+            interactiveVTitle.value = '';
+
+            btnConfirmTier.disabled = false;
+            btnConfirmTier.classList.remove('opacity-50', 'cursor-not-allowed');
+            confirmStatusTip.textContent = '点击确定后将锁定当前档位的计算结果并开放下一档联动';
+
+            updateTierBadge();
+        });
+
+        updateTierBadge();
+    </script>
+</body>
+</html>

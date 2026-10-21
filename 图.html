@@ -141,6 +141,60 @@ button{transition-timing-function:cubic-bezier(.2,.8,.2,1)}
 .sidebar>.panel:first-child .shape-card svg{display:block;flex:0 0 54px;width:68px;height:54px;max-width:100%;overflow:visible}
 @media(max-width:900px){.sidebar>.panel:first-child .palette{grid-template-columns:repeat(2,minmax(0,1fr))}.sidebar>.panel:first-child .shape-card{min-height:90px}}
 @media(max-width:560px){.sidebar>.panel:first-child .palette{grid-template-columns:repeat(1,minmax(0,1fr))}.sidebar>.panel:first-child .shape-card{min-height:76px}.sidebar>.panel:first-child .shape-card svg{flex-basis:42px;height:42px}}
+
+/* NEON GEOMETRY LAB — match the user's reference image; preserve existing layout and all behavior */
+.app{background:#06152b!important;color:#d8f7ff}
+.topbar{background:linear-gradient(105deg,#041329 0%,#08264a 48%,#06162f 100%)!important;border-bottom:1px solid #08cfff!important;box-shadow:0 4px 24px #00bfff2b!important;position:relative}
+.topbar:after{content:"";position:absolute;left:0;right:0;bottom:0;height:2px;background:linear-gradient(90deg,transparent,#00d9ff 18%,#328cff 55%,#00eaff 82%,transparent);box-shadow:0 0 14px #00cfff}
+.logo{background:linear-gradient(145deg,#123d77,#071d43)!important;color:#70f5ff!important;border:1px solid #00d9ff!important;box-shadow:0 0 8px #00cfff8c,inset 0 0 18px #007bff55!important}
+.heading h1{color:#c8f8ff;text-shadow:0 0 10px #00cfff70,0 0 26px #007dff35}
+.heading p{color:#7fcaed!important}
+.top-tip{background:#071e3b!important;color:#8ff5ff!important;border:1px solid #078ec7!important;border-radius:8px!important;box-shadow:0 0 12px #00bfff1a,inset 0 0 14px #007bff14!important}
+.workspace{background:radial-gradient(ellipse at 48% 40%,#0b2850 0%,#06182f 64%,#041126 100%)!important}
+.sidebar{scrollbar-color:#087cb3 #07172d!important}
+.panel{background:linear-gradient(150deg,#081f40f5,#06152efc)!important;border:1px solid #087fc0!important;border-radius:11px!important;box-shadow:0 0 0 1px #00bfff16,inset 0 0 22px #006aff13,0 0 17px #007bff12!important;position:relative}
+.panel:before{content:"";position:absolute;inset:0;pointer-events:none;border-radius:inherit;background:linear-gradient(130deg,#00d9ff0c,transparent 36%,transparent 70%,#126cff0b)}
+.panel-title{background:linear-gradient(100deg,#0a3970,#0b2851 75%,#081e3c)!important;border:1px solid #087fc0!important;border-left:3px solid #00eaff!important;color:#d8faff!important;border-radius:6px!important;text-shadow:0 0 8px #00cfff3c!important;box-shadow:inset 0 0 13px #007bff19,0 0 10px #00bfff10!important}
+.panel-title span{color:#55dfff!important}
+.shape-card{background:linear-gradient(145deg,#0b2a52,#071a37)!important;border:1px solid #086eaa!important;border-radius:8px!important;box-shadow:inset 0 0 14px #007bff12,0 0 7px #007bff0b!important;position:relative;transition:transform .18s,border-color .18s,box-shadow .18s,background .18s!important}
+.shape-card:before{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;background:linear-gradient(135deg,#00d9ff12,transparent 55%);opacity:1!important}
+.shape-card:hover,.shape-card:focus{background:linear-gradient(145deg,#0d3d70,#08264b)!important;border-color:#00d9ff!important;box-shadow:0 0 0 1px #00d9ff45,0 0 16px #00bfff38,inset 0 0 18px #007bff26!important;transform:translateY(-2px)!important}
+.shape-card strong{color:#d8faff!important;text-shadow:0 0 8px #00bfff28}
+.shape-card small{color:#77b9de!important}
+.tile-btn{background:linear-gradient(100deg,#007bd2,#00a9e8)!important;border:1px solid #45eaff!important;color:#fff!important;box-shadow:0 0 12px #00aaff45,inset 0 1px #ffffff4d!important;border-radius:6px!important}
+.tile-btn:hover{background:linear-gradient(100deg,#009cff,#12d5f4)!important;box-shadow:0 0 20px #00cfff75!important}
+.tool-btn{background:linear-gradient(145deg,#0b2c53,#081b37)!important;border:1px solid #086da5!important;border-radius:7px!important;color:#9beaff!important;box-shadow:inset 0 0 12px #007bff13!important}
+.tool-btn:hover{background:linear-gradient(145deg,#104273,#0a2a50)!important;border-color:#00cfff!important;color:#fff!important;box-shadow:0 0 13px #00bfff35,inset 0 0 12px #007bff22!important;transform:translateY(-1px)!important}
+.tool-btn.danger{color:#ff9bb8!important;border-color:#8d3766!important}
+.tool-btn.danger:hover{background:#3b1641!important;border-color:#ff5dba!important;box-shadow:0 0 12px #ff38a333!important}
+.rotate-action{background:linear-gradient(145deg,#0a315b,#081e3b)!important;border-color:#087db5!important;color:#a5efff!important}
+.rotate-action:hover{background:#104578!important}
+.rotate-icon{background:linear-gradient(135deg,#00eaff,#087cff)!important;color:#03172f!important;box-shadow:0 0 0 3px #0b2b50,0 0 16px #00cfff99!important}
+.swatch{border-color:#071a35!important;box-shadow:0 0 0 1px #1c77a5,0 0 8px #00aaff18!important}
+.swatch.active{box-shadow:0 0 0 2px #00eaff,0 0 14px #00cfff80!important}
+.custom-axis{color:#9acde6!important}
+.custom-axis input{accent-color:#00d9ff!important}
+.custom-axis output{color:#51edff!important;text-shadow:0 0 8px #00bfff55}
+.custom-preview{border:1px solid #087fb9!important;background:radial-gradient(ellipse at 50% 30%,#0d3b68,#06172f)!important;box-shadow:inset 0 0 22px #00aaff15,0 0 10px #008bff12!important}
+.custom-preview strong{color:#64edff!important}
+.custom-preview small{color:#82b8d7!important}
+.board-wrap{background:#eaf5ff!important;border:1px solid #00cfff!important;box-shadow:0 0 0 1px #00d9ff3b,0 0 18px #00aaff3a,0 0 42px #006aff19!important}
+.board-wrap:after{border-color:#6ceaff!important;opacity:.45}
+#board{background-color:#eaf5ff!important}
+.board-tools{background:#061a34ed!important;border:1px solid #0789c3!important;box-shadow:0 0 14px #007bff2a,0 7px 22px #00102955!important;backdrop-filter:blur(12px)}
+.board-tools button{color:#8deeff!important;background:transparent!important;border-radius:5px!important}
+.board-tools button:hover{background:#0b3b68!important;color:#fff!important;box-shadow:inset 0 0 0 1px #00cfff66,0 0 9px #00bfff20!important}
+.board-hint{background:#061a34ed!important;border:1px solid #078bc4!important;color:#a7f1ff!important;box-shadow:0 0 12px #007bff25!important}
+.zoom{background:#061a34!important;border:1px solid #078bc4!important;box-shadow:0 0 13px #007bff35!important}
+.zoom button{background:#071d3b!important;color:#56eaff!important}
+.zoom button:hover{background:#0b3c6d!important;box-shadow:inset 0 0 10px #00bfff24!important}
+.zoom .zoom-label{background:#08274a!important;color:#a1f2ff!important}
+.toast{background:linear-gradient(100deg,#06244a,#07507a)!important;border:1px solid #00d9ff!important;box-shadow:0 0 22px #00aaff55!important;color:#e2fbff!important}
+.footer{background:#041127!important;color:#478db6!important;border-top:1px solid #07517a!important}
+#tilingResult{color:#84dfff!important}
+.sidebar section[style],.panel div[style*="color:#59728c"],.panel div[style*="color:#49647e"]{color:#83b9d8!important}
+button:focus-visible,.shape-card:focus-visible{outline:2px solid #00eaff!important;outline-offset:2px;box-shadow:0 0 0 4px #00cfff2c,0 0 18px #00cfff45!important}
+@media(prefers-reduced-motion:no-preference){.panel,.board-wrap{transition:box-shadow .25s,border-color .25s}.panel:hover{box-shadow:0 0 0 1px #00bfff25,inset 0 0 22px #006aff19,0 0 20px #007bff19!important}}
 </style></head><body><div class="app">
 <header class="topbar"><div class="logo">铺</div><div class="heading"><h1>图形密铺互动</h1><p>拖动图形 · 任意旋转 · 放大缩小 · 观察角与角度</p></div><div class="top-tip">💡 把左侧图形直接拖到画布，试试怎样铺满平面！</div></header>
 

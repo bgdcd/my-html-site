@@ -5,7 +5,6 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
-import android.graphics.Color;
 import android.view.Window;
 import android.view.WindowManager;
 import android.webkit.WebChromeClient;
@@ -29,40 +28,36 @@ public class MainActivity extends Activity {
         showCover();
     }
 
-    // Display the exact word.png downloaded from the repository as the app's opening cover.
+    // The app's first screen is word.png itself, not a placeholder or WebView page.
     private void showCover() {
-        FrameLayout root = new FrameLayout(this);
-        root.setBackgroundColor(Color.BLACK);
-
         ImageView cover = new ImageView(this);
-        cover.setBackgroundColor(Color.BLACK);
-        cover.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        cover.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        cover.setAdjustViewBounds(false);
 
-        Bitmap bitmap = null;
         try (InputStream input = getAssets().open("word.png")) {
-            bitmap = BitmapFactory.decodeStream(input);
-        } catch (Exception e) {
-            android.util.Log.e("TaskTwo", "Unable to load required cover image word.png", e);
-        }
-
-        if (bitmap != null) {
+            Bitmap bitmap = BitmapFactory.decodeStream(input);
+            if (bitmap == null) {
+                throw new IllegalStateException("word.png could not be decoded");
+            }
             cover.setImageBitmap(bitmap);
-        } else {
-            android.util.Log.e("TaskTwo", "word.png was not decoded; check APK assets");
+        } catch (Exception e) {
+            android.util.Log.e("TaskTwo", "Required opening cover word.png failed to load", e);
+            throw new IllegalStateException("Cannot show required word.png cover", e);
         }
 
+        // Make the supplied image fill the whole screen as the visible opening cover.
+        FrameLayout root = new FrameLayout(this);
         root.addView(cover, new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT));
         setContentView(root);
 
-        // Keep the cover visible long enough to be clearly seen before opening the lesson.
-        handler.postDelayed(this::showTask, 2500);
+        // Leave the actual image on screen for four seconds before opening the lesson.
+        handler.postDelayed(this::showTask, 4000);
     }
 
     private void showTask() {
         webView = new WebView(this);
-        webView.setBackgroundColor(Color.WHITE);
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);

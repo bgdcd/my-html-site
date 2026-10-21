@@ -55,13 +55,17 @@ button.go{background:#f59e0b;color:#1b1203;font-weight:700;border-color:#f59e0b;
 <main>
 <aside>
 <h2>1. 防汛装备</h2>
-<p class="sm">沙袋墙、水泵：拖进场景；储水井：点击场景里的橙色井盖打开。</p>
-<div class="eq s" draggable="true" data-t="sand"><b>🧱 传统防汛沙袋墙</b><span>挡水屏障 · 拦水 900 m³（一次性）</span><span>7200 元/套 · 防线需一套</span><em>→ 拖到小区大门口</em><i id="c-sand">0/1</i></div>
-<div class="eq" draggable="true" data-t="pump"><b>⚙ 潜水混流泵</b><span>排水设备 · 2000 m³/3h</span><span>25000 元/台 · 本次最多调用 3 台</span><em>→ 拖到黄色闪烁的泵位</em><i id="c-pump">0/3</i></div>
-<div class="eq w" data-t="well"><b>🕳 雨水收集储水井</b><span>调蓄蓄水 · 300 m³/口</span><span>灾后清理 7000 元/口 · 上限 6 口</span><em>→ 点击场景中的井盖打开</em><i id="c-well">0/6</i></div>
+<p class="sm">点击设备卡片可部署，也可拖入场景。挡水设备放到小区大门口，抽水设备放到黄色泵位，蓄水设备点击场景中的对应位置启用。</p>
+<div class="eq s" draggable="true" data-t="sand"><b>🧱 传统沙袋墙</b><span>挡水 · 850 m³</span><em>→ 部署到小区大门口</em><i id="c-sand">0/1 组</i></div>
+<div class="eq s" draggable="true" data-t="board"><b>🛡 铝合金挡水板</b><span>挡水 · 1150 m³</span><em>→ 部署到小区大门口</em><i id="c-board">0/1 组</i></div>
+<div class="eq" draggable="true" data-t="dragon"><b>🚒 “龙吸水”排水车</b><span>抽水 · 1500 m³/3h</span><em>→ 拖到黄色泵位</em><i id="c-dragon">0/1 辆</i></div>
+<div class="eq" draggable="true" data-t="diesel"><b>⚙ 柴油抽水泵</b><span>抽水 · 950 m³/3h</span><em>→ 拖到黄色泵位</em><i id="c-diesel">0/2 台</i></div>
+<div class="eq" draggable="true" data-t="pump"><b>🔧 潜水混流泵</b><span>抽水 · 850 m³/3h</span><em>→ 拖到黄色泵位</em><i id="c-pump">0/3 台</i></div>
+<div class="eq w" draggable="true" data-t="tank"><b>🕳 地下雨水罐</b><span>蓄水 · 250 m³/个</span><em>→ 点击橙色井盖启用</em><i id="c-tank">0/2 个</i></div>
+<div class="eq w" draggable="true" data-t="pool"><b>💧 雨水收集池</b><span>蓄水 · 400 m³/处</span><em>→ 点击场景中的蓄水位置</em><i id="c-pool">0/2 处</i></div>
 <h2>2. 0–3 小时部署与验证</h2>
 <table><tr><th>小时</th><th>自产雨水 m³</th><th>山洪来水 m³</th><th>总进水 m³</th><th>管道排水</th></tr><tr><td>3</td><td>2730</td><td>7800</td><td>10530</td><td>400</td></tr></table>
-<div class="box"><div>沙袋墙 <b id="d-sand">未设置</b></div><div>水泵 <b id="d-pump">0 台</b></div><div>已开储水井 <b id="d-well">0 口</b></div><hr style="border:0;border-top:1px solid #27446d"><div>装备合计处理能力 <b><span id="cap">0</span> m³</b></div><div>方案总造价 <b><span id="cost">0</span> 元</b></div></div>
+<div class="box"><div>挡水设备 <b id="d-barrier">未部署</b></div><div>抽水设备 <b id="d-pump">0 台/辆</b></div><div>蓄水设备 <b id="d-well">0 个/处</b></div><hr style="border:0;border-top:1px solid #27446d"><div>装备合计处理能力 <b><span id="cap">0</span> m³</b></div><div>已部署设备总数 <b><span id="count">0</span> 件</b></div></div>
 <button class="go" id="vf">▶ 验证方案（推演 0–3 小时）</button>
 <div id="res"></div>
 </aside>
@@ -85,9 +89,10 @@ button.go{background:#f59e0b;color:#1b1203;font-weight:700;border-color:#f59e0b;
 </div></main>
 <script>
 // ===== 隐藏的验证逻辑（不在页面显示）=====
-const R=5580,CAP={sand:900,pump:2000,well:300},PR={sand:7200,pump:25000,well:7000};
-let best=1e9;for(let p=0;p<=3;p++)for(let w=0;w<=6;w++)if(900+2000*p+300*w>=R)best=Math.min(best,7200+25000*p+7000*w);
-const S={sand:0,pumps:[],wells:[0,0,0,0,0,0]};let run=0,T=0,done=0,dragT='';
+const R=5580;
+const LIMIT={sand:1,board:1,dragon:1,diesel:2,pump:3,tank:2,pool:2};
+const CAP={sand:850,board:1150,dragon:1500,diesel:950,pump:850,tank:250,pool:400};
+const S={sand:0,board:0,pumps:[],storage:[0,0,0,0]};let run=0,T=0,done=0,dragT='';
 const $=id=>document.getElementById(id);
 let audioCtx=null,master=null;
 function getAudio(){
@@ -163,7 +168,7 @@ function showVerdict(pass,title,obs,ask,great){
   setTimeout(()=>{try{$('verdictClose').focus()}catch(e){}},50);
 }
 function hideVerdict(){$('verdict').className='';stopVerdictSound();}
-const tot=()=>{const np=S.pumps.length,nw=S.wells.reduce((a,b)=>a+b,0);return{np,nw,cap:900*S.sand+2000*np+300*nw,cost:7200*S.sand+25000*np+7000*nw}};
+const tot=()=>{const counts={sand:S.sand,board:S.board,dragon:0,diesel:0,pump:0,tank:S.storage.slice(0,2).reduce((a,b)=>a+b,0),pool:S.storage.slice(2,4).reduce((a,b)=>a+b,0)};slots.forEach(s=>{if(s.p&&s.type)counts[s.type]++});const cap=Object.keys(CAP).reduce((n,k)=>n+CAP[k]*(counts[k]||0),0);return{counts,np:S.pumps.length,nw:counts.tank+counts.pool,cap,count:Object.values(counts).reduce((a,b)=>a+b,0)}};
 function toast(t){const e=$('toast');e.textContent=t;e.style.opacity=1;clearTimeout(e.t);e.t=setTimeout(()=>e.style.opacity=0,2400)}
 // ===== 3D 基础 =====
 const wrap=$('cv'),ren=new THREE.WebGLRenderer({antialias:true}),sc=new THREE.Scene(),cam=new THREE.PerspectiveCamera(48,1,.3,700),cvs=ren.domElement;
@@ -375,7 +380,7 @@ stream([[-150,-1.38,40],[150,-1.38,40]],11,riverS,3.6,7,null,.85);       // 河�
 const wellTop=scrollClone(poolMud,1,1);scrolls.push({t:wellTop,dx:.02,dy:.03});
 const curT=scrollClone(mudS,1,2);scrolls.push({t:curT,dx:0,dy:1.3});
 const pitTex=canvasTex(64,128,(g,w,h)=>{g.fillStyle='#7b828c';g.fillRect(0,0,w,h);for(let i=0;i<260;i++){g.fillStyle='rgba('+(Math.random()<.5?'50,55,62':'200,205,212')+','+rnd(.04,.16)+')';g.fillRect(rnd(0,w),rnd(0,h),rnd(1,3),rnd(1,3))}g.fillStyle='rgba(30,34,40,.55)';g.fillRect(0,h-4,w,4)},1,4);
-const wells=WP.map(([x,z],i)=>{const g=new THREE.Group();g.position.set(x,.2,z);sc.add(g);
+const wells=WP.slice(0,4).map(([x,z],i)=>{const g=new THREE.Group();g.position.set(x,.2,z);sc.add(g);
  const sx=x>0?x-7:x+7,sz=z>0?z-3:z+3,a0=Math.atan2(sz-z,sx-x),c0=Math.cos(a0),s0=Math.sin(a0);
  const wall=new THREE.Mesh(new THREE.CylinderGeometry(1.66,1.66,2.5,40,1,true),new THREE.MeshLambertMaterial({map:pitTex,side:THREE.BackSide}));wall.position.y=-1.25;g.add(wall);
  const flr=new THREE.Mesh(new THREE.CircleGeometry(1.66,32),M(0x2a2e35));flr.rotation.x=-Math.PI/2;flr.position.y=-2.48;g.add(flr);
@@ -386,18 +391,18 @@ const wells=WP.map(([x,z],i)=>{const g=new THREE.Group();g.position.set(x,.2,z);
  C(1.85,.08,0xf59e0b,0,0,0,cov);B(2.6,.04,.18,0xb45309,0,.05,0,cov);B(.18,.04,2.6,0xb45309,0,.05,0,cov);C(.34,.05,0x7c2d12,0,.07,0,cov);
  g.traverse(o=>o.userData={k:'well',i});
  const dl2=dynLab(.8);dl2.sp.position.set(x,3.4,z);dl2.sp.visible=false;
- const open=()=>S.wells[i]&&wells[i].fill<.995;
+ const open=()=>S.storage[i]&&wells[i].fill<.995;
  // 地面的水绕着井口向里旋流 → 漫过井沿，沿井壁倾泻而下 → 落到水面溅起水花
  const disc=new THREE.Mesh(new THREE.PlaneGeometry(11,11),swirlMat(x,z,1.72,5.3));disc.rotation.x=-Math.PI/2;disc.position.set(x,.33,z);disc.renderOrder=2;disc.frustumCulled=false;disc.visible=false;sc.add(disc);
  const cur=new THREE.Mesh(new THREE.CylinderGeometry(1.64,1.64,1,24,1,true,Math.atan2(c0,s0)-1.05,2.1),new THREE.MeshBasicMaterial({map:curT,transparent:true,opacity:.93,side:THREE.DoubleSide,depthWrite:false}));cur.renderOrder=4;cur.visible=false;g.add(cur);
  const sp1=[x+c0*1.45,-2,z+s0*1.45];
  mkSpray(34,{p:sp1,v:[0,1.8,0],sp:1.3,size:.38,life:.55,gy:()=>wells[i].wy,col:0xd9c9a4,cond:open});
- const rp=ripples(g,0,-1.5,0,0xdccbaa,()=>S.wells[i]&&wells[i].fill>.02&&wells[i].fill<.995,2,.7);
+ const rp=ripples(g,0,-1.5,0,0xdccbaa,()=>S.storage[i]&&wells[i].fill>.02&&wells[i].fill<.995,2,.7);
  return{g,cov,wt,cur,disc,sp1,fill:0,lp:0,sl:[Math.cos(a0+Math.PI/2),Math.sin(a0+Math.PI/2)],dl:dl2,rp,wy:-2}});
 
 // ===== 3 个水泵位 + 大门沙袋位 =====
-const PS=[[-5.5,13,-1,0],[-3.5,4,-1,1],[5.5,-6,1,2]];   // 3个泵位：行 z=13/4/-6 各不相同，列 x=-5.5/0/5.5 各不相同；[x,z,排水侧,水带通道]
-const slots=PS.map(([x,z,sg,k],i)=>({x,z,sg,k,r:mk(new THREE.RingGeometry(1.7,2.5,28),0xfacc15,x,.4,z),p:null}));
+const PS=[[-10,13,-1,0],[-4,4,-1,1],[5,-6,1,2],[10,13,1,0],[-10,-6,-1,1],[9,4,1,2]];
+const slots=PS.map(([x,z,sg,k],i)=>({x,z,sg,k,r:mk(new THREE.RingGeometry(1.7,2.5,28),0xfacc15,x,.4,z),p:null,type:null}));
 slots.forEach((s,i)=>s.l=lab(s.sg>0?'→市政管网':'→河道',s.x,1.6,s.z,s.sg>0?'#38bdf8':'#7dd3fc',.45));
 const zone=mk(new THREE.RingGeometry(4.6,5.6,36),0xef4444,0,.45,17.6);
 
@@ -417,7 +422,7 @@ sand.traverse(o=>o.userData={k:'sand'});
 
 // ===== 水泵 =====
 const puddleT=scrollClone(poolMud,1,1);scrolls.push({t:puddleT,dx:.04,dy:.03});
-function mkPump(sg){const g=new THREE.Group();C(1.2,.4,0x374151,0,.2,0,g);C(.95,1.8,0xf59e0b,0,1.3,0,g);C(.72,.9,0x2563eb,0,2.65,0,g);
+function mkPump(sg,type){const g=new THREE.Group();const body=type==='dragon'?0x0f766e:type==='diesel'?0x64748b:0xf59e0b;C(1.2,.4,0x374151,0,.2,0,g);C(.95,1.8,body,0,1.3,0,g);C(.72,.9,type==='dragon'?0xf8fafc:type==='diesel'?0x334155:0x2563eb,0,2.65,0,g);
  const imp=new THREE.Group();imp.position.y=3.25;g.add(imp);for(let k=0;k<3;k++)B(1.7,.12,.34,0xe5e7eb,0,0,0,imp).rotation.y=k*Math.PI/1.5;
  const out=C(.3,1.3,0x9ca3af,.95,2.1,0,g);out.rotation.z=1.1;
  const pd=new THREE.Mesh(new THREE.CircleGeometry(2.3,32),new THREE.MeshBasicMaterial({map:puddleT,transparent:true,opacity:.72,depthWrite:false}));pd.rotation.x=-Math.PI/2;pd.position.y=.07;pd.renderOrder=1;g.add(pd);
@@ -425,7 +430,11 @@ function mkPump(sg){const g=new THREE.Group();C(1.2,.4,0x374151,0,.2,0,g);C(.95,
 
 // ===== 放置 / 移除 =====
 function chg(){if(run||done){run=0;T=0;done=0;$('res').className='';$('gs').textContent='等待装备部署';$('gs').style.color=''}hideVerdict();upd()}
-function putSand(on){S.sand=on?1:0;sand.visible=!!on;zone.visible=!on;if(on)sandT=0;chg()}
+function putSand(on){S.sand=on?1:0;sand.visible=!!on;zone.visible=!(S.sand||S.board);if(on)sandT=0;chg()}
+const board=new THREE.Group();sc.add(board);board.visible=false;
+for(let i=0;i<8;i++){B(1.05,1.65,.18,0xcbd5e1,(i-3.5)*1.05,1.05,17.6,board);B(1.05,.12,.25,0x64748b,(i-3.5)*1.05,.18,17.6,board);B(.12,1.8,.25,0x94a3b8,(i-3.5)*1.05,1,17.6,board)}
+board.traverse(o=>o.userData={k:'board'});
+function putBoard(on){S.board=on?1:0;board.visible=!!on;zone.visible=!(S.sand||S.board);chg()}
 // 水带线路：三条水带错开线路（至少 1.3 米），互不叠压；平缓拱过围墙（墙头上方留净空）；贴地铺到出水点
 function hosePath(i){const s=slots[i],sg=s.sg,k=s.k,river=sg<0,z0=s.z,ox=s.x+sg*.95,xw=sg*[5.9,7.2,8.5][k],xg=sg*[0,7.02,7.7][k],P=[];
  const arch=z=>.5+3.5*Math.pow(Math.cos(Math.PI/2*(z-17)/3.6),2);   // 13.4~20.6 米之间平缓的圆弧，顶点高 4 米（围墙压顶 3.2 米）
@@ -436,31 +445,35 @@ function hosePath(i){const s=slots[i],sg=s.sg,k=s.k,river=sg<0,z0=s.z,ox=s.x+sg*
  if(river){P.push([xw,.45,26],[xw,.45,27.8],[xw,.4,29.2],[xw,.3,30.2],[xw,-.24,31.2],[xw,-.74,32.2],[xw,-1.19,33.1])}                                  // 顺河岸坡面铺到水边
  else P.push([xw,.45,24.2],[xw,.45,25.2]);                                                                          // 水带口对着路面雨水口
  return{P,xw,river}}
-function placePump(i){const s=slots[i];if(s.p||S.pumps.length>=3)return;const sg=s.sg,pm=mkPump(sg);pm.g.position.set(s.x,.2,s.z);sc.add(pm.g);pm.g.traverse(o=>o.userData={k:'pump',i});
+function placePump(i,type){const s=slots[i];if(s.p)return;const current=slots.filter(q=>q.p&&q.type===type).length;if(current>=LIMIT[type])return toast('该设备已达到可用数量上限');if(S.pumps.length>=6)return;const sg=s.sg,pm=mkPump(sg,type);pm.g.position.set(s.x,.2,s.z);sc.add(pm.g);pm.g.traverse(o=>o.userData={k:'pump',i});
  const h=hosePath(i),xw=h.xw,fxs=[];
  fxs.push(hose(h.P,.27,hoseP,6,3));
  if(h.river){fxs.push(mkSpray(90,{p:[xw,-1.1,33.45],v:[0,.9,3.4],sp:.7,size:.55,life:.8,gy:-1.5,col:0xd0bf98}));fxs.push(mkSpray(30,{p:[xw,-1.4,34.9],v:[0,1.8,0],sp:1.2,size:.4,life:.5,gy:-1.5}));fxs.push(ripples(null,xw,-1.38,34.9,0xdccbaa,null,3,2.4))}
  else{fxs.push(mkSpray(60,{p:[xw,.6,25.55],v:[0,.05,.8],sp:.9,size:.42,life:.45,gy:.2,col:0xd0bf98}));fxs.push(ripples(null,xw,.2,26,0xdccbaa,null,2,1.2))}
  fxs.push(ripples(pm.g,0,.12,0,0xd6c8a8,null,2,1.2,true));
- s.p={g:pm.g,imp:pm.imp,fxs};s.r.visible=false;s.l.visible=false;S.pumps.push(i);chg()}
-function remPump(i){const s=slots[i];if(!s.p)return;killFx(s.p.fxs);sc.remove(s.p.g);s.p=null;s.r.visible=true;s.l.visible=true;S.pumps=S.pumps.filter(k=>k!=i);chg()}
-function toggleWell(i){S.wells[i]^=1;chg()}
-function upd(){const t=tot();$('c-sand').textContent=S.sand+'/1';$('c-pump').textContent=t.np+'/3';$('c-well').textContent=t.nw+'/6';
- $('d-sand').textContent=S.sand?'已封堵大门':'未设置';$('d-pump').textContent=t.np+' 台';$('d-well').textContent=t.nw+' 口';$('cap').textContent=t.cap;$('cost').textContent=t.cost.toLocaleString()}
-function drop(t,p){if(run)return toast('推演进行中，请等待结束');
- if(t=='sand'){Math.hypot(p.x,p.z-17.6)<9?putSand(1):toast('沙袋墙要拖到小区大门口（红色圆环）')}
- else if(t=='pump'){let b=-1,bd=8;slots.forEach((s,i)=>{const d=Math.hypot(p.x-s.x,p.z-s.z);if(!s.p&&d<bd){bd=d;b=i}});b<0?toast('请把水泵拖到黄色闪烁的泵位上（泵位已满则无法再放）'):placePump(b)}
- else toast('储水井已建在小区绿地里，点击橙色井盖即可打开')}
+  s.p={g:pm.g,imp:pm.imp,fxs};s.type=type;s.r.visible=false;s.l.visible=false;S.pumps.push(i);chg()}
+function remPump(i){const s=slots[i];if(!s.p)return;killFx(s.p.fxs);sc.remove(s.p.g);s.p=null;s.type=null;s.r.visible=true;s.l.visible=true;S.pumps=S.pumps.filter(k=>k!=i);chg()}
+function toggleWell(i){if(i<0||i>=4)return;S.storage[i]^=1;chg()}
+function toggleStorage(type){const a=type==='tank'?0:2,b=a+2;let i=-1;for(let k=a;k<b;k++)if(!S.storage[k]){i=k;break}if(i<0)return toast('该类蓄水设备已达到可用数量上限');toggleWell(i)}
+function deployPump(type,worldPoint){if(slots.filter(s=>s.p&&s.type===type).length>=LIMIT[type])return toast('该设备已达到可用数量上限');let i=-1,bd=Infinity;slots.forEach((s,k)=>{if(!s.p){const d=worldPoint?Math.hypot(worldPoint.x-s.x,worldPoint.z-s.z):k;if(d<bd){bd=d;i=k}}});if(i<0)return toast('6 个泵位已全部占用');placePump(i,type)}
+function upd(){const t=tot(),c=t.counts;
+ $('c-sand').textContent=c.sand+'/1 组';$('c-board').textContent=c.board+'/1 组';$('c-dragon').textContent=c.dragon+'/1 辆';$('c-diesel').textContent=c.diesel+'/2 台';$('c-pump').textContent=c.pump+'/3 台';$('c-tank').textContent=c.tank+'/2 个';$('c-pool').textContent=c.pool+'/2 处';
+ $('d-barrier').textContent=(c.sand+c.board)?((c.sand?'沙袋墙 ':'')+(c.board?'挡水板':'')):'未部署';
+ $('d-pump').textContent=(c.dragon+c.diesel+c.pump)+' 台/辆';$('d-well').textContent=(c.tank+c.pool)+' 个/处';$('cap').textContent=t.cap;$('count').textContent=t.count}
+function drop(type,p){if(run)return toast('推演进行中，请等待结束');
+ if(type==='sand'||type==='board'){if(Math.hypot(p.x,p.z-17.6)<12){type==='sand'?putSand(1):putBoard(1)}else toast('挡水设备请拖到小区大门口（红色圆环）')}
+ else if(type==='dragon'||type==='diesel'||type==='pump'){let b=-1,bd=9;slots.forEach((s,i)=>{const d=Math.hypot(p.x-s.x,p.z-s.z);if(!s.p&&d<bd){bd=d;b=i}});b<0?toast('请将抽水设备放到黄色泵位上'):placePump(b,type)}
+ else if(type==='tank'||type==='pool')toggleStorage(type)}
 
 // ===== 交互：拖放、点击、旋转 =====
 document.querySelectorAll('.eq').forEach(c=>{const t=c.dataset.t;c.ondragstart=e=>{dragT=t;e.dataTransfer.setData('text/plain',t)};
- c.onclick=()=>{if(run)return;if(t=='sand')putSand(1);else if(t=='pump'){const i=slots.findIndex(s=>!s.p);i<0?toast('3 台水泵已全部使用'):placePump(i)}else{const i=S.wells.indexOf(0);i<0?toast('6 口井已全部打开'):toggleWell(i)}}});
+ c.onclick=()=>{if(run)return;if(t==='sand')putSand(1);else if(t==='board')putBoard(1);else if(t==='dragon'||t==='diesel'||t==='pump')deployPump(t);else if(t==='tank'||t==='pool')toggleStorage(t)}});
 const ray=new THREE.Raycaster(),v2=new THREE.Vector2(),gp=new THREE.Plane(new THREE.Vector3(0,1,0),0);
 function setRay(e){const r=cvs.getBoundingClientRect();v2.set((e.clientX-r.left)/r.width*2-1,-(e.clientY-r.top)/r.height*2+1);ray.setFromCamera(v2,cam)}
 wrap.addEventListener('dragover',e=>e.preventDefault());
 wrap.addEventListener('drop',e=>{e.preventDefault();setRay(e);const p=new THREE.Vector3();if(ray.ray.intersectPlane(gp,p))drop(dragT||e.dataTransfer.getData('text/plain'),p)});
-function click(e){if(run)return toast('推演进行中，请等待结束');setRay(e);const hit=ray.intersectObjects([...wells.map(w=>w.g),sand,...slots.filter(s=>s.p).map(s=>s.p.g)],true)[0];if(!hit)return;let o=hit.object;while(o&&!o.userData.k)o=o.parent;if(!o)return;
- const u=o.userData;if(u.k=='well')toggleWell(u.i);else if(u.k=='pump')remPump(u.i);else if(u.k=='sand')putSand(0)}
+function click(e){if(run)return toast('推演进行中，请等待结束');setRay(e);const hit=ray.intersectObjects([...wells.map(w=>w.g),sand,board,...slots.filter(s=>s.p).map(s=>s.p.g)],true)[0];if(!hit)return;let o=hit.object;while(o&&!o.userData.k)o=o.parent;if(!o)return;
+ const u=o.userData;if(u.k==='well')toggleWell(u.i);else if(u.k==='pump')remPump(u.i);else if(u.k==='sand')putSand(0);else if(u.k==='board')putBoard(0)}
 let th=.3,ph=.78,rr=104,dn=null;const tg=new THREE.Vector3(0,2,4);
 cvs.addEventListener('pointerdown',e=>dn={x:e.clientX,y:e.clientY,m:0,p:e.button!=0||e.shiftKey});
 addEventListener('pointermove',e=>{if(!dn)return;const dx=e.clientX-dn.x,dy=e.clientY-dn.y;dn.m+=Math.abs(dx)+Math.abs(dy);if(dn.p)pan(-dx*rr*.0016,dy*rr*.0016,0);else{th-=dx*.006;ph=Math.min(1.45,Math.max(.12,ph+dy*.005))}dn.x=e.clientX;dn.y=e.clientY});
@@ -476,12 +489,11 @@ addEventListener('keyup',e=>{const k={ArrowLeft:'l',ArrowRight:'r',ArrowUp:'f',A
 function navStep(dt){const h=n=>hold[n]||hold['k'+n],v=rr*.6*dt;if(h('l'))pan(-v,0,0);if(h('r'))pan(v,0,0);if(h('f'))pan(0,v,0);if(h('b'))pan(0,-v,0);if(h('u'))pan(0,0,v*.6);if(h('dn'))pan(0,0,-v*.6);if(h('in'))zoom(1-dt*1.2);if(h('out'))zoom(1+dt*1.2);
  if(hold.rl)th+=dt*1.2;if(hold.rr)th-=dt*1.2}
 // ===== 推演与验证 =====
-function depthAt(t){if(!S.sand)return Math.min(2.4,.5+t*.75);const p=S.pumps.length,w=S.wells.reduce((a,b)=>a+b,0);
- const h=900*Math.min(1,t/.4)+(2000/3)*p*t+300*w*Math.min(1,t/1.2);const wet=.4*Math.min(1,t/.6)*Math.max(0,1-Math.max(0,t-.6)*(.3+.35*p));return Math.max(.1,(R*t/3-h)/R*2.4+wet)}
-$('vf').onclick=()=>{if(run)return;getAudio();const t=tot();if(!S.sand&&!t.np&&!t.nw)return toast('请先部署防汛装备');T=0;done=0;run=1;$('res').className='run';$('res').innerHTML='<h3>推演中…</h3>洪水正沿后山山沟流向小区。';$('gs').textContent='推演中'};
-function finish(){run=0;done=1;const t=tot();const ok=!!S.sand&&t.cap>=R;
+function depthAt(t){const q=tot(),barrier=S.sand||S.board,p=q.np;const h=q.cap*Math.min(1,t/3);const wet=.4*Math.min(1,t/.6)*Math.max(0,1-Math.max(0,t-.6)*(.3+.12*p));return Math.max(.1,(R*t/3-h)/R*2.4+wet+(barrier?0:.45))}
+$('vf').onclick=()=>{if(run)return;getAudio();const t=tot();if(!(S.sand||S.board)&&!t.np&&!t.nw)return toast('请先部署防汛装备');T=0;done=0;run=1;$('res').className='run';$('res').innerHTML='<h3>推演中…</h3>洪水正沿后山山沟流向小区。';$('gs').textContent='推演中'};
+function finish(){run=0;done=1;const t=tot();const ok=!!(S.sand||S.board)&&t.cap>=R;
   let title='不通过',obs,ask,great=false;
-  if(!S.sand){
+  if(!(S.sand||S.board)){
     obs='山洪顺着山沟一路流到小区门口，径直冲了进来，积水迅速漫过低洼处。';
     ask='洪水是沿着什么路径来到小区的？你现有的装备，有没有在这条路径上发挥作用？';
   }else if(!ok){
@@ -489,7 +501,7 @@ function finish(){run=0;done=1;const t=tot();const ok=!!S.sand&&t.cap>=R;
     obs='三小时里涌进小区的水，比你的装备能够接住的水要多，低洼处的积水一直在上涨，形成内涝。'+(r<.5?'两者之间的差距相当大。':r<.85?'两者之间还有明显的距离。':'两者已经相当接近，但还是没有追平。');
     ask='对照左侧的数据，这三小时一共有多少水需要处理？你的每一件装备各自分担了多少？这两边的账，你是怎么算的？';
   }else{
-    title='通过';great=(t.cost==best);
+    title='通过';great=t.cap>=R&&t.count<=4;
     if(great){
       obs='三小时内积水被控制在安全范围内，而且你的方案把造价也压到了最低——安全和成本都照顾到了。';
       ask='把你的思路讲给同学听：每种装备各用多少，你是怎么确定的？换一种配置，结果会更好吗？';
@@ -498,7 +510,7 @@ function finish(){run=0;done=1;const t=tot();const ok=!!S.sand&&t.cap>=R;
       ask='达标只是第一步。如果几位同学的方案都达标，你会用什么标准来比较谁的更好？拿这个标准再审视一遍你的方案。';
     }
   }
-  const stat='<br><small style="color:#9fb3cf">本方案：处理能力 '+t.cap+' m³ · 造价 '+t.cost.toLocaleString()+' 元</small>';
+  const stat='<br><small style="color:#9fb3cf">本方案：处理能力 '+t.cap+' m³ · 已部署 '+t.count+' 件设备</small>';
   $('res').className=ok?'ok':'no';
   $('res').innerHTML='<h3>'+(ok?'✅ ':'❌ ')+title+'</h3>'+obs+'<br><span style="color:#fcd34d">💭 想一想：'+ask+'</span>'+(great?'<br><b style="color:#fbbf24">🏆 最优方案</b>':'')+stat;
   $('gs').textContent=ok?'通过':'不通过';$('gs').style.color=ok?'#34d399':'#f87171';
@@ -507,7 +519,7 @@ function finish(){run=0;done=1;const t=tot();const ok=!!S.sand&&t.cap>=R;
 $('verdictClose').onclick=hideVerdict;
 $('verdict').addEventListener('click',e=>{if(e.target===$('verdict'))hideVerdict()});
 addEventListener('keydown',e=>{if(e.key==='Escape')hideVerdict()});
-$('rst').onclick=()=>{[...S.pumps].forEach(remPump);S.wells.fill(0);putSand(0);run=0;T=0;done=0;$('res').className='';$('gs').textContent='等待装备部署';$('gs').style.color='';hideVerdict();upd()};
+$('rst').onclick=()=>{[...S.pumps].forEach(remPump);S.storage.fill(0);putSand(0);putBoard(0);run=0;T=0;done=0;$('res').className='';$('gs').textContent='等待装备部署';$('gs').style.color='';hideVerdict();upd()};
 // ===== 雨 =====
 const N=2600,rp=new Float32Array(N*6);for(let i=0;i<N;i++){const x=(Math.random()-.5)*220,y=Math.random()*80,z=(Math.random()-.5)*190;rp.set([x,y,z,x-.5,y-2.4,z],i*6)}
 const rg=new THREE.BufferGeometry();rg.setAttribute('position',new THREE.BufferAttribute(rp,3));const rl=new THREE.LineSegments(rg,new THREE.LineBasicMaterial({color:0x9ec5ff,transparent:true,opacity:.6}));rl.frustumCulled=false;sc.add(rl);
@@ -553,7 +565,7 @@ function loop(ts){requestAnimationFrame(loop);const dt=Math.min(.05,(ts-last)/10
  slots.forEach(s=>{s.r.material.opacity=pu;if(s.p){s.p.imp.rotation.y+=dt*26;s.p.g.position.y=.2+Math.sin(ts/35)*.02}});zone.material.opacity=pu;
  // 储水井：井盖在地面上滑开 → 地面的泥水绕井口旋流、漫过井沿倾泻而下 → 井内水位上升
  discTime.value+=dt;
- wells.forEach((w,i)=>{const o=S.wells[i],on=run||done;
+ wells.forEach((w,i)=>{const o=S.storage[i],on=run||done;
   w.lp+=((o?1:0)-w.lp)*Math.min(1,dt*3);const q=w.lp;
   w.cov.position.set(w.sl[0]*3.9*q,.05+Math.sin(Math.PI*Math.min(1,q*1.1))*.35,w.sl[1]*3.9*q);w.cov.rotation.y=q*.7;
   const ft=o?(on?Math.min(1,T/1.2):1):0;if(ft<w.fill)w.fill=ft;else w.fill=Math.min(ft,w.fill+dt*(on?1.6:.5));
@@ -562,14 +574,14 @@ function loop(ts){requestAnimationFrame(loop);const dt=Math.min(.05,(ts-last)/10
   w.dl.sp.visible=!!o;if(o)w.dl.set(w.fill>.99?'已蓄满':'蓄水 '+Math.round(w.fill*100)+'%',w.fill>.99?'#34d399':'#7dd3fc')});
  // 小区内积水：暴雨红色预警下，地面本来就有约 3 cm 积水；山洪灌入、推演开始后继续上涨
  const dRaw=(run||done)?depthAt(T):0,d=Math.max(.15,dRaw);
- front+=Math.max(-dt*8,Math.min(dt*5.5,((S.sand&&dRaw<=.3)?0:75)-front));
- const nw2=S.wells.reduce((a,b)=>a+b,0),pt=dRaw>.3?1:Math.max(.25,.7-.08*S.pumps.length-.05*nw2);puddle+=(pt-puddle)*Math.min(1,dt*.3);
+ front+=Math.max(-dt*8,Math.min(dt*5.5,(((S.sand||S.board)&&dRaw<=.3)?0:75)-front));
+ const nw2=S.storage.reduce((a,b)=>a+b,0),pt=dRaw>.3?1:Math.max(.25,.7-.08*S.pumps.length-.05*nw2);puddle+=(pt-puddle)*Math.min(1,dt*.3);
  gsU.uTime.value+=dt;gsU.uFront.value=front;gsU.uPuddle.value=puddle;
  const cm=(run||done)?Math.max(3,Math.round(dRaw*20)):3+(S.sand?0:Math.round(front/75*5));
  $('pd').textContent=cm;$('pdw').style.color=cm>15?'#f87171':'#7dd3fc';
- const Lin=(run||done)?Math.min(1.3,dRaw*.55):0,Lt=Math.min(1.85,S.sand?Math.max(1.05,Lin+.35):Math.max(.3,Lin+.35));
+ const Lin=(run||done)?Math.min(1.3,dRaw*.55):0,Lt=Math.min(1.85,(S.sand||S.board)?Math.max(1.05,Lin+.35):Math.max(.3,Lin+.35));
  poolL+=(Lt-poolL)*Math.min(1,dt*1.1);pool.scale.y=Math.max(.05,poolL);pool.position.y=poolL/2;
- gates.forEach(p=>p.rotation.x+=(-.9-p.rotation.x)*.08);fl.visible=flTop.visible=dRaw>.3;fl.position.y=Lin-.3;flTop.position.y=Lin+.22;fl.material.color.setHex(S.sand?0x5f7684:0x74603c);fl.material.opacity=.82+.04*Math.sin(ts/220);flTop.material.opacity=.5;
+ gates.forEach(p=>p.rotation.x+=(-.9-p.rotation.x)*.08);fl.visible=flTop.visible=dRaw>.3;fl.position.y=Lin-.3;flTop.position.y=Lin+.22;fl.material.color.setHex((S.sand||S.board)?0x5f7684:0x74603c);fl.material.opacity=.82+.04*Math.sin(ts/220);flTop.material.opacity=.5;
  $('tm').textContent=T.toFixed(1);$('pb').style.width=T/3*100+'%';
  cam.position.set(tg.x+rr*Math.cos(ph)*Math.sin(th),tg.y+rr*Math.sin(ph),tg.z+rr*Math.cos(ph)*Math.cos(th));cam.lookAt(tg);
  labels.forEach(l=>{const k=Math.min(1.5,Math.max(.07,cam.position.distanceTo(l.sp.position)/104));l.sp.scale.set(l.bw*k,l.bh*k,1)});

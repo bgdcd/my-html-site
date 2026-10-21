@@ -278,6 +278,35 @@ button:focus-visible,.shape-card:focus-visible{outline:2px solid #ffe28b!importa
 #tilingResult{color:#ffdc79!important}
 .toast{background:linear-gradient(100deg,#191a1b,#493516)!important;border:1px solid #e9b943!important;box-shadow:0 0 20px #e3a52a40!important;color:#fff0c2!important}
 @media(prefers-reduced-motion:reduce){.topbar:before,.board-wrap:after{animation:none!important}}
+
+/* Metallic gold gradient running-light borders for shape library and interface frames */
+@keyframes metallicGoldFlow{0%{--frame-angle:0deg}100%{--frame-angle:360deg}}
+@property --frame-angle{syntax:"<angle>";initial-value:0deg;inherits:false}
+.shape-card,.panel,.panel-title{
+  position:relative!important;
+  isolation:isolate!important;
+}
+.shape-card:after,.panel:after,.panel-title:after{
+  content:""!important;
+  position:absolute!important;
+  inset:-1px!important;
+  padding:2px!important;
+  border-radius:inherit!important;
+  pointer-events:none!important;
+  z-index:5!important;
+  background:conic-gradient(from var(--frame-angle),#6f470b 0deg,#f9dc78 32deg,#b87913 62deg,#fff3b0 84deg,#8d5a0c 116deg,#e8b743 155deg,#fff1a0 184deg,#a66d12 220deg,#f8d76b 258deg,#70480d 290deg,#ffed9a 325deg,#6f470b 360deg)!important;
+  animation:metallicGoldFlow 3.4s linear infinite!important;
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0)!important;
+  -webkit-mask-composite:xor!important;
+  mask-composite:exclude!important;
+  opacity:.98!important;
+}
+.panel{border-color:transparent!important}
+.shape-card{border-color:transparent!important}
+.panel-title{border-color:transparent!important;overflow:hidden!important}
+.shape-card:hover:after,.shape-card:focus:after{filter:brightness(1.25) drop-shadow(0 0 5px #ffca45)!important}
+.panel-title:after{inset:-1px!important;padding:2px!important}
+@media(prefers-reduced-motion:reduce){.shape-card:after,.panel:after,.panel-title:after{animation:none!important}}
 </style></head><body><div class="app">
 <header class="topbar"><div class="logo">铺</div><div class="heading"><h1>图形密铺互动</h1><p>拖动图形 · 任意旋转 · 放大缩小 · 观察角与角度</p></div><div class="top-tip">💡 把左侧图形直接拖到画布，试试怎样铺满平面！</div></header>
 

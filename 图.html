@@ -307,6 +307,46 @@ button:focus-visible,.shape-card:focus-visible{outline:2px solid #ffe28b!importa
 .shape-card:hover:after,.shape-card:focus:after{filter:brightness(1.25) drop-shadow(0 0 5px #ffca45)!important}
 .panel-title:after{inset:-1px!important;padding:2px!important}
 @media(prefers-reduced-motion:reduce){.shape-card:after,.panel:after,.panel-title:after{animation:none!important}}
+
+/* LIVE METALLIC GOLD MARQUEE — moving highlight travels along the frame */
+@keyframes goldMarqueeTravel {
+  0% { background-position: 200% 0%; filter: brightness(.95); }
+  50% { filter: brightness(1.22); }
+  100% { background-position: -100% 100%; filter: brightness(1); }
+}
+.shape-card,.panel,.panel-title {
+  position:relative!important;
+  isolation:isolate!important;
+}
+.shape-card:after,.panel:after,.panel-title:after {
+  content:""!important;
+  position:absolute!important;
+  inset:-1px!important;
+  padding:2px!important;
+  border-radius:inherit!important;
+  pointer-events:none!important;
+  z-index:20!important;
+  background:linear-gradient(115deg,
+    #6f470b 0%,#b98220 10%,#ffeaa0 18%,#fff9d9 22%,
+    #c58b20 28%,#80500b 39%,#e4b544 48%,#fff1a8 55%,
+    #9a6412 64%,#f4d36c 73%,#fffbd8 78%,#b57a18 86%,#70480d 100%)!important;
+  background-size:300% 300%!important;
+  animation:goldMarqueeTravel 2.2s linear infinite!important;
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0)!important;
+  -webkit-mask-composite:xor!important;
+  mask-composite:exclude!important;
+  opacity:1!important;
+  box-shadow:0 0 7px #ffc844a8,0 0 16px #d99b2866!important;
+}
+.shape-card,.panel {border-color:transparent!important}
+.panel-title {border-color:transparent!important}
+.shape-card:hover:after,.shape-card:focus:after {
+  animation-duration:1.1s!important;
+  filter:brightness(1.3) drop-shadow(0 0 6px #ffdc65)!important;
+}
+@media(prefers-reduced-motion:reduce) {
+  .shape-card:after,.panel:after,.panel-title:after {animation:goldMarqueeTravel 5s linear infinite!important}
+}
 </style></head><body><div class="app">
 <header class="topbar"><div class="logo">铺</div><div class="heading"><h1>图形密铺互动</h1><p>拖动图形 · 任意旋转 · 放大缩小 · 观察角与角度</p></div><div class="top-tip">💡 把左侧图形直接拖到画布，试试怎样铺满平面！</div></header>
 

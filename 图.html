@@ -163,8 +163,8 @@ $('autoTileCustomBtn').onclick=()=>{const g=selected&&selected.dataset.shape==='
 // ---------- 工具栏 ----------
 $('rotateImg').src=ROT;
 $('clearBtn').onclick=()=>{anim++;animSkip=null;pieces.innerHTML='';history=[];selected=null;selectedCorner=null;showAngles=showDegrees=false;$('angleBtn').textContent='∠ 标注对应角';$('degreeBtn').textContent='标注对应角度';refresh();say('画布已清空')};
-$('angleBtn').onclick=()=>{showAngles=!showAngles;if(showAngles)showDegrees=false;$('angleBtn').textContent=showAngles?'隐藏对应角':'∠ 标注对应角';$('degreeBtn').textContent=showDegrees?'隐藏对应角度':'标注对应角度';refresh()};
-$('degreeBtn').onclick=()=>{showDegrees=!showDegrees;if(showDegrees)showAngles=false;$('degreeBtn').textContent=showDegrees?'隐藏对应角度':'标注对应角度';$('angleBtn').textContent=showAngles?'隐藏对应角':'∠ 标注对应角';refresh()};
+$('angleBtn').onclick=()=>{showAngles=!showAngles;$('angleBtn').textContent=showAngles?'隐藏对应角':'∠ 标注对应角';$('degreeBtn').textContent=showDegrees?'隐藏对应角度':'标注对应角度';refresh()};
+$('degreeBtn').onclick=()=>{showDegrees=!showDegrees;$('degreeBtn').textContent=showDegrees?'隐藏对应角度':'标注对应角度';$('angleBtn').textContent=showAngles?'隐藏对应角':'∠ 标注对应角';refresh()};
 $('rotateBtn').onclick=()=>{if(!selected)return say('请先选中一个图形');save();selected.dataset.r=(+selected.dataset.r+15)%360;redraw(selected);refresh();checkAssembled()};
 $('duplicateBtn').onclick=()=>{if(!selected)return say('请先选中图形');const t=info(selected),s=selected;add(s.dataset.shape,t.x+45,t.y+35,s.querySelector('polygon').getAttribute('fill'),t.r,t.s,true,s.dataset.customPts?JSON.parse(s.dataset.customPts):null)};
 $('deleteBtn').onclick=()=>{if(!selected)return say('请先选中图形');save();selected.remove();selected=null;refresh()};

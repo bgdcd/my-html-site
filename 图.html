@@ -72,7 +72,8 @@ function drawVertex(x,y,items,own,numbers,degs){const m=items.length,ar=Math.min
  so.forEach((o,k)=>{const mine=!own||o.g===own,mid=(o.s+o.a/2)*R,num=String(Math.round(o.a)),tw=(numbers?9:0)+(degs?(num.length+1)*5.4:0),key=o.g.dataset.id+':'+o.i;
   if(degs&&o.a<359){const s0=o.s*R,e=(o.s+o.a)*R,arc=el('path',{d:`M ${x+ar*Math.cos(s0)} ${y+ar*Math.sin(s0)} A ${ar} ${ar} 0 ${o.a>180?1:0} 1 ${x+ar*Math.cos(e)} ${y+ar*Math.sin(e)}`,class:'arc','data-corner-key':key,style:`stroke:${gcols[k%8]};stroke-width:${mine&&own?2.6:1.7};pointer-events:stroke;cursor:pointer`});arc.addEventListener('click',ev=>{ev.stopPropagation();ev.preventDefault();chooseCorner(o.g,o.i)});labels.appendChild(arc)}
   else if(degs){const arc=el('circle',{cx:x,cy:y,r:ar,class:'arc','data-corner-key':key,style:'stroke:'+gcols[0]+';pointer-events:stroke;cursor:pointer'});arc.addEventListener('click',ev=>{ev.stopPropagation();ev.preventDefault();chooseCorner(o.g,o.i)});labels.appendChild(arc)}
-  const di=Math.min(Math.max(d,(tw/2+3)/Math.sin(Math.max(15,Math.min(o.a,170))*R/2)),Math.max(ar+8,o.me*.62)),t=el('text',{x:x+Math.cos(mid)*di,y:y+Math.sin(mid)*di+3.5,'text-anchor':'middle',class:'lbl','data-corner-key':key,style:'pointer-events:all;cursor:pointer'});
+  // 只标序号时，把序号放在该角自己的内角平分线上且靠近顶点，避免共享顶点处被统一推远、看起来对应错角
+  const di=numbers&&!degs?Math.min(Math.max(10,ar+4),Math.max(8,o.me*.34)):Math.min(Math.max(d,(tw/2+3)/Math.sin(Math.max(15,Math.min(o.a,170))*R/2)),Math.max(ar+8,o.me*.62)),t=el('text',{x:x+Math.cos(mid)*di,y:y+Math.sin(mid)*di+3.5,'text-anchor':'middle',class:'lbl','data-corner-key':key,style:'pointer-events:all;cursor:pointer'});
   t.addEventListener('click',ev=>{ev.stopPropagation();ev.preventDefault();chooseCorner(o.g,o.i)});
   if(numbers){const sp=el('tspan',{class:'lb-n'});sp.textContent=circled(o.i);t.appendChild(sp)}
   if(degs){const sp=el('tspan',{class:mine?'lb-d':'lb-o'});sp.textContent=num+'°';t.appendChild(sp)}labels.appendChild(t)})}

@@ -55,7 +55,98 @@ html,body{color:var(--txt);background:#060b1a}
 .zoom .zoom-label{color:var(--gold)}.board-hint{color:#a9bfe3}
 .toast{background:rgba(20,34,70,.95);border:1px solid var(--gold);box-shadow:0 0 16px rgba(255,214,138,.5)}
 .footer{color:#6f86ad}.footer span:first-child::before{content:"●";color:var(--cyan);margin-right:6px;animation:blink 1.6s infinite}.footer span:last-child::before{content:"●";color:var(--gold);margin-right:6px;animation:blink 1.6s .8s infinite}
-.sidebar{padding:3px 5px 3px 3px}</style></head><body><div class="app">
+.sidebar{padding:3px 5px 3px 3px}
+/* AESTHETIC TILING MOTION — visual-only finish; keep interaction logic intact */
+:root{
+  --warm-gold:#f4bd72;
+  --coral-glow:#f5a49a;
+  --aqua-glow:#8ce8e5;
+}
+#board{
+  position:relative!important;
+  overflow:hidden!important;
+  background:
+    radial-gradient(ellipse at 52% 42%,rgba(255,225,192,.16),transparent 58%),
+    radial-gradient(ellipse at 80% 72%,rgba(123,220,220,.12),transparent 48%),
+    linear-gradient(145deg,#18233b 0%,#111b31 52%,#17243b 100%)!important;
+}
+#bg{animation:none!important;opacity:.48!important}
+#gridPattern path{stroke:rgba(176,203,229,.16)!important;stroke-width:.8!important}
+#pieces{
+  filter:drop-shadow(0 3px 5px rgba(10,18,38,.24))!important;
+  isolation:isolate;
+}
+.piece polygon{
+  stroke:rgba(255,239,216,.92)!important;
+  stroke-width:1.35!important;
+  stroke-linejoin:round!important;
+  fill-opacity:.88!important;
+  filter:drop-shadow(0 0 2px rgba(255,194,133,.25));
+  transform-box:fill-box;
+  transform-origin:center;
+  animation:tileEdgeBreathe 5.8s ease-in-out infinite;
+  transition:filter .35s ease,stroke .35s ease,fill-opacity .35s ease;
+}
+.piece:nth-child(3n) polygon{animation-delay:-1.9s}
+.piece:nth-child(3n + 1) polygon{animation-delay:-3.7s}
+.piece:nth-child(4n) polygon{filter:drop-shadow(0 0 3px rgba(245,164,154,.23))}
+.piece:nth-child(5n) polygon{filter:drop-shadow(0 0 3px rgba(140,232,229,.20))}
+.piece.selected polygon{
+  stroke:#fff0ce!important;
+  stroke-width:2.2!important;
+  filter:drop-shadow(0 0 4px rgba(255,205,137,.7)) drop-shadow(0 0 9px rgba(140,232,229,.22))!important;
+  animation:none!important;
+}
+@keyframes tileEdgeBreathe{
+  0%,100%{filter:drop-shadow(0 0 1.5px rgba(255,190,123,.22));opacity:.96}
+  50%{filter:drop-shadow(0 0 4px rgba(255,184,132,.42)) drop-shadow(0 0 2px rgba(140,232,229,.18));opacity:1}
+}
+/* A slow, translucent warm-to-coral-to-aqua light wave across the board */
+#board:after{
+  content:"";
+  position:absolute;
+  inset:0;
+  z-index:1;
+  pointer-events:none;
+  opacity:.26;
+  background:linear-gradient(112deg,
+    transparent 0%,
+    rgba(255,184,112,.06) 24%,
+    rgba(255,171,151,.13) 36%,
+    rgba(255,232,198,.10) 43%,
+    rgba(133,224,220,.10) 51%,
+    transparent 68%);
+  background-size:260% 100%;
+  background-position:0% 50%;
+  animation:boardLightFlow 18s ease-in-out infinite alternate;
+}
+@keyframes boardLightFlow{
+  from{background-position:0% 50%;opacity:.16}
+  to{background-position:100% 50%;opacity:.31}
+}
+.board-tools,.zoom,.board-hint{
+  background:rgba(27,39,62,.78)!important;
+  border-color:rgba(222,190,151,.36)!important;
+  box-shadow:0 3px 12px rgba(7,14,28,.12)!important;
+  backdrop-filter:blur(8px);
+}
+.board-tools button,.zoom button{
+  color:#f1d7b0!important;
+  transition:background .25s ease,box-shadow .25s ease,border-color .25s ease;
+}
+.board-tools button:hover,.zoom button:hover{
+  background:rgba(255,199,145,.13)!important;
+  box-shadow:inset 0 0 0 1px rgba(255,210,163,.36),0 0 9px rgba(245,164,154,.14)!important;
+}
+.toast{
+  box-shadow:0 4px 18px rgba(12,20,38,.2)!important;
+}
+@media(prefers-reduced-motion:reduce){
+  #board:after{animation:none!important}
+  .piece polygon{animation:none!important}
+}
+
+</style></head><body><div class="app">
 <header class="topbar"><div class="logo">铺</div><div class="heading"><h1>图形密铺互动</h1><p>拖动图形 · 任意旋转 · 放大缩小 · 观察角与角度</p></div><div class="top-tip">💡 把左侧图形直接拖到画布，试试怎样铺满平面！</div></header>
 <div class="workspace"><aside class="sidebar"><section class="panel"><div class="panel-title">图形库 <span style="font-size:10px;font-weight:500">拖拽使用</span></div><div class="palette" id="palette"></div></section>
 <section class="panel"><div class="panel-title">自定义多边形</div><div style="font-size:12px;color:#59728c">拖动滑块改变边数（3—8条边）</div><div class="custom-axis"><span>3</span><input id="polySides" type="range" min="3" max="8" step="1" value="3" aria-label="自定义多边形边数"><span>8</span><output id="polySidesValue">3</output></div><div class="custom-preview" id="customPreviewDrag" title="按住此处，将图形拖到右侧画布"><svg id="customPreviewSvg" viewBox="0 0 240 100" role="img" aria-label="自定义多边形实时预览"><polygon id="customPreviewPolygon" points="120,12 72,82 168,82" fill="#ffad66" stroke="#d77828" stroke-width="2.5" stroke-linejoin="round"/></svg><strong id="customPreviewName">任意三角形</strong><small>拖动上方滑块，图形会立即变化</small></div><div style="font-size:11px;color:#1678dc;text-align:center;margin-top:7px;font-weight:700">按住上方图形预览，直接拖到右侧画布；选中后可拖动顶点改变形状</div><button class="tile-btn" id="autoTileCustomBtn" style="margin-top:8px">自动密铺验证</button><div id="tilingResult" style="font-size:11px;line-height:1.5;margin-top:6px;color:#49647e">调整图形后，点击验证能否尝试密铺</div></section>
@@ -177,7 +268,7 @@ function pose(P,d,s){if(d.type==='平移')return P.map(p=>[p[0]+d.v[0]*s,p[1]+d.
 // 像铺地板一样：从你的图形开始，一块一块边对边贴上去，并显示每块用的是平移、旋转还是轴对称
 function layTiles(tiles,fill,done){const tok=++anim,N=tiles.length,res=$('tilingResult');save();pieces.innerHTML='';selected=null;selectedCorners.clear();refresh();
  const mv=tiles.map((q,k)=>k?decomp(tiles[q.par],q):null),cnt={平移:0,旋转:0,轴对称:0};mv.forEach(d=>d&&cnt[d.type]++);
- const tint={平移:0,旋转:26,轴对称:-20},st=tiles.map((_,k)=>k<8?k*650:5200+(k-8)*110),DUR=k=>k<8?600:420,els=[],ease=x=>x<.5?2*x*x:1-Math.pow(-2*x+2,2)/2;let next=0,active=[];
+ const tint={平移:0,旋转:26,轴对称:-20},st=tiles.map((_,k)=>k<8?k*720:5760+(k-8)*230),DUR=k=>k<8?720:520,els=[],ease=x=>x<.5?2*x*x:1-Math.pow(-2*x+2,2)/2;let next=0,active=[];
  const fin=k=>{const q=tiles[k],e=els[k],cx=q.reduce((a,p)=>a+p[0],0)/q.length,cy=q.reduce((a,p)=>a+p[1],0)/q.length,loc=q.map(p=>[+(p[0]-cx).toFixed(3),+(p[1]-cy).toFixed(3)]),pl=e.querySelector('polygon');e.dataset.x=cx;e.dataset.y=cy;e.dataset.customPts=JSON.stringify(loc);pl.setAttribute('points',loc.map(p=>p.join(',')).join(' '));pl.removeAttribute('opacity');redraw(e)};
  const spawn=k=>{const f=k&&mv[k].type?shade(fill,tint[mv[k].type]):fill;els[k]=makePiece('tile',0,0,f,0,1,tiles[k],true)};
  const draw=(k,s)=>{const pl=els[k].querySelector('polygon');if(!k){pl.setAttribute('opacity',s);return}pl.setAttribute('points',pose(tiles[tiles[k].par],mv[k],ease(s)).map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' '))};

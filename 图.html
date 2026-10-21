@@ -131,6 +131,16 @@ html,body{background:radial-gradient(ellipse at 50% -20%,#17365a 0%,#091525 48%,
 button:focus-visible,.shape-card:focus-visible{outline:2px solid #55b9a8!important;outline-offset:2px}
 button{transition-timing-function:cubic-bezier(.2,.8,.2,1)}
 @media(prefers-reduced-motion:no-preference){.shape-card:hover{transition-duration:.22s}.tile-btn:active,.tool-btn:active{transform:scale(.985)}}
+
+/* FIX: keep the original shape library fully expanded; no layout relocation */
+.sidebar{min-height:0;overflow-y:auto;overflow-x:hidden}
+.sidebar>.panel:first-child{flex:0 0 auto;min-height:max-content}
+.sidebar>.panel:first-child .panel-title{display:flex;align-items:center;justify-content:space-between}
+.sidebar>.panel:first-child .palette{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-items:stretch;grid-auto-rows:auto;overflow:visible}
+.sidebar>.panel:first-child .shape-card{display:flex;min-height:94px;height:auto;align-self:stretch;justify-content:center;overflow:visible}
+.sidebar>.panel:first-child .shape-card svg{display:block;flex:0 0 54px;width:68px;height:54px;max-width:100%;overflow:visible}
+@media(max-width:900px){.sidebar>.panel:first-child .palette{grid-template-columns:repeat(2,minmax(0,1fr))}.sidebar>.panel:first-child .shape-card{min-height:90px}}
+@media(max-width:560px){.sidebar>.panel:first-child .palette{grid-template-columns:repeat(1,minmax(0,1fr))}.sidebar>.panel:first-child .shape-card{min-height:76px}.sidebar>.panel:first-child .shape-card svg{flex-basis:42px;height:42px}}
 </style></head><body><div class="app">
 <header class="topbar"><div class="logo">铺</div><div class="heading"><h1>图形密铺互动</h1><p>拖动图形 · 任意旋转 · 放大缩小 · 观察角与角度</p></div><div class="top-tip">💡 把左侧图形直接拖到画布，试试怎样铺满平面！</div></header>
 

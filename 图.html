@@ -133,6 +133,44 @@ html,body{background:#07111f!important;color:var(--tech-text)!important}
 @media(max-width:900px){.topbar{height:66px!important;padding:0 14px!important}.workspace{grid-template-columns: minmax(260px,34%) minmax(0,1fr)!important;padding:8px!important;gap:8px!important}.heading h1{font-size:19px!important}}
 @media(max-width:560px){.topbar{height:55px!important;padding:0 8px!important}.logo{width:34px!important;height:34px!important}.heading h1{font-size:15px!important}.heading p{letter-spacing:.6px!important}.workspace{grid-template-columns:minmax(0,42%) minmax(0,1fr)!important;padding:5px!important;gap:5px!important}.panel{padding:5px!important}.panel-title{font-size:11px!important;padding:6px 5px!important}.tool-btn{min-height:36px!important}}
 
+
+/* === VISUAL DESIGN PASS 2: add interface hierarchy and instrument-panel details === */
+.app{position:relative}
+.topbar{overflow:hidden!important}
+.topbar:before{content:"";position:absolute;inset:0;pointer-events:none;opacity:.28;background:repeating-linear-gradient(115deg,transparent 0 58px,#5bdfff0a 59px 60px),radial-gradient(ellipse at 72% 0%,#39bfff20,transparent 44%)}
+.logo{position:relative;z-index:1;font-size:24px!important}
+.heading{position:relative;z-index:1}
+.heading:after{content:"INTERACTIVE GEOMETRY SYSTEM  /  LAB 01";display:block;margin-top:5px;font:600 8px/1.2 ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:1.8px;color:#54dfff;opacity:.86}
+.top-tip{position:relative;z-index:1;max-width:310px;line-height:1.55!important;border-radius:7px!important}
+.workspace{position:relative}
+.sidebar{padding-right:2px}
+.panel{position:relative;overflow:hidden}
+.panel:before{content:"";position:absolute;left:0;top:14px;bottom:14px;width:2px;background:linear-gradient(180deg,#56e8ff,#287bff 55%,transparent);opacity:.75}
+.panel-title{display:flex;align-items:center;justify-content:space-between;position:relative;padding-left:14px!important;text-transform:none}
+.panel-title:before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:#62e9ff;box-shadow:0 0 12px #4ee7ff80}
+.panel-title span{color:#87eaff!important;letter-spacing:1px}
+.shape-card{position:relative;overflow:hidden}
+.shape-card:before{content:"";position:absolute;left:7px;right:7px;top:0;height:1px;background:linear-gradient(90deg,transparent,#7deaffaa,transparent);opacity:.45}
+.shape-card svg{filter:drop-shadow(0 4px 7px #0002)}
+.custom-preview{border:1px solid #2d526b!important;border-radius:10px!important;background:radial-gradient(ellipse at 50% 20%,#173a53,#0a1a2b 76%)!important;overflow:hidden;position:relative}
+.custom-preview:after{content:"LIVE PREVIEW";position:absolute;right:8px;top:7px;font:600 8px ui-monospace,monospace;letter-spacing:1px;color:#6ce9ff;background:#0a1c2c;border:1px solid #285c75;border-radius:4px;padding:4px 5px}
+.custom-preview strong{color:#e4f8ff!important}
+.custom-preview small{color:#8db5ce!important}
+.board-wrap{isolation:isolate}
+.board-wrap:before{content:"GEOMETRY CANVAS  /  2D WORKSPACE";position:absolute;z-index:2;left:13px;top:13px;font:700 9px ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:1.5px;color:#43657d;background:#f3f9ffed;border:1px solid #c9dfef;border-radius:5px;padding:7px 9px;pointer-events:none}
+.board-wrap:after{content:"";position:absolute;z-index:2;inset:5px;border:1px solid #b9d6e8;border-radius:9px;pointer-events:none;opacity:.6}
+.board-tools{top:11px!important}
+.board-hint{font-size:11px!important;letter-spacing:.15px}
+.zoom{overflow:hidden}
+.zoom button{font-size:18px!important;font-weight:500!important}
+.footer{height:29px;min-height:29px;display:flex;align-items:center;justify-content:space-between;padding:0 17px!important;font:600 9px ui-monospace,SFMono-Regular,Consolas,monospace!important;letter-spacing:1px!important;text-transform:uppercase}
+.footer span:first-child:before{content:"●";color:#52e5ff;margin-right:8px;text-shadow:0 0 8px #52e5ff}
+.tool-btn,.tile-btn,.board-tools button,.zoom button{position:relative;overflow:hidden}
+.tool-btn:focus-visible,.tile-btn:focus-visible,.board-tools button:focus-visible,.zoom button:focus-visible{outline:2px solid #65eaff!important;outline-offset:2px}
+.tool-btn:active,.tile-btn:active{transform:scale(.985)}
+@media(max-width:900px){.heading:after{font-size:7px;letter-spacing:1px}.board-wrap:before{font-size:7px;left:7px;top:7px}.top-tip{max-width:220px}}
+@media(max-width:560px){.heading:after{display:none}.board-wrap:before{display:none}.footer{font-size:7px!important;letter-spacing:.4px!important;padding:0 7px!important}.top-tip{max-width:150px}}
+
 </style></head><body><div class="app">
 <header class="topbar"><div class="logo">铺</div><div class="heading"><h1>图形密铺互动</h1><p>拖动图形 · 任意旋转 · 放大缩小 · 观察角与角度</p></div><div class="top-tip">💡 把左侧图形直接拖到画布，试试怎样铺满平面！</div></header>
 <div class="workspace"><aside class="sidebar"><section class="panel"><div class="panel-title">图形库 <span style="font-size:10px;font-weight:500">拖拽使用</span></div><div class="palette" id="palette"></div></section>

@@ -422,6 +422,29 @@ button:focus-visible,.shape-card:focus-visible{outline:2px solid #ffe28b!importa
 /* Match the first and last gradient colors so the loop never has a dark pause */
 @media(prefers-reduced-motion:reduce){.panel:has(.palette){animation-duration:8s!important}}
 
+
+/* FIX: visibly animate the outer shape-library gold marquee; keep all interactions unchanged */
+@keyframes liveGoldMarquee {
+  0%   { background-position: 0 0, 0% 50%; }
+  100% { background-position: 0 0, 100% 50%; }
+}
+.panel:has(.palette) {
+  background:
+    linear-gradient(145deg,#172131,#0a111d) padding-box,
+    linear-gradient(100deg,
+      #8f5b0b 0%, #e5b94e 9%, #fff2ad 15%, #b77b19 22%,
+      #f9d96d 31%, #8f5b0b 40%, #e5b94e 49%, #fff2ad 55%,
+      #b77b19 62%, #f9d96d 71%, #8f5b0b 80%, #e5b94e 89%,
+      #fff2ad 95%, #8f5b0b 100%) border-box !important;
+  background-size: 100% 100%, 300% 100% !important;
+  animation: liveGoldMarquee 3s linear infinite !important;
+  border: 2px solid transparent !important;
+  box-shadow: 0 0 10px #f8bd3c99, 0 0 24px #e9a92855,
+              inset 0 0 16px #e5ad3410 !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .panel:has(.palette) { animation: none !important; }
+}
 </style></head><body><div class="app">
 <header class="topbar"><div class="logo">铺</div><div class="heading"><h1>图形密铺互动</h1><p>拖动图形 · 任意旋转 · 放大缩小 · 观察角与角度</p></div><div class="top-tip">💡 把左侧图形直接拖到画布，试试怎样铺满平面！</div></header>
 

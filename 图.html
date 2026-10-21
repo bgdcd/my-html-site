@@ -306,6 +306,61 @@ body{background:#020b19!important}
   #board .piece polygon { animation: none; }
 }
 
+
+/* GOLD RUNNING-LIGHT THEME — CSS-only, preserve existing layout and interaction logic */
+@property --gold-angle { syntax: "<angle>"; initial-value: 0deg; inherits: false; }
+@keyframes goldBorderRun { to { --gold-angle: 360deg; } }
+@keyframes goldDashRun { to { stroke-dashoffset: -84; } }
+@keyframes goldGlowPulse {
+  0%,100% { filter: drop-shadow(0 0 2px #ffbd32) drop-shadow(0 0 5px #ff8c00); }
+  50% { filter: drop-shadow(0 0 4px #fff2a0) drop-shadow(0 0 10px #ffc72c) drop-shadow(0 0 17px #ff8c00); }
+}
+.board-wrap {
+  position: relative !important; isolation: isolate;
+  border: 2px solid #ffc83d !important;
+  box-shadow: 0 0 8px #ffbf35b8, 0 0 22px #ff9d005c, inset 0 0 18px #ffbb2417 !important;
+}
+.board-wrap::after {
+  content: ""; position: absolute; z-index: 12; inset: -2px;
+  border-radius: inherit; padding: 2px; pointer-events: none;
+  background: conic-gradient(from var(--gold-angle), transparent 0deg, transparent 230deg, #ff9d00 255deg, #fffbd1 276deg, #ffd02e 294deg, #fff6a0 306deg, transparent 330deg, transparent 360deg);
+  animation: goldBorderRun 2.4s linear infinite;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+}
+.app .panel, .topbar, .footer {
+  border-color: #d99a20 !important;
+  box-shadow: 0 0 7px #ffb91d42, inset 0 0 14px #ffb91d12 !important;
+}
+#board .piece polygon {
+  stroke: #ffc52f !important; stroke-width: 2.4px !important; stroke-linejoin: round !important;
+  stroke-dasharray: 14 7 !important;
+  animation: goldDashRun 1.25s linear infinite, goldGlowPulse 2s ease-in-out infinite !important;
+  filter: drop-shadow(0 0 3px #ffb51b) drop-shadow(0 0 7px #ff8c00) !important;
+  vector-effect: non-scaling-stroke;
+}
+#board .piece.selected polygon {
+  stroke: #fff6b0 !important; stroke-width: 3px !important;
+  filter: drop-shadow(0 0 4px #fff0a0) drop-shadow(0 0 10px #ffc52f) drop-shadow(0 0 18px #ff8c00) !important;
+}
+#board .piece polygon:hover {
+  stroke: #fffbd6 !important;
+  filter: drop-shadow(0 0 5px #fff4b0) drop-shadow(0 0 14px #ffb700) !important;
+}
+.tile-btn {
+  background: linear-gradient(105deg, #a96a00, #ffd34d 55%, #ff9f0a) !important;
+  border: 1px solid #ffe58a !important; color: #fffdf0 !important;
+  box-shadow: 0 0 12px #ffb70055, inset 0 1px #fff5bf99 !important;
+}
+.tile-btn:hover {
+  background: linear-gradient(105deg, #d18a00, #fff08a 55%, #ffb000) !important;
+  box-shadow: 0 0 20px #ffbd52aa !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .board-wrap::after { animation: none; }
+  #board .piece polygon { animation: none !important; }
+}
+
 </style></head><body><div class="app">
 <header class="topbar"><div class="logo">铺</div><div class="heading"><h1>图形密铺互动</h1><p>拖动图形 · 任意旋转 · 放大缩小 · 观察角与角度</p></div><div class="top-tip">💡 把左侧图形直接拖到画布，试试怎样铺满平面！</div></header>
 

@@ -50,7 +50,8 @@ const ap=(T,p)=>[T[0]*p[0]+T[2]*p[1]+T[4],T[1]*p[0]+T[3]*p[1]+T[5]];
 const mul=(T,S)=>[T[0]*S[0]+T[2]*S[1],T[1]*S[0]+T[3]*S[1],T[0]*S[2]+T[2]*S[3],T[1]*S[2]+T[3]*S[3],T[0]*S[4]+T[2]*S[5]+T[4],T[1]*S[4]+T[3]*S[5]+T[5]];
 function worldPts(g){const t=info(g),r=t.r*R,c=Math.cos(r),s=Math.sin(r);return pointsFor(g).map(p=>[t.x+t.s*(p[0]*c-p[1]*s),t.y+t.s*(p[0]*s+p[1]*c)])}
 // ---------- 画布上的图形 ----------
-function bind(g){g.addEventListener('pointerdown',startMove);g.addEventListener('click',e=>{e.stopPropagation();const q=boardPoint(e),wp=worldPts(g);let bi=-1,bd=Infinity;wp.forEach((p,i)=>{const d=Math.hypot(p[0]-q.x,p[1]-q.y);if(d<bd){bd=d;bi=i}});select(g);if(bd<30&&bi>=0){if(selectedCorner&&selectedCorner.g===g&&selectedCorner.i===bi)selectedCorner=null;else selectedCorner={g,i:bi};showAngles=false;showDegrees=false;$('angleBtn').textContent='∠ 标注对应角';$('degreeBtn').textContent='标注对应角度';}else selectedCorner=null;refresh()})}
+function bind(g){g.addEventListener('pointerdown',startMove);g.addEventListener('click',e=>{e.stopPropagation();select(g);selectedCorner=null;refresh()})}
+function chooseCorner(g,i){if(selectedCorner&&selectedCorner.g===g&&selectedCorner.i===i)selectedCorner=null;else selectedCorner={g,i};showAngles=false;showDegrees=false;$('angleBtn').textContent='∠ 标注对应角';$('degreeBtn').textContent='标注对应角度';select(g);refresh()}
 function makePiece(shape,x,y,fill,r,s,pts,exact){const g=el('g',{class:'piece','data-id':id++,'data-shape':shape,'data-x':exact?x:snapv(x),'data-y':exact?y:snapv(y),'data-r':r,'data-s':s});if(pts)g.dataset.customPts=JSON.stringify(pts);g.appendChild(el('polygon',{points:(pts||shapes[shape].pts).map(p=>p.join(',')).join(' '),fill,stroke:shade(fill),'stroke-width':2,'stroke-linejoin':'round'}));bind(g);pieces.appendChild(g);return g}
 function add(shape,x=600,y=400,fill,r=0,s=null,record=true,pts=null){if(record)save();const g=makePiece(shape,x,y,fill||shapes[shape].color,r,s===null?1.28:s,pts||(shape==='custom'?shapes.custom.pts.map(a=>a.slice()):null));select(g);refresh();return g}
 function redraw(g){const t=info(g);g.setAttribute('transform',`translate(${t.x} ${t.y}) rotate(${t.r}) scale(${t.s})`);g.querySelectorAll('.control').forEach(n=>n.remove());if(g!==selected)return;const pts=pointsFor(g),k=1/t.s,top=pts.reduce((a,p)=>p[1]<a[1]?p:a,pts[0]),right=pts.reduce((a,p)=>p[0]>a[0]?p:a,pts[0]),c=el('g',{class:'control'});
@@ -75,9 +76,11 @@ function drawVertex(x,y,items,own,numbers,degs){const m=items.length,ar=Math.min
   if(numbers){const sp=el('tspan',{class:'lb-n'});sp.textContent=circled(o.i);t.appendChild(sp)}
   if(degs){const sp=el('tspan',{class:mine?'lb-d':'lb-o'});sp.textContent=num+'°';t.appendChild(sp)}labels.appendChild(t)})}
 function refresh(){labels.innerHTML='';const ps=[...pieces.children];
- // 批量模式：分别显示全部对应角名称，或全部角度与圆弧
+ // 每个顶点都有独立的透明点击热区，方便直接点选具体角
+ for(const g of ps){const wp=worldPts(g);wp.forEach((p,i)=>{const hit=el('circle',{cx:p[0],cy:p[1],r:15,fill:'#fff','fill-opacity':0,'pointer-events':'all',cursor:'pointer'});hit.addEventListener('click',e=>{e.stopPropagation();e.preventDefault();chooseCorner(g,i)});labels.appendChild(hit)})}
+ // 批量模式：显示全部对应角编号，或全部角度与小圆弧；再点按钮隐藏
  if((showAngles||showDegrees)&&ps.length<=80){for(const k of vgroups())drawVertex(k.x,k.y,k.it,null,showAngles,showDegrees);return}
- // 单角模式：默认什么都不显示；只有点击具体顶点后才显示该角
+ // 单角模式：平时不显示；点击顶点后只显示这个角的编号、度数和小圆弧
  if(!selectedCorner||!selectedCorner.g.isConnected)return;
  const g=selectedCorner.g,wp=worldPts(g),inn=interior(wp),i=selectedCorner.i,p=wp[i];
  drawVertex(p[0],p[1],[item(g,wp,inn,i)],g,true,true)

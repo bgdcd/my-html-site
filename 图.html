@@ -307,13 +307,12 @@ body{background:#020b19!important}
 }
 
 
-/* GOLD RUNNING-LIGHT THEME — CSS-only, preserve existing layout and interaction logic */
+/* GOLD TECH THEME — solid luminous polygon edges, no moving dashed outlines */
 @property --gold-angle { syntax: "<angle>"; initial-value: 0deg; inherits: false; }
 @keyframes goldBorderRun { to { --gold-angle: 360deg; } }
-@keyframes goldDashRun { to { stroke-dashoffset: -84; } }
 @keyframes goldGlowPulse {
   0%,100% { filter: drop-shadow(0 0 2px #ffbd32) drop-shadow(0 0 5px #ff8c00); }
-  50% { filter: drop-shadow(0 0 4px #fff2a0) drop-shadow(0 0 10px #ffc72c) drop-shadow(0 0 17px #ff8c00); }
+  50% { filter: drop-shadow(0 0 3px #fff2a0) drop-shadow(0 0 8px #ffc72c) drop-shadow(0 0 12px #ff8c00); }
 }
 .board-wrap {
   position: relative !important; isolation: isolate;
@@ -332,10 +331,11 @@ body{background:#020b19!important}
   border-color: #d99a20 !important;
   box-shadow: 0 0 7px #ffb91d42, inset 0 0 14px #ffb91d12 !important;
 }
+/* Tile outlines stay continuous and steady; only the glow gently breathes. */
 #board .piece polygon {
   stroke: #ffc52f !important; stroke-width: 2.4px !important; stroke-linejoin: round !important;
-  stroke-dasharray: 14 7 !important;
-  animation: goldDashRun 1.25s linear infinite, goldGlowPulse 2s ease-in-out infinite !important;
+  stroke-dasharray: none !important; stroke-dashoffset: 0 !important;
+  animation: goldGlowPulse 2.8s ease-in-out infinite !important;
   filter: drop-shadow(0 0 3px #ffb51b) drop-shadow(0 0 7px #ff8c00) !important;
   vector-effect: non-scaling-stroke;
 }

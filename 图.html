@@ -445,6 +445,14 @@ button:focus-visible,.shape-card:focus-visible{outline:2px solid #ffe28b!importa
 @media (prefers-reduced-motion: reduce) {
   .panel:has(.palette) { animation: none !important; }
 }
+
+/* FINAL FIX: do not let reduced-motion preferences freeze the gold marquee */
+@media (prefers-reduced-motion: reduce) {
+  .panel:has(.palette) {
+    animation: liveGoldMarquee 3s linear infinite !important;
+  }
+}
+
 </style></head><body><div class="app">
 <header class="topbar"><div class="logo">铺</div><div class="heading"><h1>图形密铺互动</h1><p>拖动图形 · 任意旋转 · 放大缩小 · 观察角与角度</p></div><div class="top-tip">💡 把左侧图形直接拖到画布，试试怎样铺满平面！</div></header>
 

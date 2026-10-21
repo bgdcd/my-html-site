@@ -77,8 +77,8 @@ function drawVertex(x,y,items,own,numbers,degs){const m=items.length,ar=Math.min
   if(numbers){const sp=el('tspan',{class:'lb-n'});sp.textContent=circled(o.i);t.appendChild(sp)}
   if(degs){const sp=el('tspan',{class:mine?'lb-d':'lb-o'});sp.textContent=num+'°';t.appendChild(sp)}labels.appendChild(t)})}
 function refresh(){labels.innerHTML='';const ps=[...pieces.children];
- // 用较小的点击热区，并按实际点击位置选择最近顶点，避免密铺顶点附近误选远处角
- for(const g of ps){const wp=worldPts(g);if(g===selected&&g.dataset.shape==='custom')continue;wp.forEach((p,i)=>{const hit=el('circle',{cx:p[0],cy:p[1],r:9,fill:'#fff','fill-opacity':0,'pointer-events':'all',cursor:'pointer'});hit.addEventListener('click',e=>{e.stopPropagation();e.preventDefault();const q=boardPoint(e);let best=null;for(const h of [...pieces.children]){const hp=worldPts(h);hp.forEach((v,j)=>{const d=Math.hypot(v[0]-q.x,v[1]-q.y);if(!best||d<best.d)best={g:h,i:j,d}})}if(best&&best.d<=12)chooseCorner(best.g,best.i)});labels.appendChild(hit)})}
+ // 用每个角自身的透明扇形作为点击热区，点击哪个图形的角就只选择该图形的该角；不再用共享顶点的“最近点”猜测
+ for(const g of ps){const wp=worldPts(g),inn=interior(wp);if(g===selected&&g.dataset.shape==='custom')continue;wp.forEach((p,i)=>{const a=inn[i],rad=Math.min(24,Math.max(14,Math.min(Math.hypot(p[0]-wp[(i+wp.length-1)%wp.length][0],p[1]-wp[(i+wp.length-1)%wp.length][1]),Math.hypot(p[0]-wp[(i+1)%wp.length][0],p[1]-wp[(i+1)%wp.length][1]))*.32)),steps=Math.max(3,Math.ceil(a.ang/12)),pts=[[p[0],p[1]]];for(let j=0;j<=steps;j++){const ang=(a.start+a.ang*j/steps)*R;pts.push([p[0]+rad*Math.cos(ang),p[1]+rad*Math.sin(ang)])}const hit=el('polygon',{points:pts.map(v=>v.join(',')).join(' '),fill:'#fff','fill-opacity':0.001,stroke:'none','pointer-events':'all',cursor:'pointer'});hit.addEventListener('click',e=>{e.stopPropagation();e.preventDefault();chooseCorner(g,i)});labels.appendChild(hit)})}
  // 批量标注不设图形数量上限，密铺完成后仍可标注全部顶点
  if(showAngles||showDegrees){for(const k of vgroups())drawVertex(k.x,k.y,k.it,null,showAngles,showDegrees);return}
  // 单角模式只绘制用户选中的这个角，不顺带显示同一顶点周围其他角

@@ -195,6 +195,54 @@ button{transition-timing-function:cubic-bezier(.2,.8,.2,1)}
 .sidebar section[style],.panel div[style*="color:#59728c"],.panel div[style*="color:#49647e"]{color:#83b9d8!important}
 button:focus-visible,.shape-card:focus-visible{outline:2px solid #00eaff!important;outline-offset:2px;box-shadow:0 0 0 4px #00cfff2c,0 0 18px #00cfff45!important}
 @media(prefers-reduced-motion:no-preference){.panel,.board-wrap{transition:box-shadow .25s,border-color .25s}.panel:hover{box-shadow:0 0 0 1px #00bfff25,inset 0 0 22px #006aff19,0 0 20px #007bff19!important}}
+
+/* REFERENCE-MATCH PASS: unmistakable neon lab finish; CSS only, no DOM/layout or JS changes */
+@keyframes neonBreath{0%,100%{box-shadow:0 0 0 1px #00cfff44,0 0 12px #00bfff30,inset 0 0 14px #007bff13}50%{box-shadow:0 0 0 1px #00efff8a,0 0 25px #00bfff58,inset 0 0 20px #007bff24}}
+@keyframes edgeSweep{0%{background-position:0% 50%}100%{background-position:200% 50%}}
+@keyframes cyanPulse{0%,100%{filter:drop-shadow(0 0 2px #00dfff80)}50%{filter:drop-shadow(0 0 7px #00dfff)}}
+.app{background:#030c1b!important;color:#dffaff!important}
+.topbar{background:linear-gradient(110deg,#020b1d 0%,#062b55 45%,#03142d 100%)!important;border-bottom:2px solid #00dfff!important;box-shadow:0 5px 30px #00aaff40!important}
+.topbar:after{height:3px!important;background:linear-gradient(90deg,transparent,#00dfff,#327bff,#00fff0,transparent)!important;background-size:200% 100%!important;animation:edgeSweep 5s linear infinite!important;box-shadow:0 0 8px #00dfff,0 0 22px #007bff!important}
+.logo{border-radius:12px!important;background:linear-gradient(145deg,#0b3f83,#061631)!important;border:1px solid #00efff!important;color:#80f8ff!important;box-shadow:0 0 0 3px #00bfff18,0 0 18px #00bfff9c,inset 0 0 18px #00aaff4d!important}
+.heading h1{color:#d7fbff!important;text-shadow:0 0 8px #00dfff9c,0 0 24px #008cff70!important}
+.heading p{color:#7fdcff!important}
+.top-tip{background:linear-gradient(100deg,#041a38,#07305a)!important;border:1px solid #00aeea!important;border-left:3px solid #00f0ff!important;color:#a9f7ff!important;box-shadow:0 0 15px #00bfff2c,inset 0 0 18px #007bff26!important}
+.workspace{background:radial-gradient(ellipse at 50% 45%,#092957 0%,#04152e 60%,#020a19 100%)!important}
+.panel{background:linear-gradient(145deg,#061c3bfa,#04132cfb)!important;border:1px solid #008fd0!important;border-radius:10px!important;box-shadow:0 0 0 1px #00bfff20,0 0 20px #007bff26,inset 0 0 24px #006eff1c!important;position:relative!important;animation:neonBreath 6s ease-in-out infinite}
+.panel-title{background:linear-gradient(100deg,#07529a,#082f61 65%,#061f43)!important;border:1px solid #078fd0!important;border-left:3px solid #00f0ff!important;color:#e0fcff!important;text-shadow:0 0 9px #00cfff80!important;box-shadow:inset 0 0 15px #008cff38,0 0 12px #007bff2b!important}
+.panel-title span{color:#56eaff!important}
+.shape-card{background:linear-gradient(145deg,#0a2d59,#041832)!important;border:1px solid #087dbb!important;border-radius:8px!important;box-shadow:inset 0 0 18px #007bff20,0 0 8px #008cff22!important;position:relative!important;overflow:hidden!important}
+.shape-card:before{content:""!important;position:absolute!important;inset:0!important;border-radius:inherit!important;pointer-events:none!important;background:linear-gradient(135deg,#00efff24,transparent 45%,#246bff15)!important;opacity:1!important}
+.shape-card:hover,.shape-card:focus{background:linear-gradient(145deg,#0c4780,#062852)!important;border-color:#00f0ff!important;box-shadow:0 0 0 1px #00eaff7a,0 0 22px #00bfff85,inset 0 0 24px #007bff40!important;transform:translateY(-2px)!important}
+.shape-card strong{color:#e3fcff!important;text-shadow:0 0 8px #00cfff50!important}
+.shape-card small{color:#77c9ef!important}
+.shape-card svg{filter:drop-shadow(0 0 4px #00bfff60)!important}
+.tile-btn{background:linear-gradient(100deg,#0068d9,#00bce9)!important;border:1px solid #55f4ff!important;color:#fff!important;box-shadow:0 0 8px #00bfff99,0 0 22px #007bff55,inset 0 1px #ffffff8c!important;text-shadow:0 0 8px #fff8!important}
+.tile-btn:hover{background:linear-gradient(100deg,#008cff,#00edff)!important;box-shadow:0 0 12px #00dfff,0 0 30px #007bff88!important}
+.tool-btn{background:linear-gradient(145deg,#0a315d,#041831)!important;border:1px solid #087db8!important;color:#a7f5ff!important;box-shadow:inset 0 0 15px #007bff1f,0 0 7px #007bff1c!important}
+.tool-btn:hover{background:linear-gradient(145deg,#10528a,#07305a)!important;border-color:#00efff!important;color:#fff!important;box-shadow:0 0 0 1px #00dfff66,0 0 19px #00bfff72,inset 0 0 16px #007bff35!important}
+.tool-btn.danger{color:#ff9fce!important;border-color:#a33477!important}
+.rotate-action{background:linear-gradient(145deg,#0b3c6a,#061d3b)!important;border-color:#00bce8!important;color:#b5f7ff!important}
+.rotate-icon{background:linear-gradient(135deg,#00f5ff,#007bff)!important;box-shadow:0 0 0 3px #0a2c52,0 0 20px #00dfff!important}
+.custom-preview{background:radial-gradient(ellipse at 50% 30%,#0d4579,#03142b)!important;border:1px solid #00a9dc!important;box-shadow:inset 0 0 25px #00aaff25,0 0 13px #007bff2c!important}
+.custom-preview strong{color:#61f5ff!important}.custom-preview small{color:#83c9e8!important}
+.custom-axis{color:#a1dff5!important}.custom-axis input{accent-color:#00eaff!important}.custom-axis output{color:#52f3ff!important;text-shadow:0 0 10px #00cfff9c!important}
+.swatch{box-shadow:0 0 0 1px #087fb8,0 0 8px #00bfff25!important}.swatch.active{box-shadow:0 0 0 2px #00f0ff,0 0 16px #00dfff!important}
+.board-wrap{border:2px solid #00dfff!important;box-shadow:0 0 0 1px #00dfff65,0 0 18px #00cfff7a,0 0 45px #006bff4d!important;position:relative!important}
+.board-wrap:after{border-color:#00eaff!important;opacity:.8!important;box-shadow:inset 0 0 18px #00bfff10!important}
+#board{background:#e9f4ff!important;filter:drop-shadow(0 0 1px #00cfff20)}
+.board-tools{background:#03152df2!important;border:1px solid #00bfff!important;box-shadow:0 0 16px #007bff58,0 8px 22px #00102988!important}
+.board-tools button{color:#8df4ff!important;background:transparent!important;text-shadow:0 0 8px #00bfff45!important}
+.board-tools button:hover{background:#0b3d6c!important;color:white!important;box-shadow:0 0 12px #00bfff40,inset 0 0 0 1px #00dfff80!important}
+.board-hint{background:#03172ff2!important;border:1px solid #00bfff!important;color:#a9f8ff!important;box-shadow:0 0 15px #007bff4d!important}
+.zoom{background:#03152f!important;border:1px solid #00bfff!important;box-shadow:0 0 15px #007bff55!important}
+.zoom button{background:#041b39!important;color:#5df4ff!important}.zoom button:hover{background:#0a4274!important;box-shadow:inset 0 0 12px #00cfff44!important}.zoom .zoom-label{background:#06254a!important;color:#b1f8ff!important}
+.toast{background:linear-gradient(100deg,#041a3b,#075080)!important;border:1px solid #00efff!important;box-shadow:0 0 24px #00bfff7a!important;color:#e8fdff!important}
+.footer{background:#020a18!important;color:#48a6d3!important;border-top:1px solid #0875a8!important}
+#tilingResult{color:#79e6ff!important}
+.sidebar section[style],.panel div[style*="color:#59728c"],.panel div[style*="color:#49647e"]{color:#87c8e7!important}
+button:focus-visible,.shape-card:focus-visible{outline:2px solid #00f0ff!important;outline-offset:2px;box-shadow:0 0 0 4px #00cfff40,0 0 22px #00cfff8c!important}
+@media(prefers-reduced-motion:reduce){.panel{animation:none!important}}
 </style></head><body><div class="app">
 <header class="topbar"><div class="logo">铺</div><div class="heading"><h1>图形密铺互动</h1><p>拖动图形 · 任意旋转 · 放大缩小 · 观察角与角度</p></div><div class="top-tip">💡 把左侧图形直接拖到画布，试试怎样铺满平面！</div></header>
 

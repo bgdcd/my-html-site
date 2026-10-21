@@ -244,123 +244,40 @@ button:focus-visible,.shape-card:focus-visible{outline:2px solid #00eaff!importa
 button:focus-visible,.shape-card:focus-visible{outline:2px solid #00f0ff!important;outline-offset:2px;box-shadow:0 0 0 4px #00cfff40,0 0 22px #00cfff8c!important}
 @media(prefers-reduced-motion:reduce){.panel{animation:none!important}}
 
-/* VISUAL RELEASE 2026-10-21: stronger unmistakable neon finish; CSS only */
+/* GOLD TECH INTERFACE — reference-led visual styling; preserve all HTML and interaction logic */
 :root{color-scheme:dark}
-body{background:#020b19!important}
-.app{background:radial-gradient(ellipse at 50% -15%,#123d70 0%,#06152b 48%,#020817 100%)!important}
-.topbar{isolation:isolate;overflow:hidden}
-.topbar:before{content:"";position:absolute;z-index:-1;top:0;bottom:0;left:-35%;width:28%;background:linear-gradient(90deg,transparent,#00eaff30,transparent);transform:skewX(-22deg);animation:neonHeaderSweep 6s linear infinite;pointer-events:none}
-@keyframes neonHeaderSweep{0%{left:-35%}100%{left:120%}}
-.panel{border-color:#00b8ee!important;box-shadow:0 0 0 1px #00dfff26,inset 0 0 24px #008cff20,0 0 20px #00aaff20!important}
-.panel-title{box-shadow:inset 0 0 16px #00dfff26,0 0 14px #00cfff22!important}
-.shape-card{border-color:#078fc9!important;box-shadow:inset 0 0 20px #007bff20,0 0 10px #00bfff16!important}
-.shape-card:hover,.shape-card:focus{box-shadow:0 0 0 1px #00efff88,0 0 22px #00cfff70,inset 0 0 24px #007bff35!important}
-.tile-btn{background:linear-gradient(105deg,#006bdb,#00c8ed)!important;box-shadow:0 0 14px #00bfff70,inset 0 1px #ffffff70!important}
-.board-wrap{box-shadow:0 0 0 2px #00dfff45,0 0 24px #00bfff55,0 0 55px #006aff2b!important}
-@media(prefers-reduced-motion:reduce){.topbar:before{animation:none}}
-
-
-/* NEON EDGE + TESSELLATION GLOW: visual-only, keep all geometry interactions unchanged */
-@keyframes neonEdgePulse {
-  0%,100% { filter: drop-shadow(0 0 2px #00eaff) drop-shadow(0 0 5px #00aaff); opacity:.92; }
-  50% { filter: drop-shadow(0 0 4px #8dfaff) drop-shadow(0 0 10px #00cfff) drop-shadow(0 0 18px #007bff); opacity:1; }
-}
-@keyframes neonOutlineFlow {
-  to { stroke-dashoffset: -36; }
-}
-/* The work surface and its surrounding frame should read as illuminated hardware */
-.board-wrap {
-  border: 1px solid #00eaff !important;
-  outline: 1px solid #007fff55;
-  outline-offset: 3px;
-  box-shadow: 0 0 8px #00eaffaa, 0 0 22px #007bff88, inset 0 0 22px #00aaff1c !important;
-}
-.app .panel, .topbar, .footer {
-  border-color: #00dfff88 !important;
-  box-shadow: 0 0 8px #00bfff42, inset 0 0 16px #007bff12 !important;
-}
-/* Every polygon placed on the canvas gets a visibly luminous cyan edge.
-   The fill remains readable; only the outline and its glow are enhanced. */
-#board .piece polygon {
-  stroke: #00cfff !important;
-  stroke-width: 2.1px !important;
-  stroke-linejoin: round !important;
-  filter: drop-shadow(0 0 2px #00eaff) drop-shadow(0 0 5px #00aaff) !important;
-  animation: neonEdgePulse 2.8s ease-in-out infinite;
-  vector-effect: non-scaling-stroke;
-}
-#board .piece.selected polygon {
-  stroke: #ffffff !important;
-  stroke-width: 3px !important;
-  filter: drop-shadow(0 0 3px #ffffff) drop-shadow(0 0 9px #00eaff) drop-shadow(0 0 18px #008cff) !important;
-}
-#board .piece polygon:hover {
-  stroke: #fff !important;
-  filter: drop-shadow(0 0 4px #fff) drop-shadow(0 0 12px #00eaff) !important;
-}
-/* Make the tessellation canvas feel like a luminous technical grid */
-#board {
-  background-color: #eaf7ff !important;
-}
-@media (prefers-reduced-motion: reduce) {
-  #board .piece polygon { animation: none; }
-}
-
-
-/* GOLD TECH THEME — solid luminous polygon edges, no moving dashed outlines */
-@property --gold-angle { syntax: "<angle>"; initial-value: 0deg; inherits: false; }
-@keyframes goldBorderRun { to { --gold-angle: 360deg; } }
-@keyframes goldGlowPulse {
-  0%,100% { filter: drop-shadow(0 0 2px #ffbd32) drop-shadow(0 0 5px #ff8c00); }
-  50% { filter: drop-shadow(0 0 3px #fff2a0) drop-shadow(0 0 8px #ffc72c) drop-shadow(0 0 12px #ff8c00); }
-}
-.board-wrap {
-  position: relative !important; isolation: isolate;
-  border: 2px solid #ffc83d !important;
-  box-shadow: 0 0 8px #ffbf35b8, 0 0 22px #ff9d005c, inset 0 0 18px #ffbb2417 !important;
-}
-.board-wrap::after {
-  content: ""; position: absolute; z-index: 12; inset: -2px;
-  border-radius: inherit; padding: 2px; pointer-events: none;
-  background: conic-gradient(from var(--gold-angle), transparent 0deg, transparent 230deg, #ff9d00 255deg, #fffbd1 276deg, #ffd02e 294deg, #fff6a0 306deg, transparent 330deg, transparent 360deg);
-  animation: goldBorderRun 2.4s linear infinite;
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor; mask-composite: exclude;
-}
-.app .panel, .topbar, .footer {
-  border-color: #d99a20 !important;
-  box-shadow: 0 0 7px #ffb91d42, inset 0 0 14px #ffb91d12 !important;
-}
-/* Tile outlines stay continuous and steady; only the glow gently breathes. */
-#board .piece polygon {
-  stroke: #ffc52f !important; stroke-width: 2.4px !important; stroke-linejoin: round !important;
-  stroke-dasharray: none !important; stroke-dashoffset: 0 !important;
-  animation: goldGlowPulse 2.8s ease-in-out infinite !important;
-  filter: drop-shadow(0 0 3px #ffb51b) drop-shadow(0 0 7px #ff8c00) !important;
-  vector-effect: non-scaling-stroke;
-}
-#board .piece.selected polygon {
-  stroke: #fff6b0 !important; stroke-width: 3px !important;
-  filter: drop-shadow(0 0 4px #fff0a0) drop-shadow(0 0 10px #ffc52f) drop-shadow(0 0 18px #ff8c00) !important;
-}
-#board .piece polygon:hover {
-  stroke: #fffbd6 !important;
-  filter: drop-shadow(0 0 5px #fff4b0) drop-shadow(0 0 14px #ffb700) !important;
-}
-.tile-btn {
-  background: linear-gradient(105deg, #a96a00, #ffd34d 55%, #ff9f0a) !important;
-  border: 1px solid #ffe58a !important; color: #fffdf0 !important;
-  box-shadow: 0 0 12px #ffb70055, inset 0 1px #fff5bf99 !important;
-}
-.tile-btn:hover {
-  background: linear-gradient(105deg, #d18a00, #fff08a 55%, #ffb000) !important;
-  box-shadow: 0 0 20px #ffbd52aa !important;
-}
-@media (prefers-reduced-motion: reduce) {
-  .board-wrap::after { animation: none; }
-  #board .piece polygon { animation: none !important; }
-}
-
+body{background:#030914!important;color:#f4e5bd!important}
+.app{background:radial-gradient(ellipse at 50% -15%,#253047 0%,#101827 45%,#050a13 100%)!important}
+.topbar{position:relative;isolation:isolate;overflow:hidden;background:linear-gradient(100deg,#171d2a,#332817 48%,#141a27)!important;border-bottom:1px solid #c99736!important;box-shadow:0 3px 18px #0009,0 1px 12px #e5aa2c35!important}
+.topbar:before{content:"";position:absolute;z-index:-1;top:0;bottom:0;left:-35%;width:28%;background:linear-gradient(90deg,transparent,#ffe6a34a,transparent);transform:skewX(-22deg);animation:goldHeaderSweep 6s linear infinite;pointer-events:none}
+@keyframes goldHeaderSweep{0%{left:-35%}100%{left:120%}}
+.logo{background:linear-gradient(145deg,#fff0b0,#c68a20)!important;color:#201707!important;box-shadow:0 0 14px #eebd4a55!important}
+.heading h1{color:#ffe5a0!important;text-shadow:0 0 12px #ffca4a35}
+.heading p{color:#d8c9a7!important}
+.top-tip{background:#29251c!important;color:#ffe3a0!important;border:1px solid #b88a31!important;box-shadow:inset 0 0 12px #e0a22a15!important}
+.workspace{background:transparent!important}
+.panel{background:linear-gradient(145deg,#171e2aee,#101621f5)!important;border:1px solid #8d6a2c!important;box-shadow:inset 0 0 18px #d69a2510,0 4px 18px #0005!important;color:#f0e4c9!important}
+.panel-title{background:linear-gradient(100deg,#5d4218,#b78325 50%,#60451b)!important;color:#fff0c2!important;border:1px solid #d8aa4e!important;box-shadow:inset 0 1px #fff4bf55,0 0 12px #d69a2526!important}
+.shape-card{background:linear-gradient(145deg,#202a39,#111925)!important;border:1px solid #75602f!important;color:#f4e5c1!important;box-shadow:inset 0 0 14px #d99c2112!important}
+.shape-card:hover,.shape-card:focus{border-color:#ffe08a!important;box-shadow:0 0 0 1px #ffd45c55,0 0 18px #ffb51c30,inset 0 0 18px #ffbf2618!important}
+.shape-card strong{color:#f8e8bd!important}
+.tile-btn{background:linear-gradient(105deg,#80520b,#e8b83f 55%,#a96b10)!important;border:1px solid #ffe18a!important;color:#fff8df!important;box-shadow:0 0 10px #ffb70035,inset 0 1px #fff5bf88!important}
+.tile-btn:hover{background:linear-gradient(105deg,#a66b0d,#ffdf77 55%,#d18a00)!important;box-shadow:0 0 18px #ffbd5266!important}
+button{transition:filter .18s ease,box-shadow .18s ease,border-color .18s ease}
+button:focus-visible,.shape-card:focus-visible{outline:2px solid #ffe28b!important;outline-offset:2px;box-shadow:0 0 0 4px #e7b44330,0 0 18px #ffc84455!important}
+.board-wrap{position:relative!important;isolation:isolate;border:1px solid #e3b340!important;border-radius:14px!important;box-shadow:0 0 8px #ffbf3570,0 0 24px #ff9d0040,inset 0 0 22px #ffbb2410!important}
+@property --gold-angle{syntax:"<angle>";initial-value:0deg;inherits:false}
+@keyframes goldBorderRun{to{--gold-angle:360deg}}
+.board-wrap:after{content:"";position:absolute;z-index:12;inset:-2px;border-radius:inherit;padding:2px;pointer-events:none;background:conic-gradient(from var(--gold-angle),transparent 0deg,transparent 230deg,#ff9d00 255deg,#fffbd1 276deg,#ffd02e 294deg,#fff6a0 306deg,transparent 330deg,transparent 360deg);animation:goldBorderRun 2.8s linear infinite;-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude}
+#board{background-color:#0b1421!important}
+#board .piece polygon{stroke:#ffc94a!important;stroke-width:2.2px!important;stroke-linejoin:round!important;stroke-dasharray:none!important;stroke-dashoffset:0!important;animation:none!important;filter:drop-shadow(0 0 2px #ffcc55) drop-shadow(0 0 5px #d98a16)!important;vector-effect:non-scaling-stroke}
+#board .piece.selected polygon{stroke:#fff0ad!important;stroke-width:3px!important;animation:none!important;filter:drop-shadow(0 0 4px #fff0a0) drop-shadow(0 0 10px #ffc52f) drop-shadow(0 0 16px #ff8c00)!important}
+#board .piece polygon:hover{stroke:#fff8d5!important;filter:drop-shadow(0 0 4px #fff4b0) drop-shadow(0 0 12px #ffb700)!important}
+.app .panel,.footer{border-color:#8f6b2d!important}
+.footer{background:#090f19!important;color:#b99a5d!important;border-top:1px solid #8d6a2c!important}
+#tilingResult{color:#ffdc79!important}
+.toast{background:linear-gradient(100deg,#191a1b,#493516)!important;border:1px solid #e9b943!important;box-shadow:0 0 20px #e3a52a40!important;color:#fff0c2!important}
+@media(prefers-reduced-motion:reduce){.topbar:before,.board-wrap:after{animation:none!important}}
 </style></head><body><div class="app">
 <header class="topbar"><div class="logo">铺</div><div class="heading"><h1>图形密铺互动</h1><p>拖动图形 · 任意旋转 · 放大缩小 · 观察角与角度</p></div><div class="top-tip">💡 把左侧图形直接拖到画布，试试怎样铺满平面！</div></header>
 

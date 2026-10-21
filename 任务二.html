@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>任务二《阳光小区防汛预案》</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        body { 
+            font-family: 'Inter', system-ui, -apple-system, sans-serif; 
+            touch-action: manipulation;
+        }
+        
+        .drag-row {
+            cursor: grab;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none;
+            transition: background-color 0.15s ease-in-out, transform 0.1s ease;
+        }
+        .drag-row:active {
+            cursor: grabbing;
+            background-color: #eff6ff !important;
+        }
+        .drag-row-disabled {
+            cursor: not-allowed;
+            opacity: 0.55;
+            touch-action: auto;
+        }
+        
+        .drop-target {
+            transition: all 0.2s ease-in-out;
+        }
+        .drop-target.drag-over {
+            border-color: #2563eb !important;
+            background-color: #eff6ff !important;
+            box-shadow: inset 0 0 10px rgba(37, 99, 235, 0.15);
+        }
+
+        .touch-drag-avatar {
+            position: fixed;
+            z-index: 9999;
+            pointer-events: none;
+            transform: translate(-50%, -50%);
+            background: #1e40af;
+            color: #ffffff;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 700;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            opacity: 0.92;
+        }
+
+        input[type=number]::-webkit-inner-spin-button, 
+        input[type=number]::-webkit-outer-spin-button { 
+            -webkit-appearance: none; 
+            margin: 0; 
+        }
+
+        .formula-h-input {
+            background: transparent;
+            border: none;
+            border-bottom: 2px dashed #60a5fa;
+            color: #1e3a8a;
+            font-weight: 800;
+            text-align: center;
+            width: 38px;
+            outline: none;
+            transition: all 0.2s;
+            font-size: 1.15em;
+            font-family: inherit;
+            display: inline-block;
+            vertical-align: baseline;
+            padding: 0 2px;
+            margin: 0 1px;
+        }
+        .formula-h-input:focus {
+            border-bottom: 2px solid #2563eb;
+            background: rgba(239, 246, 255, 0.9);
+            border-radius: 4px;
+        }
+        .formula-h-input::placeholder {
+            color: #1e3a8a;
+            font-weight: 800;
+            font-size: 1.15em;
+            opacity: 0.85;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 h-screen w-screen overflow-hidden flex flex-col p-1.5 md:p-2">
+
+    <main class="w-full h-full max-w-[1920px] mx-auto bg-white border border-slate-300 shadow-lg rounded-xl overflow-hidden flex flex-col">
+        
+        <header class="border-b border-slate-200 bg-slate-900 text-white px-4 py-2 flex items-center justify-between shrink-0">
+            <div class="w-24"></div>
+            <div class="flex items-center justify-center gap-2.5 flex-1">
+                <i class="fa-solid fa-cloud-showers-heavy text-sky-400 text-lg"></i>
+                <h1 class="text-sm md:text-base font-black tracking-tight text-white text-center">任务二《阳光小区防汛预案》</h1>
+            </div>
+            <div class="flex items-center justify-end w-24 gap-2">
+                <button id="btn-reset-all" class="px-2 py-0.5 bg-slate-700 hover:bg-slate-600 active:scale-95 text-xs text-white rounded-lg transition font-medium flex items-center gap-1">
+                    <i class="fa-solid fa-arrows-rotate"></i> 重置预案
+                </button>
+            </div>
+        </header>
+
+        <div class="flex-1 grid grid-cols-1 xl:grid-cols-12 gap-2 p-2 overflow-hidden">
+            
+            <!-- Left Side: Equipment Table -->
+            <section class="xl:col-span-4 border border-slate-200 rounded-xl overflow-hidden shadow-sm flex flex-col bg-white">
+                <div class="bg-slate-100 px-3 py-1.5 border-b border-slate-200 font-bold text-slate-800 text-xs flex items-center justify-between shrink-0">
+                    <span class="flex items-center gap-1.5">
+                        <i class="fa-solid fa-boxes-packing text-blue-600"></i> 防汛设备库
+                    </span>
+                    <span class="text-[11px] font-normal text-slate-500">（按住整行拖拽或触摸拖入右侧）</span>
+                </div>
+                
+                <div class="flex-1 overflow-y-auto">
+                    <table class="w-full text-left border-collapse text-xs">
+                        <thead>
+                            <tr class="bg-blue-50/60 text-slate-700 border-b border-slate-200 font-bold sticky top-0 z-10">
+                                <th class="py-1.5 px-2 border-r border-slate-200 w-14">类别</th>
+                                <th class="py-1.5 px-2 border-r border-slate-200">设备名称</th>
+                                <th class="py-1.5 px-2 border-r border-slate-200 text-center w-18">效能</th>
+                                <th class="py-1.5 px-2 text-center w-22">数量限制</th>
+                            </tr>
+                        </thead>
+                        <tbody id="equipment-table-body" class="divide-y divide-slate-200">
+                            <!-- JS 渲染 -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Right Side: Formula & Plan Table -->
+            <section class="xl:col-span-8 border border-slate-200 rounded-xl overflow-hidden shadow-sm flex flex-col bg-white">
+                
+                <div id="formula-container" class="bg-slate-100 px-3 py-2 border-b border-slate-200 text-slate-800 flex flex-wrap justify-center items-center font-mono font-bold text-sm md:text-base text-blue-900 tracking-wide gap-0.5 shrink-0">
+                    <span id="formula-v-label" class="text-blue-900 font-bold">V<sub>待消积水</sub></span>
+                    <span>=67500</span><span id="formula-h-wrapper" class="inline-flex items-center"><input type="number" id="formula-h-input" placeholder="h" class="formula-h-input" title="输入h"></span><span>-4950</span>
+                </div>
+                <div class="bg-sky-50/60 px-3 py-1 text-center text-xs text-sky-800 border-b border-slate-200 shrink-0">
+                    <i class="fa-solid fa-circle-info mr-1"></i> 请你将相应雨情填入上面公式，利用该模型解决问题
+                </div>
+
+                <div class="flex-1 overflow-y-auto">
+                    <table class="w-full text-left border-collapse text-xs md:text-sm">
+                        <thead>
+                            <tr class="bg-slate-50 text-slate-800 border-b border-slate-200 font-bold sticky top-0 z-10">
+                                <th class="py-1.5 px-2 border-r border-slate-200 whitespace-nowrap text-center w-14">档位</th>
+                                <th class="py-1.5 px-2 border-r border-slate-200 whitespace-nowrap text-center. text-center w-18">预警级别</th>
+                                <th class="py-1.5 px-2 border-r border-slate-200 whitespace-nowrap text-center w-28">3小时预报降雨量 h (mm)</th>
+                                <th class="py-1.5 px-3 border-r border-slate-200">阳光小区行动指令 (将左侧设备整行拖入此处)</th>
+                                <th class="py-1.5 px-3 whitespace-nowrap text-center w-32">待消积水 V (m³)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="plan-table-body" class="divide-y divide-slate-200">
+                            <!-- JS 渲染 -->
+                        </tbody>
+                    </table>
+                </div>
+
+            </section>
+
+        </div>
+    </main>
+
+    <script>
+        const VALID_RAINFALLS = [89, 118, 145, 156, 210];
+
+        const EQUIPMENT_LIST = [
+            { id: "eq1", category: "挡水", name: "传统沙袋墙", power: 850, unit: "m³", countDesc: "上限 1 组", icon: "fa-cubes", maxCount: 1 },
+            { id: "eq2", category: "挡水", name: "铝合金挡水板", power: 1150, unit: "m³", countDesc: "上限 1 组", icon: "fa-shield-halved", maxCount: 1 },
+            { id: "eq3", category: "抽水", name: "“龙吸水”排水车", power: 1500, unit: "m³/3h", countDesc: "上限 1 辆", icon: "fa-truck-droplet", maxCount: 1 },
+            { id: "eq4", category: "抽水", name: "柴油抽水泵", power: 950, unit: "m³/3h", countDesc: "上限 2 台", icon: "fa-gears", maxCount: 2 },
+            { id: "eq5", category: "抽水", name: "潜水混流泵", power: 850, unit: "m³/3h", countDesc: "上限 3 台", icon: "fa-water", maxCount: 3 },
+            { id: "eq6", category: "蓄水", name: "地下雨水罐", power: 250, unit: "m³/个", countDesc: "上限 2 个", icon: "fa-database", maxCount: 2 },
+            { id: "eq7", category: "蓄水", name: "雨水收集池", power: 400, unit: "m³/口", countDesc: "上限 2 处", icon: "fa-swimming-pool", maxCount: 2 }
+        ];
+
+        const LEVEL_CLASSES = [
+            { level: "蓝", levelBg: "bg-blue-100 text-blue-700 border-blue-300" },
+            { level: "黄", levelBg: "bg-amber-100 text-amber-800 border-amber-300" },
+            { level: "橙", levelBg: "bg-orange-100 text-orange-800 border-orange-300" },
+            { level: "红", levelBg: "bg-red-100 text-red-700 border-red-300" },
+            { level: "红", levelBg: "bg-red-600 text-white border-red-700 font-black" }
+        ];
+
+        let TIERS_DATA = [
+            { tier: 1, rainMm: null, rainM: null, initialWater: null, active: true },
+            { tier: 2, rainMm: null, rainM: null, initialWater: null, active: false },
+            { tier: 3, rainMm: null, rainM: null, initialWater: null, active: false },
+            { tier: 4, rainMm: null, rainM: null, initialWater: null, active: false },
+            { tier: 5, rainMm: null, rainM: null, initialWater: null, active: false }
+        ];
+
+        let currentActiveTier = 1; 
+        let tierDeployments = { 1: [], 2: [], 3: [], 4: [], 5: [] };
+        let tierCompleted = { 1: false, 2: false, 3: false, 4: false, 5: false };
+
+        let activeTouchEqId = null;
+        let touchAvatar = null;
+
+        function updateFormulaDisplay(vText, rawVal) {
+            const formulaVLabel = document.getElementById('formula-v-label');
+            const hWrapper = document.getElementById('formula-h-wrapper');
+            if (!formulaVLabel || !hWrapper) return;
+
+            if (vText === '' || vText === null || rawVal === '' || rawVal === null) {
+                formulaVLabel.innerHTML = 'V<sub>待消积水</sub>';
+                hWrapper.innerHTML = `<input type="number" id="formula-h-input" placeholder="h" class="formula-h-input" title="输入h">`;
+                bindFormulaInputEvents();
+            } else {
+                formulaVLabel.innerHTML = `<span class="text-emerald-700 font-black">${vText}</span>`;
+                hWrapper.innerHTML = `<span class="text-blue-900 cursor-pointer font-bold hover:underline" title="点击重新修改" onclick="resetFormulaInput()">×(${rawVal}÷1000)</span>`;
+            }
+        }
+
+        function resetFormulaInput() {
+            TIERS_DATA[currentActiveTier - 1].rainMm = null;
+            TIERS_DATA[currentActiveTier - 1].rainM = null;
+            TIERS_DATA[currentActiveTier - 1].initialWater = null;
+            updateFormulaDisplay('', '');
+            renderPlanTable();
+            renderEquipmentTable();
+        }
+
+        function bindFormulaInputEvents() {
+            const formulaHInput = document.getElementById('formula-h-input');
+            if (formulaHInput) {
+                const triggerUpdate = (e) => {
+                    const val = e.target.value;
+                    if (val === '' || isNaN(val)) return;
+                    const numVal = parseFloat(val);
+
+                    const expectedVal = VALID_RAINFALLS[currentActiveTier - 1];
+                    if (numVal !== expectedVal) {
+                        e.target.value = '';
+                        return;
+                    }
+
+                    const mVal = numVal / 1000;
+                    const vResult = 67500 * mVal - 4950;
+                    const formattedV = Number.isInteger(vResult) ? vResult : vResult.toFixed(1);
+
+                    TIERS_DATA[currentActiveTier - 1].rainMm = numVal;
+                    TIERS_DATA[currentActiveTier - 1].rainM = mVal;
+                    TIERS_DATA[currentActiveTier - 1].initialWater = vResult;
+
+                    setTimeout(() => {
+                        updateFormulaDisplay(formattedV, numVal);
+                        renderEquipmentTable();
+                        renderPlanTable();
+                    }, 0);
+                };
+
+                formulaHInput.addEventListener('change', triggerUpdate);
+                formulaHInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') triggerUpdate(e);
+                });
+            }
+        }
+
+        function renderEquipmentTable() {
+            const tbody = document.getElementById('equipment-table-body');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+
+            const currentTierDeployed = tierDeployments[currentActiveTier] || [];
+            const isRainEntered = TIERS_DATA[currentActiveTier - 1].rainMm !== null;
+
+            EQUIPMENT_LIST.forEach(eq => {
+                const usedCount = currentTierDeployed.filter(item => item.eqId === eq.id).length;
+                const remaining = eq.maxCount - usedCount;
+                const isAvailable = remaining > 0 && !tierCompleted[currentActiveTier] && TIERS_DATA[currentActiveTier - 1].active && isRainEntered;
+
+                const tr = document.createElement('tr');
+                tr.className = `transition ${isAvailable ? 'drag-row hover:bg-blue-50/60' : 'drag-row-disabled bg-slate-50'}`;
+                
+                if (isAvailable) {
+                    tr.draggable = true;
+                    tr.addEventListener('dragstart', (e) => handleDragStart(e, eq.id));
+                    tr.addEventListener('touchstart', (e) => handleTouchStart(e, eq.id), { passive: false });
+                    tr.addEventListener('touchmove', handleTouchMove, { passive: false });
+                    tr.addEventListener('touchend', handleTouchEnd);
+                }
+
+                let catBadge = "bg-blue-100 text-blue-800 border-blue-200";
+                if (eq.category === "抽水") catBadge = "bg-indigo-100 text-indigo-800 border-indigo-200";
+                if (eq.category === "蓄水") catBadge = "bg-emerald-100 text-emerald-800 border-emerald-200";
+
+                tr.innerHTML = `
+                    <td class="py-2 px-2 border-r border-slate-200 font-medium">
+                        <span class="px-1.5 py-0.5 rounded text-[11px] font-bold border ${catBadge}">${eq.category}</span>
+                    </td>
+                    <td class="py-2 px-2 border-r border-slate-200 font-bold text-slate-800">
+                        <div class="flex items-center gap-1.5 pointer-events-none">
+                            <i class="fa-solid ${eq.icon} ${isAvailable ? 'text-blue-600' : 'text-slate-400'}"></i>
+                            <span>${eq.name}</span>
+                        </div>
+                    </td>
+                    <td class="py-2 px-2 border-r border-slate-200 text-center font-semibold text-slate-700 pointer-events-none">
+                        ${eq.power} ${eq.unit}
+                    </td>
+                    <td class="py-2 px-2 text-center font-mono font-bold text-xs ${isAvailable ? 'text-blue-700' : 'text-slate-400'} pointer-events-none">
+                        ${eq.countDesc}
+                    </td>
+                `;
+
+                tbody.appendChild(tr);
+            });
+        }
+
+        function renderPlanTable() {
+            const tbody = document.getElementById('plan-table-body');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+
+            TIERS_DATA.forEach((t, idx) => {
+                const tr = document.createElement('tr');
+                const isCurrentActive = t.tier === currentActiveTier;
+                tr.className = `transition ${isCurrentActive ? 'bg-blue-50/40 ring-2 ring-blue-500/25' : 'hover:bg-slate-50/80'} ${!t.active ? 'opacity-60' : ''}`;
+
+                const deployedList = tierDeployments[t.tier] || [];
+                const totalDeployedPower = deployedList.reduce((sum, item) => sum + item.power, 0);
+                const remainingWater = t.initialWater !== null ? Math.max(0, t.initialWater - totalDeployedPower) : null;
+                const isCleared = remainingWater === 0 && t.active && deployedList.length > 0;
+
+                if (isCleared && !tierCompleted[t.tier]) {
+                    tierCompleted[t.tier] = true;
+                    if (t.tier < 5) {
+                        currentActiveTier = t.tier + 1;
+                        TIERS_DATA[currentActiveTier - 1].active = true;
+                        updateFormulaDisplay('', '');
+                    } else {
+                        updateFormulaDisplay('全部演练完成', '');
+                    }
+                }
+
+                tr.innerHTML = `
+                    <td class="py-2.5 px-2 border-r border-slate-200 font-bold text-center whitespace-nowrap">
+                        <span class="text-slate-800 ${isCurrentActive ? 'text-blue-700 font-black' : ''}">
+                            第 ${t.tier} 档
+                        </span>
+                    </td>
+                    <td class="py-2.5 px-2 border-r border-slate-200 text-center whitespace-nowrap">
+                        <span class="px-2 py-0.5 rounded text-xs font-bold border ${LEVEL_CLASSES[idx].levelBg}">${LEVEL_CLASSES[idx].level}</span>
+                    </td>
+                    <td class="py-2.5 px-2 border-r border-slate-200 text-center font-mono font-bold text-slate-700 whitespace-nowrap">
+                        ${t.rainMm !== null ? t.rainMm : '<span class="text-slate-300 font-normal">---</span>'}
+                    </td>
+                    <td class="py-2.5 px-3 border-r border-slate-200">
+                        <div id="drop-target-tier-${t.tier}"
+                             data-tier="${t.tier}"
+                             class="drop-target min-h-[40px] p-1.5 border-2 border-dashed ${isCurrentActive ? 'border-blue-500 bg-white shadow-inner' : 'border-slate-300 bg-slate-50'} rounded-lg flex flex-wrap items-center gap-1.5 transition">
+                            ${
+                                !t.active 
+                                    ? `<span class="text-xs text-slate-400 italic pointer-events-none">请先完成前置档位</span>`
+                                    : (t.rainMm === null
+                                        ? `<span class="text-xs text-slate-400 italic pointer-events-none">请先在上方公式输入h降雨量</span>`
+                                        : (deployedList.length === 0 
+                                            ? `<span class="text-xs text-slate-400 italic pointer-events-none flex items-center gap-1">
+                                                    <i class="fa-solid fa-arrows-up-down-left-right text-slate-400"></i> 将左侧设备整行拖入此处
+                                               </span>` 
+                                            : deployedList.map(item => `
+                                                <span class="inline-flex items-center gap-1 bg-blue-100 text-blue-900 border border-blue-300 px-2 py-0.5 rounded-md text-xs font-medium shadow-sm">
+                                                    <span>${item.name}</span>
+                                                    <span class="text-blue-700 font-bold">(+${item.power})</span>
+                                                    <button type="button" onclick="removeEquipmentInstance(${t.tier}, '${item.instanceId}')" class="ml-1 text-slate-400 hover:text-red-600 transition" title="移除设备">
+                                                        <i class="fa-solid fa-xmark"></i>
+                                                    </button>
+                                                </span>
+                                            `).join(''))
+                                      )
+                            }
+                        </div>
+                    </td>
+                    <td class="py-2.5 px-3 text-center font-mono font-black text-sm md:text-base whitespace-nowrap ${isCleared ? 'bg-emerald-50 text-emerald-600' : 'text-blue-900'}">
+                        ${
+                            !t.active || t.initialWater === null
+                                ? '<span class="text-slate-300 font-normal text-xs">---</span>'
+                                : (isCleared 
+                                    ? `<span class="inline-flex items-center gap-1 text-emerald-600 text-xs font-bold">
+                                            <i class="fa-solid fa-circle-check text-emerald-500"></i> 0 (已消除)
+                                       </span>` 
+                                    : `<span>${remainingWater}</span>`)
+                        }
+                    </td>
+                `;
+
+                tbody.appendChild(tr);
+            });
+        }
+
+        function deployEquipmentToTier(tier, eqId) {
+            if (tierCompleted[tier] || !TIERS_DATA[tier - 1].active || TIERS_DATA[tier - 1].rainMm === null) return;
+            const eq = EQUIPMENT_LIST.find(e => e.id === eqId);
+            if (!eq) return;
+
+            const currentTierDeployed = tierDeployments[tier] || [];
+            const currentCount = currentTierDeployed.filter(item => item.eqId === eq.id).length;
+
+            if (currentCount >= eq.maxCount) return;
+
+            const instance = {
+                instanceId: "ins_" + Date.now() + "_" + Math.random().toString(36).substring(2, 6),
+                eqId: eq.id,
+                name: eq.name,
+                power: eq.power
+            };
+
+            tierDeployments[tier].push(instance);
+            renderEquipmentTable();
+            renderPlanTable();
+        }
+
+        function removeEquipmentInstance(tier, instanceId) {
+            tierDeployments[tier] = tierDeployments[tier].filter(item => item.instanceId !== instanceId);
+            tierCompleted[tier] = false; 
+            renderEquipmentTable();
+            renderPlanTable();
+        }
+
+        function resetAllData() {
+            tierDeployments = { 1: [], 2: [], 3: [], 4: [], 5: [] };
+            tierCompleted = { 1: false, 2: false, 3: false, 4: false, 5: false };
+            TIERS_DATA.forEach((t, idx) => {
+                t.active = (idx === 0);
+                t.rainMm = null;
+                t.rainM = null;
+                t.initialWater = null;
+            });
+            currentActiveTier = 1;
+            updateFormulaDisplay('', '');
+
+            renderEquipmentTable();
+            renderPlanTable();
+        }
+
+        function handleDragStart(e, eqId) {
+            if (tierCompleted[currentActiveTier] || !TIERS_DATA[currentActiveTier - 1].active || TIERS_DATA[currentActiveTier - 1].rainMm === null) {
+                e.preventDefault();
+                return false;
+            }
+            e.dataTransfer.setData("text/plain", eqId);
+            e.dataTransfer.effectAllowed = "copy";
+        }
+
+        function handleTouchStart(e, eqId) {
+            if (tierCompleted[currentActiveTier] || !TIERS_DATA[currentActiveTier - 1].active || TIERS_DATA[currentActiveTier - 1].rainMm === null) return;
+            const eq = EQUIPMENT_LIST.find(item => item.id === eqId);
+            const currentTierDeployed = tierDeployments[currentActiveTier] || [];
+            const currentCount = currentTierDeployed.filter(item => item.eqId === eqId).length;
+
+            if (!eq || currentCount >= eq.maxCount) return;
+
+            activeTouchEqId = eqId;
+            const touch = e.touches[0];
+
+            touchAvatar = document.createElement('div');
+            touchAvatar.className = 'touch-drag-avatar';
+            touchAvatar.innerHTML = `<i class="fa-solid ${eq.icon}"></i> ${eq.name}`;
+            touchAvatar.style.left = touch.clientX + 'px';
+            touchAvatar.style.top = touch.clientY + 'px';
+            document.body.appendChild(touchAvatar);
+        }
+
+        function handleTouchMove(e) {
+            if (!activeTouchEqId || !touchAvatar) return;
+            e.preventDefault();
+
+            const touch = e.touches[0];
+            touchAvatar.style.left = touch.clientX + 'px';
+            touchAvatar.style.top = touch.clientY + 'px';
+
+            const elemBelow = document.elementFromPoint(touch.clientX, touch.clientY);
+            const dropTarget = elemBelow ? elemBelow.closest('.drop-target') : null;
+
+            document.querySelectorAll('.drop-target').forEach(dt => dt.classList.remove('drag-over'));
+            if (dropTarget) {
+                dropTarget.classList.add('drag-over');
+            }
+        }
+
+        function handleTouchEnd(e) {
+            if (!activeTouchEqId) return;
+
+            const touch = e.changedTouches[0];
+            const elemBelow = document.elementFromPoint(touch.clientX, touch.clientY);
+            const dropTarget = elemBelow ? elemBelow.closest('.drop-target') : null;
+
+            if (dropTarget) {
+                const targetTier = parseInt(dropTarget.getAttribute('data-tier'));
+                if (targetTier && TIERS_DATA[targetTier - 1].active && TIERS_DATA[targetTier - 1].rainMm !== null) {
+                    currentActiveTier = targetTier;
+                    deployEquipmentToTier(targetTier, activeTouchEqId);
+                }
+            }
+
+            document.querySelectorAll('.drop-target').forEach(dt => dt.classList.remove('drag-over'));
+            if (touchAvatar && touchAvatar.parentNode) {
+                touchAvatar.parentNode.removeChild(touchAvatar);
+            }
+            touchAvatar = null;
+            activeTouchEqId = null;
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            renderEquipmentTable();
+            renderPlanTable();
+            bindFormulaInputEvents();
+
+            document.addEventListener('dragover', (e) => e.preventDefault());
+            document.addEventListener('drop', (e) => e.preventDefault());
+
+            const planBody = document.getElementById('plan-table-body');
+            if (planBody) {
+                planBody.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'copy';
+                    const target = e.target.closest('.drop-target');
+                    if (target) target.classList.add('drag-over');
+                });
+                planBody.addEventListener('dragleave', (e) => {
+                    const target = e.target.closest('.drop-target');
+                    if (target) target.classList.remove('drag-over');
+                });
+                planBody.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    const target = e.target.closest('.drop-target');
+                    if (target) {
+                        target.classList.remove('drag-over');
+                        const tier = parseInt(target.getAttribute('data-tier'));
+                        const eqId = e.dataTransfer.getData('text/plain');
+                        if (tier && eqId && TIERS_DATA[tier - 1].active && TIERS_DATA[tier - 1].rainMm !== null) {
+                            currentActiveTier = tier;
+                            deployEquipmentToTier(tier, eqId);
+                        }
+                    }
+                });
+            }
+
+            const btnReset = document.getElementById('btn-reset-all');
+            if (btnReset) {
+                btnReset.addEventListener('click', resetAllData);
+            }
+        });
+    </script>
+</body>
+</html>

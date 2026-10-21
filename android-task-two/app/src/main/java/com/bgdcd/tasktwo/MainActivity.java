@@ -28,31 +28,32 @@ public class MainActivity extends Activity {
         showCover();
     }
 
-    // The app's first screen is word.png itself, not a placeholder or WebView page.
+    // Show the user's chizongai.png as the actual full-screen opening cover.
     private void showCover() {
         ImageView cover = new ImageView(this);
-        cover.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        cover.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        cover.setBackgroundColor(android.graphics.Color.BLACK);
         cover.setAdjustViewBounds(false);
 
-        try (InputStream input = getAssets().open("word.png")) {
+        try (InputStream input = getAssets().open("chizongai.png")) {
             Bitmap bitmap = BitmapFactory.decodeStream(input);
             if (bitmap == null) {
-                throw new IllegalStateException("word.png could not be decoded");
+                throw new IllegalStateException("chizongai.png could not be decoded");
             }
             cover.setImageBitmap(bitmap);
         } catch (Exception e) {
-            android.util.Log.e("TaskTwo", "Required opening cover word.png failed to load", e);
-            throw new IllegalStateException("Cannot show required word.png cover", e);
+            android.util.Log.e("TaskTwo", "Required opening cover chizongai.png failed to load", e);
+            throw new IllegalStateException("Cannot show required chizongai.png cover", e);
         }
 
-        // Make the supplied image fill the whole screen as the visible opening cover.
         FrameLayout root = new FrameLayout(this);
+        root.setBackgroundColor(android.graphics.Color.BLACK);
         root.addView(cover, new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT));
         setContentView(root);
 
-        // Leave the actual image on screen for four seconds before opening the lesson.
+        // Keep the selected cover visible for four seconds before opening the lesson.
         handler.postDelayed(this::showTask, 4000);
     }
 

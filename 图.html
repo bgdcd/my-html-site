@@ -259,6 +259,53 @@ body{background:#020b19!important}
 .board-wrap{box-shadow:0 0 0 2px #00dfff45,0 0 24px #00bfff55,0 0 55px #006aff2b!important}
 @media(prefers-reduced-motion:reduce){.topbar:before{animation:none}}
 
+
+/* NEON EDGE + TESSELLATION GLOW: visual-only, keep all geometry interactions unchanged */
+@keyframes neonEdgePulse {
+  0%,100% { filter: drop-shadow(0 0 2px #00eaff) drop-shadow(0 0 5px #00aaff); opacity:.92; }
+  50% { filter: drop-shadow(0 0 4px #8dfaff) drop-shadow(0 0 10px #00cfff) drop-shadow(0 0 18px #007bff); opacity:1; }
+}
+@keyframes neonOutlineFlow {
+  to { stroke-dashoffset: -36; }
+}
+/* The work surface and its surrounding frame should read as illuminated hardware */
+.board-wrap {
+  border: 1px solid #00eaff !important;
+  outline: 1px solid #007fff55;
+  outline-offset: 3px;
+  box-shadow: 0 0 8px #00eaffaa, 0 0 22px #007bff88, inset 0 0 22px #00aaff1c !important;
+}
+.app .panel, .topbar, .footer {
+  border-color: #00dfff88 !important;
+  box-shadow: 0 0 8px #00bfff42, inset 0 0 16px #007bff12 !important;
+}
+/* Every polygon placed on the canvas gets a visibly luminous cyan edge.
+   The fill remains readable; only the outline and its glow are enhanced. */
+#board .piece polygon {
+  stroke: #00cfff !important;
+  stroke-width: 2.1px !important;
+  stroke-linejoin: round !important;
+  filter: drop-shadow(0 0 2px #00eaff) drop-shadow(0 0 5px #00aaff) !important;
+  animation: neonEdgePulse 2.8s ease-in-out infinite;
+  vector-effect: non-scaling-stroke;
+}
+#board .piece.selected polygon {
+  stroke: #ffffff !important;
+  stroke-width: 3px !important;
+  filter: drop-shadow(0 0 3px #ffffff) drop-shadow(0 0 9px #00eaff) drop-shadow(0 0 18px #008cff) !important;
+}
+#board .piece polygon:hover {
+  stroke: #fff !important;
+  filter: drop-shadow(0 0 4px #fff) drop-shadow(0 0 12px #00eaff) !important;
+}
+/* Make the tessellation canvas feel like a luminous technical grid */
+#board {
+  background-color: #eaf7ff !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  #board .piece polygon { animation: none; }
+}
+
 </style></head><body><div class="app">
 <header class="topbar"><div class="logo">铺</div><div class="heading"><h1>图形密铺互动</h1><p>拖动图形 · 任意旋转 · 放大缩小 · 观察角与角度</p></div><div class="top-tip">💡 把左侧图形直接拖到画布，试试怎样铺满平面！</div></header>
 

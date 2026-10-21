@@ -400,6 +400,28 @@ button:focus-visible,.shape-card:focus-visible{outline:2px solid #ffe28b!importa
 .shape-card svg,.shape-card strong,.shape-card small,.shape-card .tile-btn {position:relative;z-index:1}
 @media(prefers-reduced-motion:reduce){.panel:has(.palette){animation-duration:8s!important}}
 
+
+/* Seamless gold marquee: no dark gaps and no separate chasing light segments */
+@keyframes seamlessGoldFlow {
+  from { background-position: 0 0, 0 0; }
+  to   { background-position: 0 0, 240px 0; }
+}
+/* The frame stays continuously metallic gold; only its bright reflection travels */
+.panel:has(.palette) {
+  background:
+    linear-gradient(145deg,#172131,#0a111d) padding-box,
+    repeating-linear-gradient(90deg,
+      #a66c12 0px,#dba83e 24px,#ffe99a 42px,#fff8d4 49px,
+      #e4b849 60px,#b67a19 82px,#dba83e 104px,#ffe99a 122px,
+      #fff8d4 129px,#e4b849 140px,#a66c12 164px) border-box!important;
+  background-size:100% 100%,240px 100%!important;
+  animation:seamlessGoldFlow 2.8s linear infinite!important;
+  border:2px solid transparent!important;
+  box-shadow:0 0 9px #f8bd3c88,0 0 22px #e9a92844,inset 0 0 16px #e5ad3410!important;
+}
+/* Match the first and last gradient colors so the loop never has a dark pause */
+@media(prefers-reduced-motion:reduce){.panel:has(.palette){animation-duration:8s!important}}
+
 </style></head><body><div class="app">
 <header class="topbar"><div class="logo">铺</div><div class="heading"><h1>图形密铺互动</h1><p>拖动图形 · 任意旋转 · 放大缩小 · 观察角与角度</p></div><div class="top-tip">💡 把左侧图形直接拖到画布，试试怎样铺满平面！</div></header>
 

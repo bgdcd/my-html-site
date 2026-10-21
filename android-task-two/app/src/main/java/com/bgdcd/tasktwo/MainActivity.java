@@ -3,8 +3,9 @@ package com.bgdcd.tasktwo;
 import android.app.Activity;
 import android.os.Bundle;
 import android.os.Handler;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Color;
-import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
 import android.webkit.WebChromeClient;
@@ -13,8 +14,7 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.ImageView;
 import android.widget.FrameLayout;
-import android.graphics.BitmapFactory;
-import android.graphics.drawable.BitmapDrawable;
+import java.io.InputStream;
 
 public class MainActivity extends Activity {
     private WebView webView;
@@ -29,23 +29,35 @@ public class MainActivity extends Activity {
         showCover();
     }
 
+    // Display the exact word.png downloaded from the repository as the app's opening cover.
     private void showCover() {
         FrameLayout root = new FrameLayout(this);
         root.setBackgroundColor(Color.BLACK);
+
         ImageView cover = new ImageView(this);
-        cover.setImageDrawable(new BitmapDrawable(getResources(),
-                BitmapFactory.decodeStream(getAssetStream())));
+        cover.setBackgroundColor(Color.BLACK);
         cover.setScaleType(ImageView.ScaleType.FIT_CENTER);
+
+        Bitmap bitmap = null;
+        try (InputStream input = getAssets().open("word.png")) {
+            bitmap = BitmapFactory.decodeStream(input);
+        } catch (Exception e) {
+            android.util.Log.e("TaskTwo", "Unable to load required cover image word.png", e);
+        }
+
+        if (bitmap != null) {
+            cover.setImageBitmap(bitmap);
+        } else {
+            android.util.Log.e("TaskTwo", "word.png was not decoded; check APK assets");
+        }
+
         root.addView(cover, new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT));
         setContentView(root);
-        handler.postDelayed(this::showTask, 1400);
-    }
 
-    private java.io.InputStream getAssetStream() {
-        try { return getAssets().open("word.png"); }
-        catch (Exception e) { return null; }
+        // Keep the cover visible long enough to be clearly seen before opening the lesson.
+        handler.postDelayed(this::showTask, 2500);
     }
 
     private void showTask() {

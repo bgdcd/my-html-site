@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>阳光小区 3D 防汛沙盘（0–3 小时）</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+*{box-sizing:border-box}
+body{margin:0;height:100vh;display:flex;flex-direction:column;background:#0a111d;color:#dbe4f0;font:13px/1.5 'Noto Sans SC','PingFang SC','Microsoft YaHei',system-ui,sans-serif;overflow:hidden;user-select:none}
+header{height:54px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 16px;background:#0e1a2e;border-bottom:2px solid #f59e0b}
+h1{font-size:16px;margin:0;letter-spacing:.05em}h1 small{color:#fbbf24;font-weight:400;margin-left:10px}
+.st{padding:4px 12px;border:1px solid #334e73;border-radius:6px;background:#0a111d}.st b{color:#fbbf24}
+main{flex:1;display:flex;min-height:0}
+aside{width:340px;flex:none;overflow:auto;padding:12px;background:#0d1627;border-right:1px solid #1e3a5f}
+h2{font-size:14px;margin:6px 0 8px;color:#fbbf24;border-left:4px solid #f59e0b;padding-left:8px}
+.sm{color:#8aa0bd;font-size:11px;margin:0 0 8px}
+.eq{position:relative;padding:9px 10px 9px 12px;margin-bottom:8px;background:#13213a;border:1px solid #27446d;border-left:4px solid #38bdf8;border-radius:8px;cursor:grab}
+.eq:hover{border-color:#fbbf24}.eq b{display:block;font-size:14px}.eq span{display:block;color:#9fb3cf;font-size:12px}
+.eq em{font-style:normal;color:#fbbf24;font-size:11px}.eq i{position:absolute;right:10px;top:9px;font-style:normal;font-family:monospace;color:#34d399;font-weight:700}
+.eq.w{border-left-color:#22d3ee;cursor:pointer}.eq.s{border-left-color:#f59e0b}
+.ic{width:20px;height:20px;vertical-align:-4px;margin-right:5px}
+table{width:100%;border-collapse:collapse;margin-bottom:8px;font-size:12px}td,th{border:1px solid #27446d;padding:3px 6px;text-align:center}th{background:#13213a;color:#9fb3cf;font-weight:500}
+td{font-family:monospace;color:#7dd3fc}
+.box{background:#0a111d;border:1px solid #27446d;border-radius:8px;padding:8px 10px;margin-bottom:8px}
+.box div{display:flex;justify-content:space-between}.box b{color:#34d399;font-family:monospace}
+button{font:inherit;cursor:pointer;border-radius:8px;padding:8px 14px;border:1px solid #334e73;background:#13213a;color:#dbe4f0}
+button.go{background:#f59e0b;color:#1b1203;font-weight:700;border-color:#f59e0b;width:100%;font-size:14px}button:hover{filter:brightness(1.15)}
+#res{border-radius:8px;padding:10px;margin-top:8px;display:none;line-height:1.6}
+#res.ok{display:block;background:#06301f;border:1px solid #10b981}#res.no{display:block;background:#3a0f12;border:1px solid #ef4444}#res.run{display:block;background:#112238;border:1px solid #38bdf8}
+#res h3{margin:0 0 4px;font-size:15px}
+#cv{flex:1;position:relative;min-width:0}#cv canvas{display:block}
+.hud{position:absolute;background:rgba(8,14,26,.82);border:1px solid #27446d;border-radius:8px;padding:6px 12px;pointer-events:none;font-size:12px}
+.rain{top:10px;left:10px;font-size:15px;color:#9ec5ff;font-weight:700}.rain small{color:#8aa0bd;font-weight:400;margin-left:6px}
+.pond{top:52px;left:10px;font-size:14px}.pond b{font-size:18px}
+.leg{top:10px;right:10px;color:#9fb3cf}.leg div{margin:1px 0}
+.tl{left:10px;right:10px;bottom:10px;display:flex;align-items:center;gap:10px}.tl .bar{flex:1;height:8px;background:#13213a;border-radius:4px;overflow:hidden}.tl .bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#38bdf8,#f59e0b)}
+#nav{position:absolute;right:10px;bottom:52px;width:196px;background:rgba(8,14,26,.85);border:1px solid #27446d;border-radius:10px;padding:8px}#nav .g{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-bottom:6px}#nav .r{display:grid;grid-template-columns:1fr 1fr;gap:4px}#nav button{padding:6px 2px;font-size:12px;touch-action:none}#nav small{display:block;margin-top:6px;color:#6b7f9c;font-size:10px;line-height:1.4}
+#toast{position:absolute;top:56px;left:50%;transform:translateX(-50%);background:#0e1a2e;border:1px solid #f59e0b;color:#fde68a;padding:7px 16px;border-radius:8px;opacity:0;transition:.25s;pointer-events:none}
+#verdict{position:absolute;inset:0;z-index:20;display:none;align-items:center;justify-content:center;padding:20px;background:rgba(2,6,18,.72);backdrop-filter:blur(5px)}
+#verdict.show{display:flex}
+.verdict-card{width:min(680px,94%);padding:28px 30px;text-align:center;border:2px solid #64748b;border-radius:20px;background:linear-gradient(145deg,rgba(9,20,39,.98),rgba(15,31,55,.98));box-shadow:0 0 55px rgba(0,0,0,.55)}
+.verdict-kicker{font-size:13px;letter-spacing:.18em;color:#9fb3cf;margin-bottom:12px}
+.verdict-title{font-size:clamp(46px,8vw,86px);font-weight:900;line-height:1.12;letter-spacing:.06em;margin:8px 0 18px;text-shadow:0 0 25px currentColor}
+.verdict-reason{font-size:clamp(14px,2vw,18px);line-height:1.8;color:#e2e8f0;max-width:560px;margin:0 auto 22px}
+.verdict-ask{margin:16px auto 0;padding:10px 14px;text-align:left;color:#fde68a;background:rgba(251,191,36,.08);border-left:4px solid #fbbf24;border-radius:6px}
+#verdictClose{cursor:pointer;position:relative;z-index:1}
+#verdict.pass .verdict-card{border-color:#10b981;box-shadow:0 0 45px rgba(16,185,129,.22)}
+#verdict.pass .verdict-title{color:#34d399}
+#verdict.fail .verdict-card{border-color:#ef4444;box-shadow:0 0 45px rgba(239,68,68,.25);animation:alarmPulse .8s ease-in-out 3}
+#verdict.fail .verdict-title{color:#ff3b4f}
+#verdict button{min-width:130px;padding:10px 22px}
+@keyframes alarmPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.025);box-shadow:0 0 65px rgba(239,68,68,.5)}}
+@media(max-width:820px){.verdict-card{padding:22px 16px}.verdict-title{font-size:48px}}
+@media(max-width:820px){main{flex-direction:column}aside{width:100%;max-height:44vh}.leg{display:none}}
+</style></head><body>
+<header><h1>阳光小区 3D 防汛沙盘<small>0–3 小时 · 暴雨山洪</small></h1>
+<div style="display:flex;gap:10px;align-items:center"><div class="st">方案状态：<b id="gs">等待装备部署</b></div><button id="rst">↺ 重置</button></div></header>
+<main>
+<aside>
+<h2>1. 防汛装备</h2>
+<p class="sm">点击设备卡片可部署，也可拖入场景。挡水设备放到小区大门口，抽水设备放到黄色位置，蓄水设备点击场景中的对应位置启用。</p>
+<div class="eq s" draggable="true" data-t="sand"><b><svg class="ic" viewBox="0 0 24 24"><path d="M5.2 12.5c-.9 4.2.6 7.3 3.4 7.8 2.2.4 4.6.4 6.8 0 2.8-.5 4.3-3.6 3.4-7.8-.5-2.3-1.9-3.8-3.7-4.2H8.9c-1.8.4-3.2 1.9-3.7 4.2z" fill="#d9b878" stroke="#8a6a3a" stroke-width="1.2" stroke-linejoin="round"/><path d="M8.9 8.3 9.6 5h4.8l.7 3.3" fill="#c9a35f" stroke="#8a6a3a" stroke-width="1.2" stroke-linejoin="round"/><path d="M9.2 7.2h5.6" stroke="#6b4a1e" stroke-width="1.5" stroke-linecap="round"/><path d="M8 13.5l2 1.2M13 15.5l2.2-1.2M10 17.5h3.5" stroke="#8a6a3a" stroke-width=".9" stroke-linecap="round" opacity=".7"/></svg>传统沙袋墙</b><span>挡水 · 850 m³</span><em>→ 部署到小区大门口</em><i id="c-sand">0/1 组</i></div>
+<div class="eq s" draggable="true" data-t="board"><b>🛡 铝合金挡水板</b><span>挡水 · 1150 m³</span><em>→ 部署到小区大门口</em><i id="c-board">0/1 组</i></div>
+<div class="eq" draggable="true" data-t="dragon"><b>🚒 “龙吸水”排水车</b><span>抽水 · 1500 m³/3h</span><em>→ 拖到黄色位置</em><i id="c-dragon">0/1 辆</i></div>
+<div class="eq" draggable="true" data-t="diesel"><b><svg class="ic" viewBox="0 0 24 24"><rect x="2.5" y="18" width="15" height="2.2" rx=".8" fill="#475569"/><rect x="3.5" y="9.5" width="11" height="8.5" rx="1.6" fill="#64748b" stroke="#334155"/><rect x="4.7" y="5.6" width="6.2" height="3.9" rx="1" fill="#f59e0b" stroke="#92400e"/><rect x="7" y="4.3" width="1.8" height="1.4" fill="#92400e"/><path d="M13 9.5V5.5h2" fill="none" stroke="#334155" stroke-width="1.5" stroke-linecap="round"/><circle cx="9" cy="14" r="2.4" fill="#334155" stroke="#cbd5e1" stroke-width=".8"/><rect x="14.5" y="12.4" width="5" height="3" rx=".6" fill="#9ca3af" stroke="#4b5563" stroke-width=".8"/><path d="M21.2 10.6c-1 1.6-1.6 2.6-1.6 3.5a1.6 1.6 0 0 0 3.2 0c0-.9-.6-1.9-1.6-3.5z" fill="#38bdf8"/></svg>柴油抽水泵</b><span>抽水 · 950 m³/3h</span><em>→ 拖到黄色位置</em><i id="c-diesel">0/2 台</i></div>
+<div class="eq" draggable="true" data-t="pump"><b><svg class="ic" viewBox="0 0 24 24"><path d="M2 5v16h20V5z" fill="#0e3a5f" opacity=".4"/><path d="M2 5c1.5-1.2 3-1.2 4.5 0s3 1.2 4.5 0 3-1.2 4.5 0 3 1.2 4.5 0" fill="none" stroke="#38bdf8" stroke-width="1.3" stroke-linecap="round"/><path d="M12 6.5V1.8" stroke="#374151" stroke-width="1.4" stroke-linecap="round"/><rect x="9" y="6.5" width="6" height="2.4" rx="1" fill="#f59e0b"/><rect x="8" y="8.9" width="8" height="8.6" rx="2" fill="#2563eb" stroke="#1e3a8a"/><path d="M10 12.2l4 2M10 14.2l4-2" stroke="#bfdbfe" stroke-width=".9" stroke-linecap="round"/><rect x="7" y="17.5" width="10" height="2" rx=".8" fill="#94a3b8"/><path d="M16 12h3.5V2.5" fill="none" stroke="#9ca3af" stroke-width="2.2" stroke-linejoin="round"/></svg>潜水混流泵</b><span>抽水 · 850 m³/3h</span><em>→ 拖到黄色位置</em><i id="c-pump">0/3 台</i></div>
+<div class="eq w" draggable="true" data-t="tank"><b><svg class="ic" viewBox="0 0 24 24"><rect x="1.5" y="4" width="21" height="2.2" fill="#8b6b43"/><rect x="1.5" y="6.2" width="21" height="15.5" fill="#5b4630" opacity=".35"/><rect x="3.5" y="11" width="17" height="8" rx="4" fill="#12324f" stroke="#38bdf8" stroke-width="1.2"/><path d="M4.7 15.3H19.3V15.6A3.3 3.3 0 0 1 16 18.4H8A3.3 3.3 0 0 1 4.7 15.6Z" fill="#38bdf8" opacity=".85"/><rect x="10.7" y="6.2" width="2.6" height="4.8" fill="#9ca3af" stroke="#4b5563" stroke-width=".8"/><rect x="9.3" y="3.1" width="5.4" height="1.7" rx=".6" fill="#f59e0b" stroke="#92400e" stroke-width=".8"/></svg>地下雨水罐</b><span>蓄水 · 250 m³/个</span><em>→ 点击橙色井盖启用</em><i id="c-tank">0/2 个</i></div>
+<div class="eq w" draggable="true" data-t="pool"><b><svg class="ic" viewBox="0 0 24 24"><path d="M5 1.8l-.8 2M9 1.2l-.8 2M15 1.2l-.8 2M19 1.8l-.8 2" stroke="#7dd3fc" stroke-width="1.3" stroke-linecap="round"/><rect x="1.5" y="5.4" width="21" height="2" fill="#8b6b43"/><path d="M6.5 7.4V19.5a1.5 1.5 0 0 0 1.5 1.5h8a1.5 1.5 0 0 0 1.5-1.5V7.4" fill="#12324f" stroke="#94a3b8" stroke-width="1.6" stroke-linejoin="round"/><path d="M7.3 13.6c1.2-.8 2.3-.8 3.5 0s2.3.8 3.5 0c.8-.5 1.5-.5 2.4-.2V19.5a.9.9 0 0 1-.9.9H8.2a.9.9 0 0 1-.9-.9z" fill="#38bdf8" opacity=".9"/><rect x="5.5" y="4.4" width="13" height="1.6" rx=".6" fill="#6b7280" stroke="#374151" stroke-width=".7"/><path d="M8.5 4.5v1.4M11 4.5v1.4M13.5 4.5v1.4M16 4.5v1.4" stroke="#1f2937" stroke-width=".6"/></svg>雨水收集井</b><span>蓄水 · 400 m³/处</span><em>→ 点击带箅子的收集井启用</em><i id="c-pool">0/2 处</i></div>
+<h2>2. 0–3 小时部署与验证</h2>
+<table><tr><th>小时</th><th>自产雨水 m³</th><th>山洪来水 m³</th><th>总进水 m³</th><th>管道排水</th></tr><tr><td>3</td><td>2730</td><td>7800</td><td>10530</td><td>400</td></tr></table>
+<div class="box"><div>挡水设备 <b id="d-barrier">未部署</b></div><div>抽水设备 <b id="d-pump">0 台/辆</b></div><div>蓄水设备 <b id="d-well">0 个/处</b></div><hr style="border:0;border-top:1px solid #27446d"><div>装备合计处理能力 <b><span id="cap">0</span> m³</b></div><div>已部署设备总数 <b><span id="count">0</span> 件</b></div></div>
+<button class="go" id="vf">▶ 验证方案（推演 0–3 小时）</button>
+<div id="res"></div>
+</aside>
+<div id="cv">
+<div class="hud rain">🌧 降雨量 156 mm<small>暴雨红色预警</small></div>
+<div class="hud leg"><div>🟠 橙色井盖 = 储水井（点击打开）</div><div>🟡 黄色圆环 = 抽水设备位置（拖入抽水设备）</div><div>🔴 红色圆环 = 大门口（拖入沙袋）</div></div>
+<div class="hud pond" id="pdw">💧 小区内积水深度 <b id="pd">0</b> cm</div>
+<div class="hud tl"><span>推演时间 <b id="tm">0.0</b> / 3 h</span><div class="bar"><i id="pb"></i></div></div>
+<div id="nav"><div class="g"><span></span><button data-a="l" hidden></button><button data-a="f" title="向前">▲</button><span></span><button data-a="l" title="向左">◀</button><button data-a="home" title="回到初始视角">⌂</button><button data-a="r" title="向右">▶</button><span></span><button data-a="b" title="向后">▼</button><span></span></div>
+<div class="r"><button data-a="u" title="上升">⬆ 上</button><button data-a="dn" title="下降">⬇ 下</button><button data-a="in" title="放大">＋ 放大</button><button data-a="out" title="缩小">－ 缩小</button><button data-a="rl" title="向左转">⟲ 左转</button><button data-a="rr" title="向右转">⟳ 右转</button></div>
+<small>左键拖拽旋转 · 右键/Shift+拖拽平移 · 滚轮缩放<br>键盘 WASD/方向键 平移，Q/E 升降，+/− 缩放</small></div>
+<div id="verdict" aria-live="assertive">
+  <div class="verdict-card" id="verdictCard">
+    <div class="verdict-kicker">阳光小区 · 防汛方案判定</div>
+    <div class="verdict-title" id="verdictTitle">等待验证</div>
+    <div class="verdict-reason" id="verdictReason"></div>
+    <button id="verdictClose" type="button">返回沙盘</button>
+  </div>
+</div>
+<div id="toast"></div>
+</div></main>
+<script>
+// ===== 隐藏的验证逻辑（不在页面显示）=====
+const R=5580;
+const LIMIT={sand:1,board:1,dragon:1,diesel:2,pump:3,tank:2,pool:2};
+const CAP={sand:850,board:1150,dragon:1500,diesel:950,pump:850,tank:250,pool:400};
+const S={sand:0,board:0,pumps:[],storage:[0,0,0,0]};let run=0,T=0,done=0,dragT='';
+const $=id=>document.getElementById(id);
+let audioCtx=null,master=null;
+function getAudio(){
+  const AC=window.AudioContext||window.webkitAudioContext;
+  if(!AC)return null;
+  if(!audioCtx)audioCtx=new AC();
+  if(audioCtx.state==='suspended')audioCtx.resume();
+  return audioCtx;
+}
+function stopVerdictSound(){
+  if(master&&audioCtx){try{const t=audioCtx.currentTime;master.gain.cancelScheduledValues(t);master.gain.setValueAtTime(master.gain.value,t);master.gain.linearRampToValueAtTime(0,t+.08)}catch(e){}}
+  master=null;
+}
+// 总线：压缩器防爆音；可选回声（通过音效用来增加"庆祝的空间感"）
+function newBus(echo){
+  const ctx=getAudio();if(!ctx)return null;
+  stopVerdictSound();
+  const out=ctx.createGain(),comp=ctx.createDynamicsCompressor();
+  out.gain.value=.9;out.connect(comp);comp.connect(ctx.destination);
+  if(echo){const dly=ctx.createDelay(),fb=ctx.createGain(),wet=ctx.createGain();dly.delayTime.value=.17;fb.gain.value=.32;wet.gain.value=.4;out.connect(dly);dly.connect(fb);fb.connect(dly);dly.connect(wet);wet.connect(comp)}
+  master=out;return{ctx,out};
+}
+function tone(bus,o){ // o:{f,to,t,d,type,v,a,filt}
+  const ctx=bus.ctx,s=ctx.currentTime+.03+(o.t||0),d=o.d||.2,a=o.a||.008,v=o.v||.15,
+    osc=ctx.createOscillator(),g=ctx.createGain();
+  osc.type=o.type||'sine';osc.frequency.setValueAtTime(o.f,s);
+  if(o.to)osc.frequency.exponentialRampToValueAtTime(o.to,s+d);
+  g.gain.setValueAtTime(.0001,s);g.gain.exponentialRampToValueAtTime(v,s+a);
+  g.gain.setValueAtTime(v,s+Math.max(a,d*.55));g.gain.exponentialRampToValueAtTime(.0001,s+d);
+  if(o.filt){const bq=ctx.createBiquadFilter();bq.type=o.filt.type;bq.frequency.value=o.filt.f;osc.connect(bq);bq.connect(g)}else osc.connect(g);
+  g.connect(bus.out);osc.start(s);osc.stop(s+d+.05);
+}
+// 警报：低沉重击 + 三声急促短鸣 + 上下扫频的警笛（约 2.2 秒）
+function playAlarm(){
+  const bus=newBus(false);if(!bus)return;const ctx=bus.ctx;
+  tone(bus,{f:140,to:45,t:0,d:.4,type:'sine',v:.35});
+  for(let i=0;i<3;i++)tone(bus,{f:1040,t:.02+i*.17,d:.11,type:'square',v:.1,filt:{type:'lowpass',f:3000}});
+  const s=ctx.currentTime+.6,cyc=.52,n=3,osc=ctx.createOscillator(),osc2=ctx.createOscillator(),
+    g=ctx.createGain(),lp=ctx.createBiquadFilter();
+  lp.type='lowpass';lp.frequency.value=2300;
+  [osc,osc2].forEach((o,k)=>{o.type=k?'square':'sawtooth';const m=k?.5:1;o.frequency.setValueAtTime(480*m,s);
+    for(let i=0;i<n;i++){o.frequency.linearRampToValueAtTime(980*m,s+i*cyc+cyc*.5);o.frequency.linearRampToValueAtTime(480*m,s+(i+1)*cyc)}
+    o.connect(lp)});
+  g.gain.setValueAtTime(.0001,s);g.gain.exponentialRampToValueAtTime(.16,s+.05);
+  g.gain.setValueAtTime(.16,s+n*cyc-.15);g.gain.exponentialRampToValueAtTime(.0001,s+n*cyc);
+  lp.connect(g);g.connect(bus.out);osc.start(s);osc2.start(s);osc.stop(s+n*cyc+.05);osc2.stop(s+n*cyc+.05);
+}
+// 通过：上行琶音 → 明亮和弦 → 闪亮的高音星光（最优方案再加一段上行华彩）
+function playCheer(great){
+  const bus=newBus(true);if(!bus)return;
+  tone(bus,{f:131,to:98,t:0,d:.35,type:'sine',v:.25});
+  [523.25,659.25,783.99,1046.5].forEach((f,i)=>{
+    tone(bus,{f,t:i*.1,d:.2,type:'triangle',v:.17});
+    tone(bus,{f:f*2,t:i*.1,d:.14,type:'sine',v:.05});
+  });
+  [523.25,659.25,783.99,1046.5,1318.5].forEach(f=>{
+    tone(bus,{f,t:.46,d:1.0,type:'triangle',v:.09,a:.015});
+    tone(bus,{f:f/2,t:.46,d:.8,type:'sine',v:.05});
+  });
+  [2093,2637,3136,2637,3951].forEach((f,i)=>tone(bus,{f,t:.5+i*.09,d:.28,type:'sine',v:.045}));
+  if(great){
+    [1046.5,1174.7,1318.5,1568,1760,2093].forEach((f,i)=>tone(bus,{f,t:.95+i*.075,d:.3,type:'triangle',v:.08}));
+    tone(bus,{f:2093,t:1.45,d:.9,type:'triangle',v:.09});tone(bus,{f:1046.5,t:1.45,d:.9,type:'sine',v:.07});
+  }
+}
+function playVerdictSound(pass,great){try{pass?playCheer(great):playAlarm()}catch(e){/* 声音只是增强，失败不影响判定显示 */}}
+function showVerdict(pass,title,obs,ask,great){
+  const el=$('verdict');
+  el.className='show '+(pass?'pass':'fail');
+  $('verdictTitle').textContent=title;
+  $('verdictReason').innerHTML='<div>'+obs+'</div>'+(ask?'<div class="verdict-ask">💭 想一想：'+ask+'</div>':'');
+  playVerdictSound(pass,great);
+  setTimeout(()=>{try{$('verdictClose').focus()}catch(e){}},50);
+}
+function hideVerdict(){$('verdict').className='';stopVerdictSound();}
+const tot=()=>{const counts={sand:S.sand,board:S.board,dragon:0,diesel:0,pump:0,tank:S.storage.slice(0,2).reduce((a,b)=>a+b,0),pool:S.storage.slice(2,4).reduce((a,b)=>a+b,0)};slots.forEach(s=>{if(s.p&&s.type)counts[s.type]++});const cap=Object.keys(CAP).reduce((n,k)=>n+CAP[k]*(counts[k]||0),0);return{counts,np:S.pumps.length,nw:counts.tank+counts.pool,cap,count:Object.values(counts).reduce((a,b)=>a+b,0)}};
+function toast(t){const e=$('toast');e.textContent=t;e.style.opacity=1;clearTimeout(e.t);e.t=setTimeout(()=>e.style.opacity=0,2400)}
+// ===== 3D 基础 =====
+const wrap=$('cv'),ren=new THREE.WebGLRenderer({antialias:true}),sc=new THREE.Scene(),cam=new THREE.PerspectiveCamera(48,1,.3,700),cvs=ren.domElement;
+ren.setPixelRatio(Math.min(2,window.devicePixelRatio||1));ren.localClippingEnabled=true;
+wrap.prepend(cvs);sc.background=new THREE.Color(0x182131);sc.fog=new THREE.Fog(0x182131,120,280);
+sc.add(new THREE.HemisphereLight(0xaabbdd,0x223344,.95));const dl=new THREE.DirectionalLight(0xffffff,.55);dl.position.set(-30,70,50);sc.add(dl);
+function rs(){const w=wrap.clientWidth,h=wrap.clientHeight;ren.setSize(w,h);cam.aspect=w/h;cam.updateProjectionMatrix()}addEventListener('resize',rs);rs();
+const M=(c,o)=>new THREE.MeshLambertMaterial(Object.assign({color:c},o));
+function mesh(g,c,x,y,z,p,o){const m=new THREE.Mesh(g,M(c,o));m.position.set(x,y,z);(p||sc).add(m);return m}
+const B=(w,h,d,c,x,y,z,p,o)=>mesh(new THREE.BoxGeometry(w,h,d),c,x,y,z,p,o);
+const C=(r,h,c,x,y,z,p,o)=>mesh(new THREE.CylinderGeometry(r,r,h,20),c,x,y,z,p,o);
+function mk(g,col,x,y,z){const m=new THREE.Mesh(g,new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:.8,side:2}));m.position.set(x,y,z);m.rotation.x=-Math.PI/2;sc.add(m);return m}
+const rnd=(a,b)=>a+Math.random()*(b-a);
+
+// ===== 贴图工厂（全部程序生成，不依赖外部图片）=====
+function canvasTex(w,h,draw,rx,ry){const c=document.createElement('canvas');c.width=w;c.height=h;draw(c.getContext('2d'),w,h);const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(rx||1,ry||1);t.anisotropy=4;return t}
+function wrapDraw(g,w,h,x,y,fn){for(const dx of[-w,0,w])for(const dy of[-h,0,h]){g.save();g.translate(x+dx,y+dy);fn();g.restore()}}
+const scrolls=[];                                   // 需要持续滚动的贴图
+function scrollClone(base,rx,ry){const t=base.clone();t.needsUpdate=true;t.repeat.set(rx,ry);return t}
+// 沿带状水面流动的贴图：纵向=流向，细长水纹 + 顺流的 V 形波纹，两侧边缘渐隐
+function streamTex(base,hi,flat){return canvasTex(256,256,(g,w,h)=>{
+  g.fillStyle=base;g.fillRect(0,0,w,h);
+  for(let i=0;i<80;i++){const x=rnd(0,w),y=rnd(0,h),L=rnd(25,95),W=rnd(1,3.6);g.globalAlpha=rnd(.1,.5);g.fillStyle=hi;wrapDraw(g,w,h,x,y,()=>g.fillRect(-W/2,0,W,L))}
+  if(flat)return;
+  g.globalAlpha=.38;g.strokeStyle=hi;g.lineWidth=3;g.lineCap='round';g.lineJoin='round';
+  for(let i=0;i<8;i++){const x=rnd(24,w-24),y=rnd(0,h);wrapDraw(g,w,h,x,y,()=>{g.beginPath();g.moveTo(-15,22);g.lineTo(0,0);g.lineTo(15,22);g.stroke()})}
+  g.globalAlpha=1;g.globalCompositeOperation='destination-in';
+  const gr=g.createLinearGradient(0,0,w,0);gr.addColorStop(0,'rgba(0,0,0,0)');gr.addColorStop(.2,'rgba(0,0,0,.94)');gr.addColorStop(.8,'rgba(0,0,0,.94)');gr.addColorStop(1,'rgba(0,0,0,0)');g.fillStyle=gr;g.fillRect(0,0,w,h)})}
+// 管道/水带里的流动水：横向=流向
+function pipeTex(base,hi){return canvasTex(256,64,(g,w,h)=>{
+  g.fillStyle=base;g.fillRect(0,0,w,h);
+  for(let i=0;i<46;i++){const x=rnd(0,w),y=rnd(4,h-4),L=rnd(18,70),H=rnd(1,3);g.globalAlpha=rnd(.15,.55);g.fillStyle=hi;wrapDraw(g,w,h,x,y,()=>g.fillRect(0,-H/2,L,H))}
+  g.globalAlpha=.4;g.strokeStyle=hi;g.lineWidth=3;g.lineCap='round';
+  for(let i=0;i<3;i++){const x=rnd(10,w-10);wrapDraw(g,w,h,x,h/2,()=>{g.beginPath();g.moveTo(-12,-14);g.lineTo(0,0);g.lineTo(-12,14);g.stroke()})}
+  g.globalAlpha=1;const gr=g.createLinearGradient(0,0,0,h);gr.addColorStop(0,'rgba(0,0,0,.6)');gr.addColorStop(.5,'rgba(255,255,255,.08)');gr.addColorStop(1,'rgba(0,0,0,.6)');g.fillStyle=gr;g.fillRect(0,0,w,h)})}
+// 平铺水面（积水、池水）：不定向的涟漪
+function flatTex(base,hi,n){return canvasTex(256,256,(g,w,h)=>{
+  if(base){g.fillStyle=base;g.fillRect(0,0,w,h)}g.lineCap='round';
+  for(let i=0;i<n;i++){const x=rnd(0,w),y=rnd(0,h),L=rnd(12,44),a0=rnd(0,6.28),a1=a0+rnd(.8,1.7);g.strokeStyle=hi;g.globalAlpha=rnd(.15,.55);g.lineWidth=rnd(1.2,3);wrapDraw(g,w,h,x,y,()=>{g.beginPath();g.arc(0,0,L,a0,a1);g.stroke()})}})}
+const mudS=streamTex('#8a6a3e','#e0c796'),clearS=streamTex('#2c8fd0','#e6f6ff'),riverS=streamTex('#7a6542','#cdb88f');
+const waterP=pipeTex('#6d5a3b','#c9b48a'),hoseP=pipeTex('#d9822b','#ffe0b0');
+function muddyTex(){return canvasTex(256,256,(g,w,h)=>{g.fillStyle='#7a6240';g.fillRect(0,0,w,h);
+  for(let i=0;i<46;i++){const x=rnd(0,w),y=rnd(0,h),r=rnd(18,50),c=Math.random()<.5?'60,45,25':'170,140,95';wrapDraw(g,w,h,x,y,()=>{const gr=g.createRadialGradient(0,0,0,0,0,r);gr.addColorStop(0,'rgba('+c+',.3)');gr.addColorStop(1,'rgba('+c+',0)');g.fillStyle=gr;g.beginPath();g.arc(0,0,r,0,6.283);g.fill()})}
+  g.lineCap='round';for(let i=0;i<55;i++){const x=rnd(0,w),y=rnd(0,h),L=rnd(10,34);g.strokeStyle='rgba(235,215,170,'+rnd(.08,.26)+')';g.lineWidth=rnd(1,2);wrapDraw(g,w,h,x,y,()=>{g.beginPath();g.ellipse(0,0,L,L*.28,0,0,6.283);g.stroke()})}})}
+const poolMud=muddyTex(),ripBlue=flatTex('#2f94d3','#e8f6ff',70),ripOver=flatTex(null,'#ffffff',60);
+const sprayTex=(()=>{const c=document.createElement('canvas');c.width=c.height=64;const g=c.getContext('2d'),gr=g.createRadialGradient(32,32,2,32,32,30);gr.addColorStop(0,'rgba(255,255,255,1)');gr.addColorStop(.45,'rgba(205,236,255,.7)');gr.addColorStop(1,'rgba(205,236,255,0)');g.fillStyle=gr;g.fillRect(0,0,64,64);return new THREE.CanvasTexture(c)})();
+const glowTex=(()=>{const c=document.createElement('canvas');c.width=c.height=64;const g=c.getContext('2d'),gr=g.createRadialGradient(32,32,2,32,32,32);gr.addColorStop(0,'rgba(255,230,160,.95)');gr.addColorStop(.4,'rgba(255,200,90,.35)');gr.addColorStop(1,'rgba(255,200,90,0)');g.fillStyle=gr;g.fillRect(0,0,64,64);return new THREE.CanvasTexture(c)})();
+const burlap=canvasTex(128,128,(g,w,h)=>{g.fillStyle='#d4b27a';g.fillRect(0,0,w,h);
+  for(let i=0;i<w;i+=3){g.fillStyle=(i%6)?'rgba(120,85,40,.25)':'rgba(255,240,200,.18)';g.fillRect(i,0,1.5,h)}
+  for(let j=0;j<h;j+=3){g.fillStyle=(j%6)?'rgba(120,85,40,.25)':'rgba(255,240,200,.18)';g.fillRect(0,j,w,1.5)}
+  for(let k=0;k<600;k++){g.fillStyle='rgba('+(Math.random()<.5?'90,60,30':'255,235,190')+','+rnd(.05,.28)+')';g.fillRect(rnd(0,w),rnd(0,h),rnd(1,3),rnd(1,3))}},2,1);
+
+// ===== 标签：始终保持清晰的屏幕大小，镜头拉近时自动变小，避免互相叠压 =====
+const labels=[];
+function lab(t,x,y,z,col,s){const c=document.createElement('canvas');c.width=320;c.height=64;const g=c.getContext('2d');g.fillStyle='rgba(8,14,26,.82)';g.fillRect(0,0,320,64);g.strokeStyle=col;g.lineWidth=3;g.strokeRect(2,2,316,60);g.fillStyle=col;g.font='bold 27px sans-serif';g.textAlign='center';g.fillText(t,160,42);
+ const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c),depthTest:(s||1)<=.5}));sp.position.set(x,y,z);sp.renderOrder=10;const bw=13*(s||1),bh=2.6*(s||1);sp.scale.set(bw,bh,1);sc.add(sp);labels.push({sp,bw,bh});return sp}
+// 平铺在地面上的文字标注：没有立杆、没有边框
+function worldSign(t,col,px,pz){const c=document.createElement('canvas');c.width=640;c.height=128;const g=c.getContext('2d');g.font='bold 84px sans-serif';g.textAlign='center';g.textBaseline='middle';g.lineJoin='round';g.lineWidth=14;g.strokeStyle='rgba(8,14,26,.95)';g.strokeText(t,320,68);g.fillStyle=col;g.fillText(t,320,68);
+ const tex=new THREE.CanvasTexture(c);tex.anisotropy=4;const mat=new THREE.MeshBasicMaterial({map:tex,transparent:true,alphaTest:.35});
+ const grp=new THREE.Group();grp.position.set(px,.45,pz);sc.add(grp);
+ // 平躺在地面上的标注：没有立杆；随沙盘一起转动，不会再出现“侧面看变成一条线”的情况
+ mat.depthWrite=false;mat.polygonOffset=true;mat.polygonOffsetFactor=-2;mat.polygonOffsetUnits=-2;
+ const f=new THREE.Mesh(new THREE.PlaneGeometry(10.5,2.1),mat);f.rotation.x=-Math.PI/2;f.renderOrder=3;grp.add(f);return grp}
+function dynLab(s){const c=document.createElement('canvas');c.width=384;c.height=128;const g=c.getContext('2d'),tex=new THREE.CanvasTexture(c);let cur='';
+ const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tex}));sp.renderOrder=10;const bw=11*s,bh=3.67*s;sp.scale.set(bw,bh,1);sc.add(sp);labels.push({sp,bw,bh});
+ return{sp,set(t,col){if(t+col===cur)return;cur=t+col;g.clearRect(0,0,384,128);g.fillStyle='rgba(8,14,26,.92)';g.fillRect(0,0,384,128);g.strokeStyle=col;g.lineWidth=7;g.strokeRect(4,4,376,120);g.fillStyle=col;g.font='bold 70px sans-serif';g.textAlign='center';g.textBaseline='middle';g.fillText(t,192,70);tex.needsUpdate=true}}}
+
+// ===== 水流引擎：带状水面 / 透明管道里的水 / 喷溅水珠 / 涟漪 =====
+const fx=[];
+function crv(p){return new THREE.CatmullRomCurve3(p.map(a=>new THREE.Vector3(a[0],a[1],a[2])),false,'catmullrom',.1)}
+const flowMat=(t,op)=>new THREE.MeshBasicMaterial({map:t,transparent:true,opacity:op||.92,depthWrite:false,side:THREE.DoubleSide,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2});
+function ribbonGeo(curve,width,segs){const pos=[],uv=[],idx=[],up=new THREE.Vector3(0,1,0);
+ for(let i=0;i<=segs;i++){const t=i/segs,p=curve.getPoint(t),tg=curve.getTangent(t),side=new THREE.Vector3().crossVectors(tg,up);if(side.lengthSq()<1e-6)side.set(1,0,0);side.normalize();
+  const w=(typeof width=='function'?width(t):width)/2,a=p.clone().addScaledVector(side,-w),b=p.clone().addScaledVector(side,w);
+  pos.push(a.x,a.y,a.z,b.x,b.y,b.z);uv.push(0,t,1,t);if(i<segs){const k=i*2;idx.push(k,k+1,k+2,k+1,k+3,k+2)}}
+ const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));g.setIndex(idx);return g}
+// 贴地的流动水面：随场景一起缩放，被楼体挡住时只挡住那一段
+function stream(pts,width,tex,sp,texLen,cond,op){const c=crv(pts),len=c.getLength(),t=scrollClone(tex,1,len/texLen),m=new THREE.Mesh(ribbonGeo(c,width,Math.max(8,Math.round(len/1.5))),flowMat(t,op));
+ m.frustumCulled=false;m.renderOrder=2;sc.add(m);const f={g:m,cond:cond||(()=>true),u(dt){t.offset.y-=sp/texLen*dt}};fx.push(f);return f}
+// 透明管道/水带：外壳半透明，里面的水在流动
+function pipe(pts,r,tex,sp,texLen,cond,shell,shellOp){const c=crv(pts),len=c.getLength(),g=new THREE.Group(),t=scrollClone(tex,len/texLen,1),segs=Math.max(20,Math.round(len*1.2));
+ const wa=new THREE.Mesh(new THREE.TubeGeometry(c,segs,r*.9,12),new THREE.MeshBasicMaterial({map:t,transparent:true,opacity:1,depthWrite:false}));
+ const sh=new THREE.Mesh(new THREE.TubeGeometry(c,segs,r,12),new THREE.MeshBasicMaterial({color:shell||0x8c97a3,transparent:true,opacity:shellOp||.22,depthWrite:false,side:THREE.DoubleSide}));
+ wa.frustumCulled=sh.frustumCulled=false;wa.renderOrder=3;sh.renderOrder=3;g.add(wa,sh);
+ const nJ=Math.floor(len/5);for(let k=1;k<=nJ;k++){const u=k/(nJ+1),pt=c.getPoint(u),tg=c.getTangent(u),jr=new THREE.Mesh(new THREE.TorusGeometry(r*1.05,r*.1,6,20),new THREE.MeshBasicMaterial({color:0xaab2bd}));jr.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1),tg);jr.position.copy(pt);jr.renderOrder=3;g.add(jr)}   // 管箍接头
+ sc.add(g);const f={g,cond:cond||(()=>true),u(dt){t.offset.x-=sp/texLen*dt},c};fx.push(f);return f}
+// 实心水带：充满水后是笔直饱满的圆柱，只能平缓地弯，不会折；两端有金属接头
+function crvS(p){return new THREE.CatmullRomCurve3(p.map(a=>new THREE.Vector3(a[0],a[1],a[2])),false,'centripetal')}
+function hose(pts,r,tex,sp,texLen,cond){const c=crvS(pts),len=c.getLength(),t=scrollClone(tex,len/texLen,1),g=new THREE.Group();
+ const m=new THREE.Mesh(new THREE.TubeGeometry(c,Math.max(60,Math.round(len*3)),r,14),new THREE.MeshBasicMaterial({map:t}));m.frustumCulled=false;g.add(m);
+ [0,1].forEach(u=>{const tgd=c.getTangent(u),cp=new THREE.Mesh(new THREE.CylinderGeometry(r*1.25,r*1.25,.5,16),M(0x9ca3af));cp.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),tgd);cp.position.copy(c.getPoint(u)).addScaledVector(tgd,u?-.18:.18);g.add(cp)});
+ sc.add(g);const f={g,cond:cond||(()=>true),u(dt){t.offset.x-=sp/texLen*dt}};fx.push(f);return f}
+// 水珠喷溅
+function mkSpray(n,o){const pos=new Float32Array(n*3),vel=new Float32Array(n*3),age=new Float32Array(n),life=o.life||.8;
+ function reset(i){pos[i*3]=o.p[0]+rnd(-.15,.15);pos[i*3+1]=o.p[1]+rnd(-.1,.1);pos[i*3+2]=o.p[2]+rnd(-.15,.15);vel[i*3]=o.v[0]+rnd(-1,1)*o.sp;vel[i*3+1]=o.v[1]+rnd(-.5,.5)*o.sp;vel[i*3+2]=o.v[2]+rnd(-1,1)*o.sp*.6;age[i]=0}
+ for(let i=0;i<n;i++){reset(i);age[i]=Math.random()*life}
+ const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.BufferAttribute(pos,3));
+ const pts=new THREE.Points(geo,new THREE.PointsMaterial({map:sprayTex,size:o.size||.5,transparent:true,depthWrite:false,color:o.col||0xd9ccb0,opacity:.88,sizeAttenuation:true}));
+ pts.frustumCulled=false;pts.renderOrder=4;sc.add(pts);
+ const f={g:pts,cond:o.cond||(()=>true),u(dt){const gyv=typeof o.gy=='function'?o.gy():o.gy;for(let i=0;i<n;i++){age[i]+=dt;vel[i*3+1]-=9.8*dt;pos[i*3]+=vel[i*3]*dt;pos[i*3+1]+=vel[i*3+1]*dt;pos[i*3+2]+=vel[i*3+2]*dt;if(age[i]>life||pos[i*3+1]<gyv)reset(i)}geo.attributes.position.needsUpdate=true}};fx.push(f);return f}
+// 水面涟漪（inward=true 为向内收缩的"吸水"波纹）
+function ripples(parent,x,y,z,col,cond,n,maxS,inward){const g=new THREE.Group(),ms=[];
+ for(let i=0;i<n;i++){const m=new THREE.Mesh(new THREE.RingGeometry(.7,1,32),new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:.6,depthWrite:false,side:THREE.DoubleSide}));m.rotation.x=-Math.PI/2;m.renderOrder=5;g.add(m);ms.push(m)}
+ g.position.set(x,y,z);(parent||sc).add(g);let tt=0;const f={g,cond:cond||(()=>true),u(dt){tt+=dt;ms.forEach((m,i)=>{let p=(tt*.75+i/n)%1;m.material.opacity=.75*(1-p);if(inward)p=1-p;m.scale.setScalar(.35+p*maxS)})}};fx.push(f);return f}
+function killFx(list){list.forEach(f=>{if(f.g.parent)f.g.parent.remove(f.g);const k=fx.indexOf(f);if(k>=0)fx.splice(k,1)})}
+const gates=[];let front=0,puddle=.1;   // front=山洪在小区地面上漫开的距离；puddle=雨水积水程度
+function mkGate(x,y,z,t){const g=new THREE.Group();g.position.set(x,y,z);sc.add(g);B(3.6,.4,.5,0x374151,0,1.9,0,g);B(.4,3.8,.5,0x374151,-1.7,0,0,g);B(.4,3.8,.5,0x374151,1.7,0,0,g);
+ const pv=new THREE.Group();pv.position.set(0,1.8,.35);g.add(pv);B(3,3.4,.25,0xf59e0b,0,-1.7,0,pv);gates.push(pv);lab(t,x,y+5,z+1,'#fbbf24',.62)}
+
+// ===== 地形：后山、道路、河道 =====
+// ===== 储水井位置 + 带圆孔的地面（让检查井真正与地面齐平，井下能看到水位）=====
+const HW=40;   // 小区半宽：原来 26，扩建后 40（小区 80 米 × 34 米）
+const WP=[[-31,-5.2],[31,-5.2],[-31,5.2],[31,5.2]];   // 4 口储水井（2 个雨水罐 + 2 口收集井），放在东西两侧的绿地里
+// 6 个泵位：[水带过墙的 x 坐标, 泵位 z 坐标, 方向(-1 排河道 / +1 排市政管网)]。每个泵位水带各走各的线路，互不重叠，也不穿楼
+const PS=[[6.5,-6.5,1],[-6.5,6.5,-1],[26,8.5,1],[-26,-8.5,-1],[36,-8.5,1],[-36,8.5,-1]];
+function groundWithHoles(x0,x1,z0,z1,depth,yBottom,color){const sh=new THREE.Shape();sh.moveTo(x0,-z0);sh.lineTo(x1,-z0);sh.lineTo(x1,-z1);sh.lineTo(x0,-z1);sh.closePath();
+ WP.forEach(([x,z])=>{const h=new THREE.Path();h.absarc(x,-z,1.7,0,Math.PI*2,true);sh.holes.push(h)});
+ const g=new THREE.ExtrudeGeometry(sh,{depth,bevelEnabled:false,curveSegments:40});g.rotateX(-Math.PI/2);const m=new THREE.Mesh(g,M(color));m.position.y=yBottom;sc.add(m);return m}
+
+const GM=[];   // 地面类网格：点“透视地下管网”时变半透明
+const bk1=B(280,.2,4.6,0x2f4a37,0,-1,32);bk1.rotation.x=.4636;const bk2=B(280,.2,4.6,0x2f4a37,0,-1,48);bk2.rotation.x=-.4636;
+GM.push(groundWithHoles(-140,140,-120,30,.2,-.2,0x27402f));B(280,.2,12,0x3d4a3a,0,-2.1,40);B(280,.2,70,0x27402f,0,-.1,85);
+B(280,.4,154,0x3b3025,0,-2.8,-43);                       // 地下土层底面：透过半透明的地面能看到埋在地下的管网
+GM.push(groundWithHoles(-HW,HW,-17,17,.3,-.1,0x35553f));                       // 小区绿地
+GM.push(B(HW*2,.1,5,0x3b4150,0,.22,0),B(5,.1,34,0x3b4150,0,.22,0));  // 小区内部道路
+GM.push(B(280,.1,9,0x3b4150,0,.1,23));                        // 小区外的马路（山洪汇入处）
+GM.push(B(5,.1,3,0x3b4150,0,.22,18.5));                       // 大门门槛路面
+B(280,.1,13.5,0x6f5c3d,0,-1.5,40,null,{transparent:true,opacity:.92});   // 暴雨后的河水是浑浊的泥水
+const CONES=[[-26,-52,36,28],[30,-50,30,23],[2,-60,26,20]];
+mesh(new THREE.ConeGeometry(36,28,7),0x55684a,-26,14,-52);mesh(new THREE.ConeGeometry(30,23,7),0x4a5d41,30,11.5,-50);mesh(new THREE.ConeGeometry(26,20,7),0x5d7050,2,10,-60);
+for(let i=0;i<14;i++){const x=-40+i*6+Math.sin(i)*2,z=-32-(i%3)*5;C(.25,2,0x5b3a1e,x,1,z);mesh(new THREE.ConeGeometry(1.3,3.2,6),0x2f5d3a,x,3.4,z)}
+lab('河道（排水去向）→ 河水流向',-52,3,40,'#7dd3fc',1.25);lab('小区地势高 · 河道地势低',34,6,32,'#34d399',1.1);
+// 围墙
+const WC=0x9aa5b1;B(HW*2,3,.8,WC,0,1.5,-17);B(.8,3,34,WC,-HW,1.5,0);B(.8,3,34,WC,HW,1.5,0);B(HW-4,3,.8,WC,-(HW+4)/2,1.5,17);B(HW-4,3,.8,WC,(HW+4)/2,1.5,17);
+B(HW-3.6,.25,1.1,0x7d8794,-(HW+4)/2,3.1,17);B(HW-3.6,.25,1.1,0x7d8794,(HW+4)/2,3.1,17);   // 围墙压顶
+
+// ===== 小区大门：石柱 + 灯笼 + “阳光小区”门牌 =====
+function signTex(){return canvasTex(1024,280,(g,w,h)=>{
+  let gr=g.createLinearGradient(0,0,0,h);gr.addColorStop(0,'#21775a');gr.addColorStop(1,'#134634');g.fillStyle=gr;g.fillRect(0,0,w,h);
+  g.strokeStyle='#e9c46a';g.lineWidth=9;g.strokeRect(12,12,w-24,h-24);g.lineWidth=2.5;g.strokeRect(28,28,w-56,h-56);
+  const sun=(cx,cy)=>{g.save();g.translate(cx,cy);g.fillStyle='#ffd166';g.strokeStyle='#ffd166';g.lineWidth=7;g.lineCap='round';g.beginPath();g.arc(0,0,28,0,6.283);g.fill();for(let i=0;i<12;i++){const a=i*Math.PI/6,r0=42,r1=i%2?56:68;g.beginPath();g.moveTo(Math.cos(a)*r0,Math.sin(a)*r0);g.lineTo(Math.cos(a)*r1,Math.sin(a)*r1);g.stroke()}g.restore()};
+  sun(118,h/2-6);sun(w-118,h/2-6);
+  g.textAlign='center';g.textBaseline='middle';g.font='900 150px "Noto Serif SC","Songti SC","STSong","SimSun",serif';g.shadowColor='rgba(0,0,0,.6)';g.shadowOffsetY=6;g.shadowBlur=10;
+  const tg=g.createLinearGradient(0,50,0,200);tg.addColorStop(0,'#fff6c8');tg.addColorStop(.5,'#ffd54a');tg.addColorStop(1,'#c9921a');g.fillStyle=tg;
+  '阳光小区'.split('').forEach((ch,i)=>g.fillText(ch,512+(i-1.5)*190,118));
+  g.shadowColor='transparent';g.font='700 26px sans-serif';g.fillStyle='#f3d98a';g.fillText('S U N S H I N E   C O M M U N I T Y',512,232)})}
+function mkGateArch(){const g=new THREE.Group();g.position.set(0,0,17);sc.add(g);
+ const STONE=0xdcd0b8,DARK=0x4b4f57,BRZ=0x8a5a2b;
+ [-1,1].forEach(sg=>{const x=sg*4.7;
+  B(2.0,.45,2.0,DARK,x,.22,0,g);B(1.45,6.3,1.45,STONE,x,3.6,0,g);
+  B(.95,5.2,.06,0xbfae8e,x,3.5,.75,g);B(.95,5.2,.06,0xbfae8e,x,3.5,-.75,g);
+  B(1.7,.22,1.7,BRZ,x,2.2,0,g);B(1.7,.22,1.7,BRZ,x,6.55,0,g);B(1.95,.32,1.95,STONE,x,6.9,0,g);
+  const cap=mesh(new THREE.ConeGeometry(1.25,.9,4),0xa5602f,x,7.5,0,g);cap.rotation.y=Math.PI/4;
+  const lt=new THREE.Mesh(new THREE.CylinderGeometry(.28,.34,.6,12),new THREE.MeshBasicMaterial({color:0xffe3a1}));lt.position.set(x,8.25,0);g.add(lt);
+  mesh(new THREE.ConeGeometry(.42,.3,8),0x5b3a1e,x,8.7,0,g);
+  const gl=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending}));gl.position.set(x,8.25,0);gl.scale.set(3.6,3.6,1);g.add(gl)});
+ B(8.0,.3,1.05,BRZ,0,6.65,0,g);B(8.0,.22,.9,BRZ,0,4.2,0,g);B(7.7,2.2,.5,0x3a2814,0,5.4,0,g);
+ const st=signTex(),mt=new THREE.MeshBasicMaterial({map:st});
+ const f1=new THREE.Mesh(new THREE.PlaneGeometry(7.3,2.0),mt);f1.position.set(0,5.4,.26);g.add(f1);
+ const f2=new THREE.Mesh(new THREE.PlaneGeometry(7.3,2.0),mt);f2.position.set(0,5.4,-.26);f2.rotation.y=Math.PI;g.add(f2);
+ [-1,1].forEach(sg=>{const s=mesh(new THREE.SphereGeometry(.7,10,8),0x2f6a3e,sg*11.4,.55,1.4,g);s.scale.y=.8})}
+mkGateArch();
+// 楼栋与门卫室
+[[-16,-9],[16,-9],[-16,8],[16,8]].forEach(([x,z])=>{B(10,11,7,0xc7ced8,x,5.7,z);B(10.4,.5,7.4,0x6b7280,x,11.3,z);for(let i=0;i<4;i++)for(let j=0;j<3;j++)B(1.1,1.3,.1,0xfde68a,x-3.6+i*2.4,2.6+j*3,z+3.55)});
+B(4,3,3,0xd6c7a1,15,1.7,14);B(4.4,.4,3.4,0x7c2d12,15,3.4,14);
+// ===== 绿植：后山成片的树林 + 小区里的树木、灌木、花坛、绿篱（全部用实例化网格，不占性能）=====
+const rng=(()=>{let a=20260;return()=>{a=(a+0x6D2B79F5)|0;let t=Math.imul(a^(a>>>15),1|a);t=(t+Math.imul(t^(t>>>7),61|t))^t;return((t^(t>>>14))>>>0)/4294967296}})();
+function dseg(px,pz,ax,az,bx,bz){const dx=bx-ax,dz=bz-az,t=Math.max(0,Math.min(1,((px-ax)*dx+(pz-az)*dz)/((dx*dx+dz*dz)||1)));return Math.hypot(px-ax-t*dx,pz-az-t*dz)}
+function instSet(parts,list){parts.forEach(([geo,col])=>{const m=new THREE.InstancedMesh(geo,M(col),list.length),d=new THREE.Object3D();list.forEach((a,k)=>{d.position.set(a[0],a[1],a[2]);d.rotation.y=a[6]||0;d.scale.set(a[3],a[4],a[5]);d.updateMatrix();m.setMatrixAt(k,d.matrix)});m.instanceMatrix.needsUpdate=true;m.frustumCulled=false;sc.add(m)})}
+const gTrunk=new THREE.CylinderGeometry(.18,.26,1.5,6);gTrunk.translate(0,.75,0);
+const gPine1=new THREE.ConeGeometry(1.35,2.7,7);gPine1.translate(0,2.6,0);
+const gPine2=new THREE.ConeGeometry(1.0,2.2,7);gPine2.translate(0,4.0,0);
+const gRound=new THREE.SphereGeometry(1.55,9,7);gRound.translate(0,3.1,0);
+const gBush=new THREE.SphereGeometry(1,8,6);gBush.translate(0,.55,0);
+const gFlower=new THREE.SphereGeometry(.2,6,5);gFlower.translate(0,.25,0);
+// 后山：避开山洪冲沟，满山种上松树
+const GULLY=[[[-31,-46],[-40,-30],[-46,-18],[-48,0]],[[31,-46],[40,-30],[46,-18],[48,0]]];
+function hillY(x,z){let y=.3;CONES.forEach(([cx,cz,R,H])=>{const d=Math.hypot(x-cx,z-cz);if(d<R*.9)y=Math.max(y,H*(1-d/(R*.9)))});return y}
+{const mt=[];CONES.forEach(([cx,cz,R,H])=>{let n=0,k=0;while(n<90&&k<900){k++;const a=rng()*6.283,d=R*(.06+.68*rng()),x=cx+Math.cos(a)*d,z=cz+Math.sin(a)*d;
+  if(GULLY.some(p=>p.some((q,j)=>j&&dseg(x,z,p[j-1][0],p[j-1][1],q[0],q[1])<5)))continue;
+  const sc0=1.5+rng()*1.4;mt.push([x,hillY(x,z)-.15,z,sc0,sc0*(.9+rng()*.5),sc0,rng()*6]);n++}});
+ instSet([[gTrunk,0x5b3a1e],[gPine1,0x2c6b38],[gPine2,0x3f8f4c]],mt)}
+// 小区：哪些地方可以种（避开道路、楼栋、泵位+水带线路+吸水区、储水井、大门口）
+const BR=[[-16,-9],[16,-9],[-16,8],[16,8]].map(([x,z])=>[x-5.8,x+5.8,z-4.3,z+4.3]);BR.push([12.5,17.5,12,16]);
+function okPlant(x,z,r){
+ if(Math.abs(x)>HW-1.6-r||z<-15.2+r||z>15.1-r)return false;
+ if(Math.abs(x)<2.9+r||Math.abs(z)<2.9+r)return false;
+ if(z>8&&Math.abs(x)<10)return false;
+ if(BR.some(b=>x>b[0]-r&&x<b[1]+r&&z>b[2]-r&&z<b[3]+r))return false;
+ if(PS.some(([xw,pz,sg])=>{const px=xw-sg*.95;return(x>px-3.2-r&&x<px+3.2+r&&z>pz-8.4-r&&z<pz+3.2+r)||(Math.abs(x-xw)<1.5+r&&z>pz&&z<18)}))return false;
+ if(WP.some(([wx,wz])=>Math.hypot(x-wx,z-wz)<6.3+r))return false;
+ return true}
+{const pines=[],rounds=[],bushA=[],bushB=[],fl=[[],[],[],[]];
+ let n=0,k=0;while(n<34&&k<900){k++;const x=(rng()*2-1)*(HW-2),z=-15+rng()*29;if(!okPlant(x,z,1.7))continue;const s0=.85+rng()*.7;(rng()<.45?pines:rounds).push([x,0,z,s0,s0*(.9+rng()*.4),s0,rng()*6]);n++}
+ n=0;k=0;while(n<80&&k<1500){k++;const x=(rng()*2-1)*(HW-2),z=-15+rng()*29;if(!okPlant(x,z,.9))continue;const r=.45+rng()*.5;(rng()<.5?bushA:bushB).push([x,0,z,r,r*.8,r,rng()*6]);n++}
+ instSet([[gTrunk,0x5b3a1e],[gPine1,0x2f6b3a],[gPine2,0x3f8a4a]],pines);
+ instSet([[gTrunk,0x5b3a1e],[gRound,0x3a8d4b]],rounds);
+ instSet([[gBush,0x2f7a3e]],bushA);instSet([[gBush,0x4aa05a]],bushB);
+ // 绿篱：沿两侧围墙和大门两边的围墙内侧
+ const HC=0x2f6b3a;B(.9,1.1,29,HC,-(HW-1.0),.6,0);B(.9,1.1,29,HC,HW-1.0,.6,0);
+ B(HW-9.5,1.1,.8,HC,-(HW+9)/2+.25,.6,16.1);B(HW-9.5,1.1,.8,HC,(HW+9)/2-.25,.6,16.1)}
+
+// ===== 后山山洪：沿山体表面流下 → 外马路 → 汇到大门口 =====
+function mY(x,z){let y=.3;CONES.forEach(([cx,cz,R,H])=>{const d=Math.hypot(x-cx,z-cz);if(d<R)y=Math.max(y,H*(1-d/R)+.6)});return y}
+function gully(xz){const c=new THREE.CatmullRomCurve3(xz.map(p=>new THREE.Vector3(p[0],0,p[1])),false,'catmullrom',.3),n=Math.round(c.getLength()/3),o=[];for(let i=0;i<=n;i++){const p=c.getPoint(i/n);o.push([p.x,mY(p.x,p.z),p.z])}return o}
+stream(gully([[-31,-46],[-40,-30],[-46,-18],[-48,0],[-47,16],[-41,22.5],[-12,23],[0,21],[0,18.4]]),t=>1.3+2.4*Math.min(1,t*1.7),mudS,5,5);
+stream(gully([[31,-46],[40,-30],[46,-18],[48,0],[47,16],[41,22.5],[12,23],[0,21],[0,18.4]]),t=>1.3+2.4*Math.min(1,t*1.7),mudS,5,5);
+const gateIn=()=>!(S.sand||S.board);
+stream([[0,.36,18.4],[0,.36,14],[0,.36,8]],5,mudS,5.5,5,gateIn);                                 // 大门口灌入
+stream([[0,.36,8],[0,.36,0],[0,.36,-9],[0,.36,-15]],3.2,mudS,4.5,5,()=>gateIn()&&front>12);     // 沿主干道向里
+stream([[0,.36,2],[-8,.36,0],[-17,.36,0],[-24,.36,0]],2.8,mudS,4,5,()=>gateIn()&&front>22);     // 沿横路向左
+stream([[0,.36,2],[8,.36,0],[17,.36,0],[24,.36,0]],2.8,mudS,4,5,()=>gateIn()&&front>22);        // 沿横路向右
+stream([[-24,.36,0],[-32,.36,0],[-39,.36,0]],2.8,mudS,4,5,()=>gateIn()&&front>34);
+stream([[24,.36,0],[32,.36,0],[39,.36,0]],2.8,mudS,4,5,()=>gateIn()&&front>34);
+stream([[0,.36,14],[-7,.36,15],[-15,.36,15.6],[-24,.36,15.6]],2.2,mudS,3.6,5,()=>gateIn()&&front>14); // 贴墙根向左漫
+stream([[0,.36,14],[7,.36,15],[15,.36,15.6],[24,.36,15.6]],2.2,mudS,3.6,5,()=>gateIn()&&front>14);   // 贴墙根向右漫
+stream([[-24,.36,15.6],[-32,.36,15.6],[-39,.36,15.6]],2.2,mudS,3.6,5,()=>gateIn()&&front>30);
+stream([[24,.36,15.6],[32,.36,15.6],[39,.36,15.6]],2.2,mudS,3.6,5,()=>gateIn()&&front>30);
+mkSpray(40,{p:[0,.5,16.8],v:[0,1.6,-1.6],sp:1.6,size:.45,life:.6,gy:.3,col:0xcdb48a,cond:gateIn});   // 灌入时的浑水溅起
+// 大门外的积水池：沙袋挡水后水位在这里抬升
+const poolTop=scrollClone(poolMud,3,2);scrolls.push({t:poolTop,dx:.01,dy:.025});
+const pool=new THREE.Mesh(new THREE.CylinderGeometry(1,1.55,1,48,1,false,-Math.PI/2,Math.PI),[
+  new THREE.MeshBasicMaterial({color:0x7a5d33,transparent:true,opacity:.86,depthWrite:false,side:THREE.DoubleSide}),
+  new THREE.MeshBasicMaterial({map:poolTop,transparent:true,opacity:.84,depthWrite:false}),
+  new THREE.MeshBasicMaterial({color:0x7a5d33,transparent:true,opacity:.5,depthWrite:false})]);
+pool.position.set(0,0,17);pool.scale.set(12,.3,6.4);pool.renderOrder=1;sc.add(pool);let poolL=.3;
+
+// ===== 向井口/雨水口旋流的泥水（着色器，井和雨水口共用）=====
+const mudR=streamTex('#7a6240','#d9c293',true),discTime={value:0};
+const swirlMat=(cx,cz,r0,r1)=>new THREE.ShaderMaterial({uniforms:{uTime:discTime,uTex:{value:mudR},uC:{value:new THREE.Vector2(cx,cz)},uR0:{value:r0},uR1:{value:r1}},transparent:true,depthWrite:false,
+ vertexShader:'varying vec2 vXZ;void main(){vec4 w=modelMatrix*vec4(position,1.);vXZ=w.xz;gl_Position=projectionMatrix*viewMatrix*w;}',
+ fragmentShader:['uniform float uTime,uR0,uR1;uniform sampler2D uTex;uniform vec2 uC;varying vec2 vXZ;',
+ 'void main(){vec2 d=vXZ-uC;float r=length(d);if(r<uR0||r>uR1)discard;float ang=atan(d.y,d.x)/6.2832+.5;',
+ ' vec2 uv=vec2(ang*5.+uTime*(.15+.55/r),r/uR1*1.15+uTime*.95);',
+ ' vec3 c=texture2D(uTex,uv).rgb;float a=smoothstep(uR1,uR1*.62,r)*smoothstep(uR0,uR0+.4,r)*.92;gl_FragColor=vec4(c,a);}'].join('\n')});
+function swirl(cx,cz,r0,r1,y,cond){const m=new THREE.Mesh(new THREE.PlaneGeometry(r1*2+1,r1*2+1),swirlMat(cx,cz,r0,r1));m.rotation.x=-Math.PI/2;m.position.set(cx,y,cz);m.renderOrder=2;m.frustumCulled=false;sc.add(m);const f={g:m,cond:cond||(()=>true),u(){}};fx.push(f);return f}
+
+// ===== 排水管网：全部埋在地下（地面以下 1.4 米），地面只露出井盖和雨水口；点“透视地下管网”才能看到管里的水 =====
+const UY=-1.4;
+const PP=[[[-36,UY,0],[-22,UY,0],[0,UY,0],[14,UY,0],[14,UY,17],[14,UY,30],[14,-1.35,33.4]],[[0,UY,-14],[0,UY,0]],[[0,UY,14],[0,UY,0]],[[36,UY,0],[24,UY,0],[14,UY,0]]];   // 小区自带管网：从围墙下方穿过，通到河岸
+PP.forEach(q=>pipe(q,.55,waterP,3.2,3.5));
+[[-10,0],[10,0],[0,-8],[0,9],[-22,0],[-34,0],[24,0],[34,0]].forEach(([x,z])=>{                                   // 检查井：地面只有一个与路面齐平的井盖
+ C(.62,.04,0x2b3038,x,.29,z);const rg=new THREE.Mesh(new THREE.RingGeometry(.62,.82,24),M(0x6b7280,{side:2}));rg.rotation.x=-Math.PI/2;rg.position.set(x,.3,z);sc.add(rg);
+ C(.36,1.67,0x8d949e,x,-.57,z);swirl(x,z,.66,2.1,.34,()=>puddle>.27||front>20)});
+// 小区外的市政管网（独立于小区管网），同样埋在路面下，沿路灌入的雨水从路面雨水口流进去
+pipe([[40,UY,26],[-30,UY,26],[-30,UY,30],[-30,-1.35,33.4]],.8,waterP,3.8,3.5);
+function inlet(x,z,cond){B(1.5,.04,1.1,0x6b7280,x,.17,z);B(1.3,.05,.9,0x1b2028,x,.18,z);for(let k=0;k<6;k++)B(.05,.07,.8,0x56606d,x-.55+k*.22,.19,z);C(.4,1.55,0x8d949e,x,-.62,z);swirl(x,z,.55,1.6,.23,cond)}
+[0,-12,-24].forEach(x=>inlet(x,26));                                                     // 路上的雨水口
+PS.forEach(([xw,z,sg],i)=>{if(sg>0)inlet(xw,26,()=>!!slots[i].p)});                             // 水泵可直接排入的雨水口（正对右侧三台泵的水带）
+
+lab('小区外市政管网（地下）',-14,3.6,26,'#c9b48a',1.05);lab('市政雨水口（水泵可排入）',26,3.4,29.5,'#c9b48a',.8);
+mkGate(14,-.9,33.2,'小区排水口·防倒灌闸门');mkGate(-30,-.9,33.2,'市政排水口·防倒灌闸门');
+[14,-30].forEach(x=>{B(3.6,1.5,.9,0x9aa1ab,x,-.95,32.6);                                  // 出水口挡墙：管口从河岸露出，浑水流进河里
+ mkSpray(40,{p:[x,-1.2,33.7],v:[0,.7,2.2],sp:.6,size:.42,life:.55,gy:-1.5,col:0xd0bf98});
+ stream([[x,-1.4,33.8],[x,-1.4,36.4],[x,-1.4,40]],t=>2.2+t*3,mudS,3.2,5);ripples(null,x,-1.38,34.6,0xdccbaa,null,3,2.4)});
+stream([[-150,-1.38,40],[150,-1.38,40]],11,riverS,3.6,7,null,.85);       // 河水自西向东流（浑浊的泥水）
+
+// ===== 6 口储水井：与地面齐平的检查井。打开井盖后，地面的雨水直接漫过井口流下去，井内水位上升 =====
+const wellTop=scrollClone(poolMud,1,1);scrolls.push({t:wellTop,dx:.02,dy:.03});
+const curT=scrollClone(mudS,1,2);scrolls.push({t:curT,dx:0,dy:1.3});
+const pitTex=canvasTex(64,128,(g,w,h)=>{g.fillStyle='#7b828c';g.fillRect(0,0,w,h);for(let i=0;i<260;i++){g.fillStyle='rgba('+(Math.random()<.5?'50,55,62':'200,205,212')+','+rnd(.04,.16)+')';g.fillRect(rnd(0,w),rnd(0,h),rnd(1,3),rnd(1,3))}g.fillStyle='rgba(30,34,40,.55)';g.fillRect(0,h-4,w,4)},1,4);
+const tankWaterTex=scrollClone(poolMud,2,1);scrolls.push({t:tankWaterTex,dx:.03,dy:.02});
+const wells=WP.map(([x,z],i)=>{const kind=i<2?'tank':'well';const g=new THREE.Group();g.position.set(x,.2,z);sc.add(g);
+ const sx=x>0?x-7:x+7,sz=z>0?z-3:z+3,a0=Math.atan2(sz-z,sx-x),c0=Math.cos(a0),s0=Math.sin(a0);
+ const frame=new THREE.Mesh(new THREE.RingGeometry(1.62,2.05,40),M(kind==='tank'?0x9aa1ab:0xfacc15,{side:2}));frame.rotation.x=-Math.PI/2;frame.position.y=.02;g.add(frame);
+ const cov=new THREE.Group();g.add(cov);let wt=null,plane=null,wat=null,surf=null;
+ if(kind==='tank'){
+  // 地下雨水罐：地面只露出一个橙色井盖和短短的检查井颈，地下埋着一只横卧的圆柱形水罐（透明罐壁，看得见罐里的水）
+  cov.position.y=.05;C(1.85,.08,0xf59e0b,0,0,0,cov);B(2.6,.04,.18,0xb45309,0,.05,0,cov);B(.18,.04,2.6,0xb45309,0,.05,0,cov);C(.34,.05,0x7c2d12,0,.07,0,cov);
+
+  const neck=new THREE.Mesh(new THREE.CylinderGeometry(1.66,1.66,.8,40,1,true),new THREE.MeshLambertMaterial({map:pitTex,side:THREE.BackSide}));neck.position.y=-.4;g.add(neck);
+  const tg=new THREE.Group();tg.position.set(x,-1.6,z);sc.add(tg);
+  plane=new THREE.Plane(new THREE.Vector3(0,-1,0),-2.6);
+  const shell=new THREE.Mesh(new THREE.CylinderGeometry(1,1,6,28,1,true),new THREE.MeshBasicMaterial({color:0x8fb4d0,transparent:true,opacity:.2,side:2,depthWrite:false}));shell.rotation.z=Math.PI/2;tg.add(shell);
+  [-2.5,-.85,.85,2.5].forEach(px=>{const t=new THREE.Mesh(new THREE.TorusGeometry(1.03,.06,8,28),new THREE.MeshBasicMaterial({color:0x6b8aa3}));t.rotation.y=Math.PI/2;t.position.x=px;tg.add(t)});
+  [-3,3].forEach(ex=>{const d=new THREE.Mesh(new THREE.CircleGeometry(1,24),new THREE.MeshBasicMaterial({color:0x5b7a94,transparent:true,opacity:.55,side:2,depthWrite:false}));d.rotation.y=Math.PI/2;d.position.x=ex;tg.add(d)});
+  wat=new THREE.Mesh(new THREE.CylinderGeometry(.97,.97,5.96,28,1,true),new THREE.MeshBasicMaterial({map:tankWaterTex,transparent:true,opacity:.88,side:2,depthWrite:false,clippingPlanes:[plane]}));wat.rotation.z=Math.PI/2;wat.visible=false;tg.add(wat);
+  surf=new THREE.Mesh(new THREE.PlaneGeometry(5.96,1),new THREE.MeshBasicMaterial({map:wellTop,transparent:true,opacity:.9,depthWrite:false,side:2}));surf.rotation.x=-Math.PI/2;surf.position.set(x,-2.5,z);surf.visible=false;sc.add(surf);
+ }else{
+  // 雨水收集井：竖直的圆井，井口盖着实心铸铁井盖（可以掀开），井壁有爬梯
+  const wall=new THREE.Mesh(new THREE.CylinderGeometry(1.66,1.66,2.5,40,1,true),new THREE.MeshLambertMaterial({map:pitTex,side:THREE.BackSide}));wall.position.y=-1.25;g.add(wall);
+  const flr=new THREE.Mesh(new THREE.CircleGeometry(1.66,32),M(0x2a2e35));flr.rotation.x=-Math.PI/2;flr.position.y=-2.48;g.add(flr);
+  [-.35,-.8,-1.25,-1.7,-2.15].forEach(y=>B(.5,.06,.14,0x8a919b,0,y,1.6,g));
+  wt=new THREE.Mesh(new THREE.CylinderGeometry(1.62,1.62,1,32),[new THREE.MeshBasicMaterial({color:0x6b5736}),new THREE.MeshBasicMaterial({map:wellTop}),new THREE.MeshBasicMaterial({color:0x5a4630})]);wt.visible=false;g.add(wt);
+  cov.position.set(0,.1,-2.0);   // 铰链在 -z 一侧，打开时整块盖子向上掀起
+  C(2.0,.24,0x4b5563,0,0,2.0,cov);                                                  // 实心铸铁井盖，不漏水
+  const rim=new THREE.Mesh(new THREE.TorusGeometry(1.92,.1,8,40),M(0x1f2937));rim.rotation.x=Math.PI/2;rim.position.set(0,.12,2.0);cov.add(rim);
+  [.9,1.35].forEach(r=>{const t=new THREE.Mesh(new THREE.TorusGeometry(r,.035,6,36),M(0x6b7280));t.rotation.x=Math.PI/2;t.position.set(0,.13,2.0);cov.add(t)});
+  B(1.1,.14,.22,0x111827,0,.2,2.0,cov);C(.14,.5,0x374151,0,.05,-.05,cov).rotation.z=Math.PI/2;
+ }
+ g.traverse(o=>o.userData={k:'well',i});
+ const dl2=dynLab(.85);dl2.sp.position.set(x,7.6,z);dl2.sp.visible=false;
+ worldSign(kind==='tank'?'地下雨水罐':'雨水收集井',kind==='tank'?'#22d3ee':'#a3e635',x,z+Math.sign(z)*4.6);
+ const open=()=>S.storage[i]&&wells[i].fill<.995;
+ const disc=new THREE.Mesh(new THREE.PlaneGeometry(11,11),swirlMat(x,z,1.72,5.3));disc.rotation.x=-Math.PI/2;disc.position.set(x,.33,z);disc.renderOrder=2;disc.frustumCulled=false;disc.visible=false;sc.add(disc);
+ const cur=new THREE.Mesh(new THREE.CylinderGeometry(1.64,1.64,1,24,1,true,Math.atan2(c0,s0)-1.05,2.1),new THREE.MeshBasicMaterial({map:curT,transparent:true,opacity:.93,side:THREE.DoubleSide,depthWrite:false}));cur.renderOrder=4;cur.visible=false;g.add(cur);
+ let col=null;if(kind==='tank'){col=new THREE.Mesh(new THREE.CylinderGeometry(.55,.55,1,16,1,true),new THREE.MeshBasicMaterial({map:curT,transparent:true,opacity:.92,side:THREE.DoubleSide,depthWrite:false}));col.renderOrder=4;col.visible=false;g.add(col)}   // 从井颈落进水罐的水柱
+ const sp1=kind==='tank'?[x,-2,z]:[x+c0*1.45,-2,z+s0*1.45];
+ mkSpray(kind==='tank'?46:34,{p:sp1,v:[0,1.8,0],sp:kind==='tank'?1.6:1.3,size:.38,life:.55,gy:()=>wells[i].wy,col:0xd9c9a4,cond:open});
+ const rp=ripples(g,0,-1.5,0,0xdccbaa,()=>S.storage[i]&&wells[i].fill>.02&&wells[i].fill<.995,2,kind==='tank'?1.1:.7);
+ return{g,cov,wt,cur,col,disc,sp1,fill:0,lp:0,sl:[Math.cos(a0+Math.PI/2),Math.sin(a0+Math.PI/2)],dl:dl2,rp,wy:-2,kind,plane,wat,surf}});
+
+// ===== 3 个水泵位 + 大门沙袋位 =====
+const slots=PS.map(([xw,z,sg],i)=>{const x=xw-sg*.95;return{x,z,sg,xw,r:mk(new THREE.RingGeometry(1.7,2.5,28),0xfacc15,x,.4,z),p:null,type:null}});
+slots.forEach((s,i)=>s.l=lab(s.sg>0?'→市政管网':'→河道',s.x,1.6,s.z,s.sg>0?'#38bdf8':'#7dd3fc',.45));
+const zone=mk(new THREE.RingGeometry(4.6,5.6,36),0xef4444,0,.45,17.6);
+
+// ===== 真实沙袋：粗麻布纹理的“枕头形”沙袋，错缝码放成双层墙 =====
+function bagGeo(){const g=new THREE.SphereGeometry(1,18,12),p=g.attributes.position;
+ for(let i=0;i<p.count;i++){const x=p.getX(i),y=p.getY(i),z=p.getZ(i),tp=1-.4*x*x,fy=Math.sign(y)*Math.pow(Math.abs(y),.72);
+  p.setXYZ(i,x*.88,fy*.21*tp+Math.max(0,.03*(1-x*x*4)*Math.sign(y)),z*.47*tp)}
+ g.computeVertexNormals();return g}
+const sand=new THREE.Group();sand.visible=false;sc.add(sand);const bags=[];let sandT=9;
+{const bg=bagGeo(),mats=[0xffffff,0xeadbbd,0xd9c79e,0xf3e6c8].map(c=>new THREE.MeshLambertMaterial({map:burlap,color:c}));let idx=0;
+ const add=(x,sx,y,zc,r)=>{const m=new THREE.Mesh(bg,mats[(idx+r)%4]);m.position.set(x+rnd(-.05,.05),y,zc+rnd(-.04,.04));m.scale.set(sx*rnd(.97,1.04),rnd(.95,1.08),rnd(.97,1.05));m.rotation.set(rnd(-.04,.04),rnd(-.07,.07),rnd(-.03,.03));sand.add(m);bags.push({m,y0:m.position.y,d:idx*.04});idx++};
+ for(let r=0;r<4;r++)for(let L=0;L<2;L++){const par=(r+L)%2,zc=17.5+L*.9,y=.5+r*.41;
+  (par?[-2.55,-.85,.85,2.55]:[-3.4,-1.7,0,1.7,3.4]).forEach(x=>add(x,1,y,zc,r));if(par){add(-3.82,.55,y,zc,r);add(3.82,.55,y,zc,r)}}}
+sand.traverse(o=>o.userData={k:'sand'});
+// 沙袋墙挡水：墙前水面上的拍击水花
+[-2.2,2.2].forEach(x=>mkSpray(24,{p:[x,1.1,19.1],v:[0,2.2,1.1],sp:1.1,size:.34,life:.55,gy:.9,cond:()=>(S.sand||S.board)&&poolL>.8}));
+
+// ===== 水泵 =====
+const puddleT=scrollClone(poolMud,1,1);scrolls.push({t:puddleT,dx:.04,dy:.03});
+// 烟雾（柴油机排气）
+const smokeTex=(()=>{const c=document.createElement('canvas');c.width=c.height=64;const g=c.getContext('2d'),gr=g.createRadialGradient(32,32,2,32,32,30);gr.addColorStop(0,'rgba(95,95,100,.9)');gr.addColorStop(1,'rgba(95,95,100,0)');g.fillStyle=gr;g.fillRect(0,0,64,64);return new THREE.CanvasTexture(c)})();
+function mkSmoke(x,y,z,dx){const grp=new THREE.Group(),ps=[];sc.add(grp);
+ for(let i=0;i<7;i++){const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:smokeTex,transparent:true,depthWrite:false,opacity:0}));sp.renderOrder=6;grp.add(sp);ps.push({sp,a:i/7})}
+ const f={g:grp,cond:()=>true,u(dt){ps.forEach((p,i)=>{p.a=(p.a+dt*.4)%1;const t=p.a,sz=.45+t*2.4;p.sp.position.set(x+dx*t*1.6+Math.sin(t*9+i)*.12,y+t*3.4,z+Math.cos(t*7+i)*.1);p.sp.scale.set(sz,sz,1);p.sp.material.opacity=.5*(1-t)*Math.min(1,t*8)})}};fx.push(f);return f}
+// 水中冒出的气泡（吸水口）
+function mkBubbles(x,y0,y1,z,n,rad){const pos=new Float32Array(n*3),ph=new Float32Array(n),off=[];for(let i=0;i<n;i++){ph[i]=Math.random();off.push([rnd(-1,1)*rad,rnd(-1,1)*rad])}
+ const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.BufferAttribute(pos,3));
+ const pts=new THREE.Points(geo,new THREE.PointsMaterial({map:sprayTex,size:.28,transparent:true,depthWrite:false,color:0xeaf6ff,opacity:.9,sizeAttenuation:true}));pts.frustumCulled=false;pts.renderOrder=4;sc.add(pts);
+ const f={g:pts,cond:()=>true,u(dt){for(let i=0;i<n;i++){ph[i]=(ph[i]+dt*.9)%1;const t=ph[i];pos[i*3]=x+off[i][0]*(.4+t*.6)+Math.sin(t*12+i)*.08;pos[i*3+1]=y0+(y1-y0)*t;pos[i*3+2]=z+off[i][1]*(.4+t*.6)}geo.attributes.position.needsUpdate=true}};fx.push(f);return f}
+// 吸水处：一滩浑水 + 向吸水口收拢的旋涡、涟漪、气泡
+function intakeSpot(x,z,rad,r0){const grp=new THREE.Group();sc.add(grp);
+ const pd=new THREE.Mesh(new THREE.CircleGeometry(rad,36),new THREE.MeshBasicMaterial({map:puddleT,transparent:true,opacity:.8,depthWrite:false}));pd.rotation.x=-Math.PI/2;pd.position.set(x,.29,z);pd.renderOrder=1;grp.add(pd);
+ return[{g:grp,cond:()=>true,u(){}},swirl(x,z,r0||.5,rad*.95,.33),ripples(null,x,.34,z,0xdccbaa,null,3,rad*.6,true),mkBubbles(x,.3,.85,z,18,rad*.3)]}
+// 带滤网的吸水头（放在水里）
+function strainer(x,z,r){const g=new THREE.Group();g.position.set(x,.2,z);sc.add(g);C(r,.5,0x6b7280,0,.25,0,g);for(let k=0;k<8;k++){const a=k*Math.PI/4;B(.06,.5,.06,0x1f2937,Math.cos(a)*r*1.02,.25,Math.sin(a)*r*1.02,g)}C(r*1.08,.07,0x374151,0,.53,0,g);return{g,cond:()=>true,u(){}}}
+const BB=(w,h,d,c,x,y,z,p)=>{const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),new THREE.MeshBasicMaterial({color:c}));m.position.set(x,y,z);(p||sc).add(m);return m};
+// 三类抽水设备：龙吸水排水车 / 柴油抽水泵 / 潜水混流泵。g 的 x 轴按 sg 镜像，出水口始终朝向各自的水带一侧；吸水一律朝 -z 方向
+function mkPump(sg,type,px,pz){const g=new THREE.Group(),fxs=[];g.scale.x=sg;let tick=()=>{};
+ if(type==='dragon'){
+  // —— 龙吸水应急排水车：红色车头 + 车厢，车顶盘着水带，车尾伸出液压吸水臂，臂端的大功率泵头沉入积水里 ——
+  const RED=0xc62828,WH=0xf1f5f9;
+  B(2.5,.55,5.9,0x1f2937,0,.85,0,g);
+  B(2.4,1.7,1.7,RED,0,2.0,2.05,g);B(2.46,.4,1.74,WH,0,1.6,2.05,g);B(2.2,.75,.06,0xaed9ff,0,2.55,2.92,g);
+  [-.7,.7].forEach(x=>BB(.4,.22,.05,0xfff3b0,x,1.35,2.92,g));
+  B(2.5,2.0,3.9,RED,0,2.1,-.9,g);B(2.54,.4,3.94,WH,0,1.75,-.9,g);
+  B(2.3,.18,3.6,0x9ca3af,0,3.2,-.9,g);                                               // 车顶平台
+  [-1.5,-.4].forEach(z=>{const t=new THREE.Mesh(new THREE.TorusGeometry(.55,.16,8,20),M(0xea580c));t.rotation.x=Math.PI/2;t.position.set(-.35,3.5,z);g.add(t)});   // 盘着的水带
+  C(.5,1.0,0x0f766e,.55,3.8,.3,g);C(.56,.12,0x94a3b8,.55,3.4,.3,g);                  // 车顶泵组
+  B(.34,.8,.8,0x374151,1.3,1.9,0,g);const pt=C(.3,.5,0x9ca3af,1.5,1.9,0,g);pt.rotation.z=Math.PI/2;C(.36,.1,0x4b5563,1.78,1.9,0,g).rotation.z=Math.PI/2;   // 侧面出水口
+  C(.1,1.0,0x111827,.95,3.7,1.3,g);                                                    // 排气管
+  [-1.2,1.2].forEach(x=>[-2.1,-.7,2.1].forEach(z=>{const w=C(.55,.42,0x111827,x,.55,z,g);w.rotation.z=Math.PI/2;C(.3,.44,0x9ca3af,x,.55,z,g).rotation.z=Math.PI/2}));
+  const bR=BB(.5,.2,.3,0xff3b3b,-.45,3.0,2.05,g).material,bB=BB(.5,.2,.3,0x3b82f6,.45,3.0,2.05,g).material;
+  // 吸水臂 + 水里的泵头
+  const hx=px,hz=pz-6.4;
+  fxs.push(...intakeSpot(hx,hz,3.0,.9));
+  const hd=new THREE.Group();hd.position.set(hx,.2,hz);sc.add(hd);C(.82,.9,0x0f766e,0,.5,0,hd);C(.95,.12,0x9ca3af,0,.1,0,hd);C(.95,.12,0x9ca3af,0,.92,0,hd);for(let k=0;k<10;k++){const a=k*Math.PI/5;B(.07,.5,.07,0x1f2937,Math.cos(a)*.9,.5,Math.sin(a)*.9,hd)}fxs.push({g:hd,cond:()=>true,u(){}});
+  fxs.push(pipe([[hx,1.0,hz],[hx,2.0,hz+.8],[hx,3.4,hz+2.2],[hx,4.0,hz+3.3],[hx,3.45,pz-2.65]],.42,waterP,3.6,3.5,null,0x94a3b8,.32));
+  fxs.push(mkSmoke(px+sg*.95,4.3,pz+1.3,.8));
+  tick=(ts,dt)=>{g.position.set(px+Math.sin(ts/23)*.01,.2+Math.sin(ts/31)*.015,pz+Math.cos(ts/29)*.008);const f=Math.floor(ts/200)%2;bR.color.setHex(f?0xff3b3b:0x4a1010);bB.color.setHex(f?0x10204a:0x3b82f6)};
+ }else if(type==='diesel'){
+  // —— 柴油抽水泵：钢管护架里一台柴油机 + 橙色油箱，右边是离心泵泵壳；排气管冒烟，风扇转动，吸水软管伸进水里 ——
+  B(3.0,.2,1.9,0x374151,0,.34,0,g);
+  [[-1.4,-.8],[1.4,-.8],[-1.4,.8],[1.4,.8]].forEach(([x,z])=>B(.1,1.9,.1,0x111827,x,1.3,z,g));
+  [-.8,.8].forEach(z=>B(2.9,.1,.1,0x111827,0,2.25,z,g));[-1.4,1.4].forEach(x=>B(.1,.1,1.7,0x111827,x,2.25,0,g));
+  B(1.25,.95,1.0,0x64748b,-.65,.95,0,g);B(.95,.25,.82,0x1f2937,-.65,1.55,0,g);
+  B(1.0,.5,.8,0xf59e0b,-.65,1.95,0,g);C(.1,.12,0x111827,-.4,2.25,.2,g);                 // 油箱 + 油箱盖
+  C(.5,.14,0x6b7280,-1.4,1.0,0,g).rotation.z=Math.PI/2;
+  const fan=new THREE.Group();fan.position.set(-1.5,1.0,0);g.add(fan);B(.04,.8,.14,0xe5e7eb,0,0,0,fan);B(.04,.14,.8,0xe5e7eb,0,0,0,fan);   // 转动的风扇
+  C(.09,.8,0x111827,-.2,2.0,-.3,g);                                                       // 排气管
+  C(.72,.5,0x2563eb,.78,.95,0,g).rotation.x=Math.PI/2;C(.62,.18,0x9ca3af,.78,.95,.3,g).rotation.x=Math.PI/2;   // 离心泵泵壳
+  C(.3,.7,0x9ca3af,.78,.95,-.8,g).rotation.x=Math.PI/2;C(.38,.1,0x4b5563,.78,.95,-1.12,g).rotation.x=Math.PI/2;  // 进水口
+  C(.28,.95,0x9ca3af,.95,1.7,0,g);C(.36,.1,0x4b5563,.95,2.2,0,g);                         // 出水口立管
+  const sx=px+sg*.78;
+  fxs.push(...intakeSpot(sx,pz-4.9,2.3,.5));
+  fxs.push(strainer(sx,pz-4.9,.5));
+  fxs.push(pipe([[sx,.75,pz-4.9],[sx,.95,pz-4.0],[sx,1.1,pz-2.8],[sx,1.15,pz-1.2]],.32,waterP,3.4,3.5,null,0x94a3b8,.3));   // 吸水软管（透明，能看到浑水被吸进来）
+  fxs.push(mkSmoke(px+sg*.2*-1,2.5,pz-.3,.7));
+  tick=(ts,dt)=>{fan.rotation.x+=dt*45;g.position.set(px+Math.sin(ts/17)*.02,.2+Math.sin(ts/21)*.022,pz+Math.cos(ts/19)*.012)};
+ }else{
+  // —— 潜水混流泵：整台泵站在水里。蓝色电机 + 混流泵体 + 进水滤网，顶部有提手，电缆接到地上的控制箱，出水管弯出去接水带 ——
+  C(1.0,.16,0x374151,0,.3,0,g);
+  for(let k=0;k<10;k++){const a=k*Math.PI/5;B(.07,.7,.07,0x1f2937,Math.cos(a)*.88,.7,Math.sin(a)*.88,g)}   // 进水滤网
+  const bell=new THREE.Mesh(new THREE.CylinderGeometry(.62,.9,.7,18),M(0x1e3a8a));bell.position.y=1.15;g.add(bell);   // 混流泵体
+  C(.82,1.2,0x2563eb,0,2.1,0,g);C(.86,.1,0xf59e0b,0,1.65,0,g);C(.86,.1,0xf59e0b,0,2.6,0,g);   // 电机
+  C(.55,.28,0x1f2937,0,2.85,0,g);
+  const hd=new THREE.Mesh(new THREE.TorusGeometry(.36,.05,8,18,Math.PI),M(0x9ca3af));hd.position.y=3.0;g.add(hd);
+  C(.26,.95,0x9ca3af,.5,2.35,0,g).rotation.z=Math.PI/2;C(.28,.8,0x9ca3af,.95,2.45,0,g);C(.36,.1,0x4b5563,.95,2.9,0,g);   // 出水弯管
+  const cab=new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([new THREE.Vector3(-.45,2.7,0),new THREE.Vector3(-1.0,3.2,.2),new THREE.Vector3(-1.8,1.4,.7),new THREE.Vector3(-2.1,.5,.95)]),20,.06,6),M(0x111827));g.add(cab);   // 电缆
+  B(.7,.9,.5,0x374151,-2.2,.65,.95,g);const lamp=BB(.14,.14,.06,0x22c55e,-2.2,.9,1.22,g).material;
+  fxs.push(...intakeSpot(px,pz,2.7,.95));
+  fxs.push(mkBubbles(px,.35,.8,pz,22,.7));
+  tick=(ts,dt)=>{g.position.set(px+Math.sin(ts/25)*.012,.2+Math.sin(ts/33)*.014,pz+Math.cos(ts/27)*.008);lamp.color.setHex(Math.floor(ts/400)%2?0x22c55e:0x14532d)};
+ }
+ return{g,tick,fxs}}
+
+// ===== 放置 / 移除 =====
+function chg(){if(run||done){run=0;T=0;done=0;$('res').className='';$('gs').textContent='等待装备部署';$('gs').style.color=''}hideVerdict();upd()}
+function putSand(on){S.sand=on?1:0;sand.visible=!!on;zone.visible=!(S.sand||S.board);if(on)sandT=0;chg()}
+const board=new THREE.Group();sc.add(board);board.visible=false;
+for(let i=0;i<8;i++){B(1.05,1.65,.18,0xcbd5e1,(i-3.5)*1.05,1.05,17.6,board);B(1.05,.12,.25,0x64748b,(i-3.5)*1.05,.18,17.6,board);B(.12,1.8,.25,0x94a3b8,(i-3.5)*1.05,1,17.6,board)}
+board.traverse(o=>o.userData={k:'board'});
+function putBoard(on){S.board=on?1:0;board.visible=!!on;zone.visible=!(S.sand||S.board);chg()}
+// 水带线路：三条水带错开线路（至少 1.3 米），互不叠压；平缓拱过围墙（墙头上方留净空）；贴地铺到出水点
+function hosePath(i,type){const s=slots[i],sg=s.sg,river=sg<0,z0=s.z,xw=s.xw,ox=s.x+sg*(type==='dragon'?1.5:.95),sy=type==='dragon'?1.9:type==='diesel'?2.3:2.4,P=[];
+ const arch=z=>.5+3.5*Math.pow(Math.cos(Math.PI/2*(z-17)/3.6),2);   // 13.4~20.6 米之间平缓的圆弧，顶点高 4 米（围墙压顶 3.2 米）
+ P.push([ox,sy,z0],[ox+sg*.45,sy-.7,z0+.7],[xw,.95,z0+1.7],[xw,.5,z0+3]);   // 出水口 → 落到地面
+ for(let z=z0+7;z<12.4;z+=4)P.push([xw,.5,z]);                              // 沿自己的专用线路贴地铺到围墙前
+ P.push([xw,.5,13.4]);for(let z=14.1;z<16.7;z+=.7)P.push([xw,arch(z),z]);
+ P.push([xw,4,17]);for(let z=17.7;z<=20.6;z+=.7)P.push([xw,arch(z),z]);
+ P.push([xw,.45,22.2],[xw,.45,23.6]);
+ if(river){P.push([xw,.45,26],[xw,.45,27.8],[xw,.4,29.2],[xw,.3,30.2],[xw,-.24,31.2],[xw,-.74,32.2],[xw,-1.19,33.1])}
+ else P.push([xw,.45,24.2],[xw,.45,25.2]);
+ return{P,xw,river}}
+function placePump(i,type){const s=slots[i];if(s.p)return;const current=slots.filter(q=>q.p&&q.type===type).length;if(current>=LIMIT[type])return toast('该设备已达到可用数量上限');if(S.pumps.length>=6)return;const sg=s.sg,pm=mkPump(sg,type,s.x,s.z);pm.g.position.set(s.x,.2,s.z);sc.add(pm.g);pm.g.traverse(o=>o.userData={k:'pump',i});
+ const h=hosePath(i,type),xw=h.xw,fxs=[...pm.fxs];
+ fxs.push(hose(h.P,type==='dragon'?.36:.27,hoseP,6,3));
+ if(h.river){fxs.push(mkSpray(90,{p:[xw,-1.1,33.45],v:[0,.9,3.4],sp:.7,size:.55,life:.8,gy:-1.5,col:0xd0bf98}));fxs.push(mkSpray(30,{p:[xw,-1.4,34.9],v:[0,1.8,0],sp:1.2,size:.4,life:.5,gy:-1.5}));fxs.push(ripples(null,xw,-1.38,34.9,0xdccbaa,null,3,2.4))}
+ else{fxs.push(mkSpray(60,{p:[xw,.6,25.55],v:[0,.05,.8],sp:.9,size:.42,life:.45,gy:.2,col:0xd0bf98}));fxs.push(ripples(null,xw,.2,26,0xdccbaa,null,2,1.2))}
+  s.p={g:pm.g,tick:pm.tick,fxs};s.type=type;s.r.visible=false;s.l.visible=false;S.pumps.push(i);chg()}
+function remPump(i){const s=slots[i];if(!s.p)return;killFx(s.p.fxs);sc.remove(s.p.g);s.p=null;s.type=null;s.r.visible=true;s.l.visible=true;S.pumps=S.pumps.filter(k=>k!=i);chg()}
+function toggleWell(i){if(i<0||i>=4)return;S.storage[i]^=1;chg()}
+function toggleStorage(type){const a=type==='tank'?0:2,b=a+2;let i=-1;for(let k=a;k<b;k++)if(!S.storage[k]){i=k;break}if(i<0)return toast('该类蓄水设备已达到可用数量上限');toggleWell(i)}
+function deployPump(type,worldPoint){if(slots.filter(s=>s.p&&s.type===type).length>=LIMIT[type])return toast('该设备已达到可用数量上限');let i=-1,bd=Infinity;slots.forEach((s,k)=>{if(!s.p){const d=worldPoint?Math.hypot(worldPoint.x-s.x,worldPoint.z-s.z):k;if(d<bd){bd=d;i=k}}});if(i<0)return toast('6 个黄色位置已全部占用');placePump(i,type)}
+function upd(){const t=tot(),c=t.counts;
+ $('c-sand').textContent=c.sand+'/1 组';$('c-board').textContent=c.board+'/1 组';$('c-dragon').textContent=c.dragon+'/1 辆';$('c-diesel').textContent=c.diesel+'/2 台';$('c-pump').textContent=c.pump+'/3 台';$('c-tank').textContent=c.tank+'/2 个';$('c-pool').textContent=c.pool+'/2 处';
+ $('d-barrier').textContent=(c.sand+c.board)?((c.sand?'沙袋墙 ':'')+(c.board?'挡水板':'')):'未部署';
+ $('d-pump').textContent=(c.dragon+c.diesel+c.pump)+' 台/辆';$('d-well').textContent=(c.tank+c.pool)+' 个/处';$('cap').textContent=t.cap;$('count').textContent=t.count}
+function drop(type,p){if(run)return toast('推演进行中，请等待结束');
+ if(type==='sand'||type==='board'){if(Math.hypot(p.x,p.z-17.6)<12){type==='sand'?putSand(1):putBoard(1)}else toast('挡水设备请拖到小区大门口（红色圆环）')}
+ else if(type==='dragon'||type==='diesel'||type==='pump'){let b=-1,bd=9;slots.forEach((s,i)=>{const d=Math.hypot(p.x-s.x,p.z-s.z);if(!s.p&&d<bd){bd=d;b=i}});b<0?toast('请将抽水设备放到黄色位置上'):placePump(b,type)}
+ else if(type==='tank'||type==='pool')toggleStorage(type)}
+
+// ===== 交互：拖放、点击、旋转 =====
+document.querySelectorAll('.eq').forEach(c=>{const t=c.dataset.t;c.ondragstart=e=>{dragT=t;e.dataTransfer.setData('text/plain',t)};
+ c.onclick=()=>{if(run)return;if(t==='sand')putSand(1);else if(t==='board')putBoard(1);else if(t==='dragon'||t==='diesel'||t==='pump')deployPump(t);else if(t==='tank'||t==='pool')toggleStorage(t)}});
+const ray=new THREE.Raycaster(),v2=new THREE.Vector2(),gp=new THREE.Plane(new THREE.Vector3(0,1,0),0);
+function setRay(e){const r=cvs.getBoundingClientRect();v2.set((e.clientX-r.left)/r.width*2-1,-(e.clientY-r.top)/r.height*2+1);ray.setFromCamera(v2,cam)}
+wrap.addEventListener('dragover',e=>e.preventDefault());
+wrap.addEventListener('drop',e=>{e.preventDefault();setRay(e);const p=new THREE.Vector3();if(ray.ray.intersectPlane(gp,p))drop(dragT||e.dataTransfer.getData('text/plain'),p)});
+function click(e){if(run)return toast('推演进行中，请等待结束');setRay(e);const hit=ray.intersectObjects([...wells.map(w=>w.g),sand,board,...slots.filter(s=>s.p).map(s=>s.p.g)],true)[0];if(!hit)return;let o=hit.object;while(o&&!o.userData.k)o=o.parent;if(!o)return;
+ const u=o.userData;if(u.k==='well')toggleWell(u.i);else if(u.k==='pump')remPump(u.i);else if(u.k==='sand')putSand(0);else if(u.k==='board')putBoard(0)}
+let th=.3,ph=.78,rr=118,dn=null;const tg=new THREE.Vector3(0,2,4);
+cvs.addEventListener('pointerdown',e=>dn={x:e.clientX,y:e.clientY,m:0,p:e.button!=0||e.shiftKey});
+addEventListener('pointermove',e=>{if(!dn)return;const dx=e.clientX-dn.x,dy=e.clientY-dn.y;dn.m+=Math.abs(dx)+Math.abs(dy);if(dn.p)pan(-dx*rr*.0016,dy*rr*.0016,0);else{th-=dx*.006;ph=Math.min(1.45,Math.max(.12,ph+dy*.005))}dn.x=e.clientX;dn.y=e.clientY});
+addEventListener('pointerup',e=>{if(dn&&dn.m<6&&e.target==cvs)click(e);dn=null});
+cvs.addEventListener('contextmenu',e=>e.preventDefault());
+cvs.addEventListener('wheel',e=>{e.preventDefault();zoom(1+e.deltaY*.001)},{passive:false});
+function pan(dx,dz,dy){const rx=Math.cos(th),rz=-Math.sin(th),fx=-Math.sin(th),fz=-Math.cos(th);tg.x=Math.max(-90,Math.min(90,tg.x+rx*dx+fx*dz));tg.z=Math.max(-90,Math.min(90,tg.z+rz*dx+fz*dz));tg.y=Math.max(0,Math.min(45,tg.y+dy))}
+function zoom(k){rr=Math.min(190,Math.max(10,rr*k))}
+const hold={};const K={a:[-1,0,0],d:[1,0,0],w:[0,1,0],s:[0,-1,0],q:[0,0,1],e:[0,0,-1],'+':'in','-':'out'};
+document.querySelectorAll('#nav button').forEach(b=>{const a=b.dataset.a;const on=e=>{e.preventDefault();hold[a]=1},off=()=>{hold[a]=0};b.onpointerdown=on;b.onpointerup=b.onpointerleave=off;b.onclick=()=>{if(a=='home'){th=.3;ph=.78;rr=118;tg.set(0,2,4)}}});
+addEventListener('keydown',e=>{const k={ArrowLeft:'l',ArrowRight:'r',ArrowUp:'f',ArrowDown:'b',a:'l',d:'r',w:'f',s:'b',q:'u',e:'dn','+':'in','=':'in','-':'out'}[e.key];if(k)hold['k'+k]=1});
+addEventListener('keyup',e=>{const k={ArrowLeft:'l',ArrowRight:'r',ArrowUp:'f',ArrowDown:'b',a:'l',d:'r',w:'f',s:'b',q:'u',e:'dn','+':'in','=':'in','-':'out'}[e.key];if(k)hold['k'+k]=0});
+function navStep(dt){const h=n=>hold[n]||hold['k'+n],v=rr*.6*dt;if(h('l'))pan(-v,0,0);if(h('r'))pan(v,0,0);if(h('f'))pan(0,v,0);if(h('b'))pan(0,-v,0);if(h('u'))pan(0,0,v*.6);if(h('dn'))pan(0,0,-v*.6);if(h('in'))zoom(1-dt*1.2);if(h('out'))zoom(1+dt*1.2);
+ if(hold.rl)th+=dt*1.2;if(hold.rr)th-=dt*1.2}
+// ===== 推演与验证 =====
+function depthAt(t){const q=tot(),barrier=S.sand||S.board,p=q.np;const h=q.cap*Math.min(1,t/3);const wet=.4*Math.min(1,t/.6)*Math.max(0,1-Math.max(0,t-.6)*(.3+.12*p));return Math.max(.1,(R*t/3-h)/R*2.4+wet)}
+$('vf').onclick=()=>{if(run)return;getAudio();const t=tot();if(!t.count)return toast('请先部署防汛装备');T=0;done=0;run=1;$('res').className='run';$('res').innerHTML='<h3>推演中…</h3>洪水正沿后山山沟流向小区。';$('gs').textContent='推演中'};
+function finish(){run=0;done=1;const t=tot();const ok=t.cap>=R;
+  let title='不通过',obs,ask,great=false;
+  if(!ok){
+    const r=t.cap/R;
+    obs='三小时里涌进小区的水，比你的装备能够接住的水要多，低洼处的积水一直在上涨，形成内涝。'+(r<.5?'两者之间的差距相当大。':r<.85?'两者之间还有明显的距离。':'两者已经相当接近，但还是没有追平。');
+    ask='对照左侧的数据，这三小时一共有多少水需要处理？你的每一件装备各自分担了多少？这两边的账，你是怎么算的？';
+  }else{
+    title='通过';
+    obs='三小时内装备合计处理能力达到要求，小区积水风险得到控制。';
+    ask='请说一说你选择了哪些设备，分别贡献了多少处理能力？如果更换设备组合，能否用更少的设备达到同样效果？';
+  }
+  const stat='<br><small style="color:#9fb3cf">本方案：处理能力 '+t.cap+' m³ · 已部署 '+t.count+' 件设备</small>';
+  $('res').className=ok?'ok':'no';
+  $('res').innerHTML='<h3>'+(ok?'✅ ':'❌ ')+title+'</h3>'+obs+'<br><span style="color:#fcd34d">💭 想一想：'+ask+'</span>'+stat;
+  $('gs').textContent=ok?'通过':'不通过';$('gs').style.color=ok?'#34d399':'#f87171';
+  showVerdict(ok,title,obs,ask,great);
+}
+$('verdictClose').onclick=hideVerdict;
+$('verdict').addEventListener('click',e=>{if(e.target===$('verdict'))hideVerdict()});
+addEventListener('keydown',e=>{if(e.key==='Escape')hideVerdict()});
+$('rst').onclick=()=>{[...S.pumps].forEach(remPump);S.storage.fill(0);putSand(0);putBoard(0);run=0;T=0;done=0;$('res').className='';$('gs').textContent='等待装备部署';$('gs').style.color='';hideVerdict();upd()};
+// ===== 雨 =====
+const N=2600,rp=new Float32Array(N*6);for(let i=0;i<N;i++){const x=(Math.random()-.5)*220,y=Math.random()*80,z=(Math.random()-.5)*190;rp.set([x,y,z,x-.5,y-2.4,z],i*6)}
+const rg=new THREE.BufferGeometry();rg.setAttribute('position',new THREE.BufferAttribute(rp,3));const rl=new THREE.LineSegments(rg,new THREE.LineBasicMaterial({color:0x9ec5ff,transparent:true,opacity:.6}));rl.frustumCulled=false;sc.add(rl);
+const fl=B(HW*2,1,34,0x3b82f6,0,-.5,0,null,{transparent:true,opacity:.55});fl.visible=false;
+const flT=scrollClone(ripOver,8,5);scrolls.push({t:flT,dx:.02,dy:.012});
+const flTop=new THREE.Mesh(new THREE.PlaneGeometry(HW*2,34),new THREE.MeshBasicMaterial({map:flT,transparent:true,opacity:.6,depthWrite:false}));flTop.rotation.x=-Math.PI/2;flTop.visible=false;sc.add(flTop);
+// 小区地面水层：山洪从大门向四周漫开（边缘不规则）、雨水在低洼处积成水洼、雨点打出涟漪
+const gsU={uTime:{value:0},uFront:{value:0},uPuddle:{value:0},uTex:{value:ripOver},uWells:{value:WP.map(w=>new THREE.Vector2(w[0],w[1]))}};
+const gsMat=new THREE.ShaderMaterial({uniforms:gsU,transparent:true,depthWrite:false,
+ vertexShader:'varying vec2 vXZ;void main(){vec4 w=modelMatrix*vec4(position,1.);vXZ=w.xz;gl_Position=projectionMatrix*viewMatrix*w;}',
+ fragmentShader:[
+ 'uniform float uTime,uFront,uPuddle;uniform sampler2D uTex;uniform vec2 uWells['+WP.length+'];varying vec2 vXZ;',
+ 'float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}',
+ 'float vn(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(hash(i),hash(i+vec2(1.,0.)),f.x),mix(hash(i+vec2(0.,1.)),hash(i+vec2(1.,1.)),f.x),f.y);}',
+ 'float fbm(vec2 p){return .5*vn(p)+.3*vn(p*2.1+3.)+.2*vn(p*4.3+7.);}',
+ 'void main(){',
+ ' for(int k=0;k<'+WP.length+';k++){if(distance(vXZ,uWells[k])<1.95)discard;}',
+ ' vec2 gate=vec2(0.,17.);float dist=distance(vXZ,gate);',
+ ' float n=fbm(vXZ*.16);float reach=uFront*(.7+.6*n);float fl=1.-smoothstep(reach-4.,reach,dist);',
+ ' float h=fbm(vXZ*.11+vec2(11.,3.));float th=.78-.3*uPuddle;float pm=smoothstep(th,th+.05,h)*smoothstep(0.,.12,uPuddle);',
+ ' float mask=max(fl,pm*.9);if(mask<.01)discard;',
+ ' vec2 dir=normalize(vXZ-gate+vec2(.001));vec2 uv=vXZ*.11-dir*uTime*.35*fl;float r=texture2D(uTex,uv).a;',
+ ' vec3 c=mix(vec3(.38,.35,.29),vec3(.47,.37,.22),fl)+r*.28;',
+ ' vec2 g=vXZ*1.1;vec2 id=floor(g),f=fract(g)-.5;float t=fract(uTime*.8+hash(id));float ring=smoothstep(.06,0.,abs(length(f)-t*.5))*(1.-t)*step(.5,hash(id+3.1));',
+ ' c+=ring*.55;gl_FragColor=vec4(c,mask*(.62+.18*r)+ring*.25*mask);}'].join('\n')});
+const gsheet=new THREE.Mesh(new THREE.PlaneGeometry(HW*2-.8,33.2),gsMat);gsheet.rotation.x=-Math.PI/2;gsheet.position.y=.31;gsheet.renderOrder=1;gsheet.frustumCulled=false;sc.add(gsheet);
+// ===== 地下管网始终可见：地面做成半透明（像剖开的地层），管网走向和管里流动的泥水一目了然 =====
+GM.forEach(m=>{const mt=m.material;mt.transparent=true;mt.opacity=.3;mt.depthWrite=false;mt.needsUpdate=true});
+// ===== 主循环 =====
+let last=0;
+function loop(ts){requestAnimationFrame(loop);const dt=Math.min(.05,(ts-last)/1000||0);last=ts;
+ for(let i=0;i<N;i++){let y=rp[i*6+1]-dt*62;if(y<0)y+=80;rp[i*6+1]=y;rp[i*6+4]=y-2.4}rg.attributes.position.needsUpdate=true;
+ navStep(dt);
+ scrolls.forEach(s=>{s.t.offset.x+=s.dx*dt;s.t.offset.y+=s.dy*dt});
+ fx.forEach(f=>{f.g.visible=!!f.cond();if(f.g.visible)f.u(dt)});
+ if(run){T+=dt*3/14;if(T>=3){T=3;finish()}}
+ // 沙袋：一只只落下码放
+ if(S.sand&&sandT<5){sandT+=dt;bags.forEach(b=>{const k=(sandT-b.d)/.28;if(k<=0){b.m.visible=false;return}b.m.visible=true;const e=Math.min(1,k);b.m.position.y=b.y0+(1-e)*(1-e)*2.8})}
+ // 大门外的积水：有沙袋墙 → 被拦住、水位抬高；没有 → 贴地漫入小区
+
+ // 水泵：只要装上就工作——叶轮旋转、机身震动、吸水漩涡、水带送水、出口喷水
+ const pu=.5+.4*Math.sin(ts/300);
+ slots.forEach(s=>{s.r.material.opacity=pu;if(s.p)s.p.tick(ts,dt)});zone.material.opacity=pu;
+ // 储水井：井盖在地面上滑开 → 地面的泥水绕井口旋流、漫过井沿倾泻而下 → 井内水位上升
+ discTime.value+=dt;
+ wells.forEach((w,i)=>{const o=S.storage[i],on=run||done;
+  w.lp+=((o?1:0)-w.lp)*Math.min(1,dt*3);const q=w.lp;
+  if(w.kind==='tank'){w.cov.position.set(w.sl[0]*3.9*q,.05+Math.sin(Math.PI*Math.min(1,q*1.1))*.35,w.sl[1]*3.9*q);w.cov.rotation.y=q*.7}   // 井盖滑开
+  else w.cov.rotation.x=-q*1.35;                                                                                                          // 箅子盖掀起                                                                                                          // 箅子盖掀起
+  const ft=o?(on?Math.min(1,T/1.2):1):0;if(ft<w.fill)w.fill=ft;else w.fill=Math.min(ft,w.fill+dt*(on?1.6:.5));
+  const vis=!!o&&w.fill>.01&&q>.2,fw=!!o&&q>.3&&w.fill<.995;let wl;
+  if(w.kind==='tank'){const lv=-2.58+w.fill*1.96;wl=lv-.2;w.plane.constant=lv;w.wat.visible=w.surf.visible=vis;const dy=lv+1.6;w.surf.scale.y=Math.max(.05,2*Math.sqrt(Math.max(.0004,.94-dy*dy)));w.surf.position.y=lv+.005;
+   w.cur.scale.y=.85;w.cur.position.y=-.375;w.col.visible=fw;w.col.scale.y=Math.max(.05,-.8-wl);w.col.position.y=(-.8+wl)/2;w.wy=lv}
+  else{const h=.02+w.fill*2;wl=-2.45+h;w.wt.visible=vis;w.wt.scale.y=h;w.wt.position.y=-2.45+h/2;w.wy=.2+wl;w.cur.scale.y=Math.max(.05,.05-wl);w.cur.position.y=(.05+wl)/2}
+  w.cur.visible=w.disc.visible=fw;w.rp.g.position.y=wl+.02;w.sp1[1]=w.wy+.04;
+  w.dl.sp.visible=!!o;if(o)w.dl.set(w.fill>.99?'已蓄满':'蓄水 '+Math.round(w.fill*100)+'%',w.fill>.99?'#34d399':'#7dd3fc')});
+ // 小区内积水：暴雨红色预警下，地面本来就有约 3 cm 积水；山洪灌入、推演开始后继续上涨
+ const dRaw=(run||done)?depthAt(T):0,d=Math.max(.15,dRaw);
+ const hold=(S.sand||S.board)&&(dRaw<=.3||T<1.5||tot().cap>=R);   // 有挡水设备：方案够用就一直挡得住，只有方案不够、水位涨高时才会漫过去
+ front+=Math.max(-dt*8,Math.min(dt*5.5,(hold?0:90)-front));
+ const nw2=S.storage.reduce((a,b)=>a+b,0),pt=dRaw>.3?1:Math.max(.25,.7-.08*S.pumps.length-.05*nw2);puddle+=(pt-puddle)*Math.min(1,dt*.3);
+ gsU.uTime.value+=dt;gsU.uFront.value=front;gsU.uPuddle.value=puddle;
+ const cm=(run||done)?Math.max(3,Math.round(dRaw*20)):3+((S.sand||S.board)?0:Math.round(front/90*5));
+ $('pd').textContent=cm;$('pdw').style.color=cm>15?'#f87171':'#7dd3fc';
+ const Lin=(run||done)?Math.min(1.3,dRaw*.55):0,Lt=Math.min(1.85,(S.sand||S.board)?Math.max(1.05,Lin+.35):Math.max(.3,Lin+.35));
+ poolL+=(Lt-poolL)*Math.min(1,dt*1.1);pool.scale.y=Math.max(.05,poolL);pool.position.y=poolL/2;
+ gates.forEach(p=>p.rotation.x+=(-.9-p.rotation.x)*.08);fl.visible=flTop.visible=dRaw>.3;fl.position.y=Lin-.3;flTop.position.y=Lin+.22;fl.material.color.setHex((S.sand||S.board)?0x5f7684:0x74603c);fl.material.opacity=.82+.04*Math.sin(ts/220);flTop.material.opacity=.5;
+ $('tm').textContent=T.toFixed(1);$('pb').style.width=T/3*100+'%';
+ cam.position.set(tg.x+rr*Math.cos(ph)*Math.sin(th),tg.y+rr*Math.sin(ph),tg.z+rr*Math.cos(ph)*Math.cos(th));cam.lookAt(tg);
+ labels.forEach(l=>{const k=Math.min(1.5,Math.max(.07,cam.position.distanceTo(l.sp.position)/104));l.sp.scale.set(l.bw*k,l.bh*k,1)});
+ ren.render(sc,cam)}
+upd();requestAnimationFrame(loop);
+</script></body></html>

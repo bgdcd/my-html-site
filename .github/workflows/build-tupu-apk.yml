@@ -1,0 +1,43 @@
+name: Build Tupu Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '密铺App/**'
+      - '.github/workflows/build-tupu-apk.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Prepare bundled HTML and app icon
+        shell: bash
+        run: |
+          mkdir -p 密铺App/app/src/main/assets 密铺App/app/src/main/res/drawable
+          cp '密铺 (1)(1).html' 密铺App/app/src/main/assets/index.html
+          cp '843019d4b08be0e48c4b83414c4040f0.jpg' 密铺App/app/src/main/res/drawable/ic_launcher.jpg
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+      - name: Install Android SDK platform
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+      - name: Build debug APK
+        working-directory: 密铺App
+        run: gradle --no-daemon assembleDebug
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: 图形密铺互动-Android-APK
+          path: 密铺App/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error

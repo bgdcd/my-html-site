@@ -6,6 +6,8 @@ on:
     paths:
       - '.github/workflows/build-task-two-apk.yml'
       - 'android-task-two/**'
+      - '任务二.html'
+      - 'word.png'
       - 'chizongai.png'
 
 permissions:
@@ -41,23 +43,25 @@ jobs:
           cmdline-tools-version: 11076708
           packages: platform-tools platforms;android-35 build-tools;35.0.0
 
-      - name: Download Task Two HTML and the exact chizongai.png image
+      - name: Download the exact Task Two HTML and icon image word.png
         run: |
           mkdir -p android-task-two/app/src/main/assets
           curl -fL 'https://raw.githubusercontent.com/bgdcd/my-html-site/main/%E4%BB%BB%E5%8A%A1%E4%BA%8C.html' -o android-task-two/app/src/main/assets/task-two.html
           curl -fL 'https://raw.githubusercontent.com/bgdcd/my-html-site/main/chizongai.png' -o android-task-two/app/src/main/assets/chizongai.png
+          curl -fL 'https://raw.githubusercontent.com/bgdcd/my-html-site/main/word.png' -o android-task-two/app/src/main/assets/word.png
           test -s android-task-two/app/src/main/assets/task-two.html
           test -s android-task-two/app/src/main/assets/chizongai.png
+          test -s android-task-two/app/src/main/assets/word.png
+          file android-task-two/app/src/main/assets/word.png
 
-      - name: Create launcher icon from chizongai.png
+      - name: Generate Android launcher icons from word.png
         run: |
           python - <<'PY'
-          from PIL import Image, ImageOps
+          from PIL import Image
           from pathlib import Path
 
-          source = Path("android-task-two/app/src/main/assets/chizongai.png")
+          source = Path("android-task-two/app/src/main/assets/word.png")
           image = Image.open(source).convert("RGBA")
-          # Android launcher icons are square. Crop to a centered square, without stretching.
           side = min(image.width, image.height)
           left = (image.width - side) // 2
           top = (image.height - side) // 2
@@ -67,7 +71,7 @@ jobs:
               out = Path(f"android-task-two/app/src/main/res/mipmap-{density}/ic_launcher.png")
               out.parent.mkdir(parents=True, exist_ok=True)
               image.resize((size, size), Image.Resampling.LANCZOS).save(out, format="PNG", optimize=True)
-          print(f"Generated launcher icon from {source}; source size {image.width}x{image.height}")
+          print(f"Launcher icon generated from word.png (original dimensions: {image.width}x{image.height})")
           PY
 
       - name: Build debug APK
@@ -80,3 +84,4 @@ jobs:
           name: task-two-android-apk
           path: android-task-two/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
+          retention-days: 30

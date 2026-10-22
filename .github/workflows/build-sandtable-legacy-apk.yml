@@ -32,9 +32,16 @@ jobs:
 
       - name: Install Android SDK packages
         run: |
-          test -x "$ANDROID_HOME/cmdline-tools/16.0/bin/sdkmanager" || (echo "Android SDK manager not found at $ANDROID_HOME" && exit 1)
-          yes | "$ANDROID_HOME/cmdline-tools/16.0/bin/sdkmanager" --licenses || true
-          "$ANDROID_HOME/cmdline-tools/16.0/bin/sdkmanager" --install "platform-tools" "platforms;android-32" "build-tools;32.0.0"
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager -perm -u+x 2>/dev/null | head -n 1)"
+          if [ -z "$SDKMANAGER" ]; then
+            echo "Android SDK manager not found. Available SDK directories:"
+            ls -la "$ANDROID_HOME" || true
+            ls -la "$ANDROID_HOME/cmdline-tools" || true
+            exit 1
+          fi
+          echo "Using SDK manager: $SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses || true
+          "$SDKMANAGER" --install "platform-tools" "platforms;android-32" "build-tools;32.0.0"
 
       - name: Download exact sandtable HTML and icon source
         run: |

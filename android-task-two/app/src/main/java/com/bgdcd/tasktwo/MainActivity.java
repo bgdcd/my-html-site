@@ -45,9 +45,12 @@ public class MainActivity extends Activity {
         DisplayMetrics metrics = getResources().getDisplayMetrics();
         int targetWidth = Math.max(metrics.widthPixels, metrics.heightPixels);
         int targetHeight = Math.min(metrics.widthPixels, metrics.heightPixels);
+        // Keep the decoded bitmap small on tablets with limited app memory.
+        // Compare both dimensions independently so portrait or unusually shaped
+        // cover images cannot bypass down-sampling.
         int sample = 1;
-        while (bounds.outWidth / (sample * 2) >= targetWidth
-                && bounds.outHeight / (sample * 2) >= targetHeight) {
+        while ((bounds.outWidth / (sample * 2) > targetWidth)
+                || (bounds.outHeight / (sample * 2) > targetHeight)) {
             sample *= 2;
         }
 
@@ -56,6 +59,9 @@ public class MainActivity extends Activity {
         options.inPreferredConfig = Bitmap.Config.RGB_565;
         try (InputStream input = getAssets().open("chizongai.png")) {
             return BitmapFactory.decodeStream(input, null, options);
+        } catch (OutOfMemoryError e) {
+            android.util.Log.e("TaskTwo", "Not enough memory to decode opening cover; skipping cover", e);
+            return null;
         } catch (Exception e) {
             android.util.Log.e("TaskTwo", "Could not decode opening cover", e);
             return null;

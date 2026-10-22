@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>阳光小区 3D 防汛沙盘（0–3 小时）</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <style>
@@ -26,7 +26,7 @@ button.go{background:#f59e0b;color:#1b1203;font-weight:700;border-color:#f59e0b;
 #res{border-radius:8px;padding:10px;margin-top:8px;display:none;line-height:1.6}
 #res.ok{display:block;background:#06301f;border:1px solid #10b981}#res.no{display:block;background:#3a0f12;border:1px solid #ef4444}#res.run{display:block;background:#112238;border:1px solid #38bdf8}
 #res h3{margin:0 0 4px;font-size:15px}
-#cv{flex:1;position:relative;min-width:0}#cv canvas{display:block}
+#cv{flex:1;position:relative;min-width:0;overflow:hidden;touch-action:none;overscroll-behavior:none}#cv canvas{display:block;width:100%;height:100%;touch-action:none;overscroll-behavior:none;-webkit-user-select:none;user-select:none}
 .hud{position:absolute;background:rgba(8,14,26,.82);border:1px solid #27446d;border-radius:8px;padding:6px 12px;pointer-events:none;font-size:12px}
 .rain{top:10px;left:10px;font-size:15px;color:#9ec5ff;font-weight:700}.rain small{color:#8aa0bd;font-weight:400;margin-left:6px}
 .pond{top:52px;left:10px;font-size:14px}.pond b{font-size:18px}
@@ -616,9 +616,39 @@ wrap.addEventListener('drop',e=>{e.preventDefault();setRay(e);const p=new THREE.
 function click(e){if(run)return toast('推演进行中，请等待结束');setRay(e);const hit=ray.intersectObjects([...wells.map(w=>w.g),sand,board,...slots.filter(s=>s.p).map(s=>s.p.g)],true)[0];if(!hit)return;let o=hit.object;while(o&&!o.userData.k)o=o.parent;if(!o)return;
  const u=o.userData;if(u.k==='well')toggleWell(u.i);else if(u.k==='pump')remPump(u.i);else if(u.k==='sand')putSand(0);else if(u.k==='board')putBoard(0)}
 let th=.3,ph=.78,rr=118,dn=null;const tg=new THREE.Vector3(0,2,4);
-cvs.addEventListener('pointerdown',e=>dn={x:e.clientX,y:e.clientY,m:0,p:e.button!=0||e.shiftKey});
-addEventListener('pointermove',e=>{if(!dn)return;const dx=e.clientX-dn.x,dy=e.clientY-dn.y;dn.m+=Math.abs(dx)+Math.abs(dy);if(dn.p)pan(-dx*rr*.0016,dy*rr*.0016,0);else{th-=dx*.006;ph=Math.min(1.45,Math.max(.12,ph+dy*.005))}dn.x=e.clientX;dn.y=e.clientY});
-addEventListener('pointerup',e=>{if(dn&&dn.m<6&&e.target==cvs)click(e);dn=null});
+const scenePointers=new Map();let pinchDistance=0;
+function touchDistance(){const p=[...scenePointers.values()];return p.length>=2?Math.hypot(p[0].x-p[1].x,p[0].y-p[1].y):0}
+cvs.addEventListener('pointerdown',e=>{
+  e.preventDefault();
+  try{cvs.setPointerCapture(e.pointerId)}catch(_){}
+  scenePointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(scenePointers.size===1)dn={x:e.clientX,y:e.clientY,m:0,p:e.button!=0||e.shiftKey};
+  else{dn=null;pinchDistance=touchDistance()}
+});
+cvs.addEventListener('pointermove',e=>{
+  if(!scenePointers.has(e.pointerId))return;
+  e.preventDefault();
+  const prev=scenePointers.get(e.pointerId),dx=e.clientX-prev.x,dy=e.clientY-prev.y;
+  scenePointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(scenePointers.size>=2){
+    const dist=touchDistance();
+    if(pinchDistance>0&&dist>0)zoom(pinchDistance/dist);
+    pinchDistance=dist;dn=null;return;
+  }
+  if(!dn)return;
+  dn.m+=Math.abs(dx)+Math.abs(dy);
+  if(dn.p)pan(-dx*rr*.0016,dy*rr*.0016,0);
+  else{th-=dx*.006;ph=Math.min(1.45,Math.max(.12,ph+dy*.005))}
+  dn.x=e.clientX;dn.y=e.clientY;
+});
+function endScenePointer(e){
+  const wasSingle=scenePointers.size===1;
+  if(wasSingle&&dn&&dn.m<6&&e.target===cvs)click(e);
+  scenePointers.delete(e.pointerId);
+  dn=null;pinchDistance=scenePointers.size>=2?touchDistance():0;
+}
+cvs.addEventListener('pointerup',endScenePointer);
+cvs.addEventListener('pointercancel',e=>{scenePointers.delete(e.pointerId);dn=null;pinchDistance=scenePointers.size>=2?touchDistance():0});
 cvs.addEventListener('contextmenu',e=>e.preventDefault());
 cvs.addEventListener('wheel',e=>{e.preventDefault();zoom(1+e.deltaY*.001)},{passive:false});
 function pan(dx,dz,dy){const rx=Math.cos(th),rz=-Math.sin(th),fx=-Math.sin(th),fz=-Math.cos(th);tg.x=Math.max(-90,Math.min(90,tg.x+rx*dx+fx*dz));tg.z=Math.max(-90,Math.min(90,tg.z+rz*dx+fz*dz));tg.y=Math.max(0,Math.min(45,tg.y+dy))}

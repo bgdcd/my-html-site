@@ -1,0 +1,68 @@
+name: Build Sunshine Sandtable Legacy APK
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'sandtable-legacy-app/**'
+      - '.github/workflows/build-sandtable-legacy-apk.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle 7.6.4
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: '7.6.4'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK packages
+        run: sdkmanager --install "platform-tools" "platforms;android-32" "build-tools;32.0.0"
+
+      - name: Download exact sandtable HTML and icon source
+        run: |
+          mkdir -p sandtable-legacy-app/app/src/main/assets
+          curl -fL "https://raw.githubusercontent.com/bgdcd/my-html-site/main/%E6%B2%99%E7%9B%98%20%283%29.html" -o sandtable-legacy-app/app/src/main/assets/sandtable.html
+          curl -fL "https://raw.githubusercontent.com/bgdcd/my-html-site/main/%E9%98%B3%E5%85%89%E5%B0%8F%E5%8C%BA.png" -o /tmp/sunshine-icon.png
+          test -s sandtable-legacy-app/app/src/main/assets/sandtable.html
+          test -s /tmp/sunshine-icon.png
+
+      - name: Generate launcher icons from 阳光小区.png
+        run: |
+          python3 -m pip install --user Pillow
+          python3 - <<'PY'
+          from PIL import Image, ImageOps
+          import os
+          src = Image.open('/tmp/sunshine-icon.png').convert('RGBA')
+          sizes = {'mipmap-mdpi':48, 'mipmap-hdpi':72, 'mipmap-xhdpi':96, 'mipmap-xxhdpi':144, 'mipmap-xxxhdpi':192}
+          root = 'sandtable-legacy-app/app/src/main/res'
+          for folder, size in sizes.items():
+              outdir = os.path.join(root, folder)
+              os.makedirs(outdir, exist_ok=True)
+              icon = ImageOps.fit(src, (size, size), method=Image.Resampling.LANCZOS, centering=(0.5,0.5))
+              icon.save(os.path.join(outdir, 'ic_launcher.png'), 'PNG')
+          PY
+
+      - name: Build APK
+        run: gradle --no-daemon -p sandtable-legacy-app assembleDebug --stacktrace
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: sunshine-sandtable-legacy-apk
+          path: sandtable-legacy-app/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 30

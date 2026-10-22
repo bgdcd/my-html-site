@@ -5,6 +5,8 @@ on:
   push:
     paths:
       - '密铺App/**'
+      - '密铺 (1)(1).html'
+      - '843019d4b08be0e48c4b83414c4040f0.jpg'
       - '.github/workflows/build-tupu-apk.yml'
 
 jobs:

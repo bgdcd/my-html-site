@@ -5,6 +5,8 @@ on:
     branches: [main]
     paths:
       - 'sandtable-legacy-app/**'
+      - '沙盘 (3).html'
+      - '阳光小区.png'
       - '.github/workflows/build-sandtable-legacy-apk.yml'
   workflow_dispatch:
 

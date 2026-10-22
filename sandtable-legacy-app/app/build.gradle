@@ -1,6 +1,7 @@
 apply plugin: 'com.android.application'
 
 android {
+    namespace 'cn.sunshine.sandtable'
     compileSdkVersion 32
 
     defaultConfig {

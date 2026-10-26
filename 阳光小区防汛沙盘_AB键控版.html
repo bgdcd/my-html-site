@@ -378,7 +378,7 @@ CONES.forEach(([cx,cz,R2,H],i)=>{   // 里面是褐色土层，外面罩一层�
  const soil=new THREE.Mesh(new THREE.ConeGeometry(R2*.94,H*.94,7),new THREE.MeshLambertMaterial({color:0x7a5230}));soil.position.set(cx,H*.47,cz);sc.add(soil);
  const skin=new THREE.Mesh(new THREE.ConeGeometry(R2,H,7),new THREE.MeshLambertMaterial({color:[0x4f7a45,0x46703f,0x568049][i],transparent:true,opacity:.55}));skin.position.set(cx,H/2,cz);sc.add(skin)});
 for(let i=0;i<14;i++){const x=-40+i*6+Math.sin(i)*2+HILL_SHIFT_X,z=-32-(i%3)*5;C(.25,2,0x5b3a1e,x,1,z);mesh(new THREE.ConeGeometry(1.3,3.2,6),0x2f5d3a,x,3.4,z)}
-lab('后山',HILL_SHIFT_X,31,-44,'#fbbf24',1.2);lab('河道（排水去向）→ 河水流向',-52,3,40,'#7dd3fc',1.25);lab('小区地势高 · 河道地势低',34,6,32,'#34d399',1.1);
+lab('后山',HILL_SHIFT_X,31,-44,'#fbbf24',1.2);
 // 围墙
 const WC=0x9aa5b1;B(52,3,.8,WC,0,1.5,-17);B(.8,3,34,WC,-26,1.5,0);B(.8,3,34,WC,26,1.5,0);B(22,3,.8,WC,-15,1.5,17);B(22,3,.8,WC,15,1.5,17);
 B(22.4,.25,1.1,0x7d8794,-15,3.1,17);B(22.4,.25,1.1,0x7d8794,15,3.1,17);   // 围墙压顶
@@ -483,8 +483,7 @@ canopyFx(CAN_C,90);
 seepFx(190,()=>{for(let k=0;k<30;k++){const x=rnd(-25,25),z=rnd(-16,16);if(Math.abs(z)<3||Math.abs(x)<3)continue;if(BLD.some(([bx,bz])=>Math.abs(x-bx)<5.6&&Math.abs(z-bz)<4.1))continue;if(Math.abs(x-15)<2.6&&Math.abs(z-14)<2.1)continue;return[x,.3,z]}return[-20,.3,-8]},1.5,2,1.6,true);
 // 地下水：雨水渗下去最后补给到这里
 const gw=new THREE.Mesh(new THREE.PlaneGeometry(200,110),new THREE.MeshBasicMaterial({color:0x2a7fbf,transparent:true,opacity:.28,depthWrite:false}));gw.rotation.x=-Math.PI/2;gw.position.set(0,-2.5,-40);sc.add(gw);
-labGroup='seep';lab('🌲 植被截留（叶面吸收）',-26,34,-52,'#34d399',1.2);lab('🟤 土壤下渗',34,26,-50,'#38bdf8',1.1);lab('地表径流顺山坡、山沟下泄',-40,6,-14,'#d6b97b',.95);
-lab('🌳 小区绿化：树冠截留 + 草坪下渗',0,16,0,'#4ade80',1.2);lab('地下水（雨水补给）',-30,-3,-20,'#7dd3fc',.9);labGroup='base';
+labGroup='base';
 
 // ===== 后山山洪：沿山体表面流下 → 外马路 → 汇到大门口 =====
 function mY(x,z){let y=.3;CONES.forEach(([cx,cz,R,H])=>{const d=Math.hypot(x-cx,z-cz);if(d<R)y=Math.max(y,H*(1-d/R)+.6)});return y}
@@ -566,7 +565,7 @@ const wells=WP.map(([x,z],i)=>{const g=new THREE.Group();g.position.set(x,.2,z);
 // ===== 3 个水泵位 + 大门沙袋位 =====
 const PS=[[-5.5,13,-1,0],[-3.5,4,-1,1],[5.5,-6,1,2]];   // 3个泵位：行 z=13/4/-6 各不相同，列 x=-5.5/0/5.5 各不相同；[x,z,排水侧,水带通道]
 const slots=PS.map(([x,z,sg,k],i)=>({x,z,sg,k,r:mk(new THREE.RingGeometry(1.7,2.5,28),0xfacc15,x,.4,z),p:null}));
-labGroup='none';slots.forEach((s,i)=>s.l=lab(s.sg>0?'→市政管网':'→河道',s.x,1.6,s.z,s.sg>0?'#38bdf8':'#7dd3fc',.45));labGroup='base';
+labGroup='none';slots.forEach((s,i)=>{if(s.l&&s.l.parent)s.l.parent.remove(s.l)});labGroup='base';
 const zone=mk(new THREE.RingGeometry(4.6,5.6,36),0xef4444,0,.45,17.6);
 // 左侧防汛装备（沙袋 / 水泵 / 储水井）本版全部隐藏
 zone.visible=false;slots.forEach(q=>{q.r.visible=false;q.l.visible=false});wells.forEach(w=>w.g.visible=false);
@@ -708,13 +707,13 @@ const fillB=new THREE.Mesh(new THREE.BoxGeometry(.8,1,.2),fMatB),fillR=new THREE
 [fillB,fillR].forEach(m=>{m.renderOrder=21;m.position.x=.735;rulerG.add(m)});
 const rMark=new THREE.Mesh(new THREE.BoxGeometry(RW+.7,.1,.26),new THREE.MeshBasicMaterial({color:0xff2438,transparent:true,depthTest:false}));rMark.position.y=LINEH;rMark.renderOrder=23;rulerG.add(rMark);
 rulerG.visible=false;
-labBig('15 cm 安全线',-10.6,.3+LINEH+.9,2.2,'#ff6b6b',2.2,'ruler');
+// 已按要求隐藏其他三维场景文字
 // ② 15 cm 安全线：悬在 15 cm 高度的红色警戒面 + 围墙内侧和楼体根部的黄红警示带 + 两块路牌
 const lineG=new THREE.Group();sc.add(lineG);lineG.visible=false;const LY=.3+LINEH;
 // 15 cm 水位线：只沿着围墙绕一圈红线（大门口那一段留空，不绕）
 const lineMat=new THREE.MeshBasicMaterial({color:0xff2438,transparent:true});hazMats.push(lineMat);
 [[52.8,1.0,0,-17],[1.0,34.8,-26,0],[1.0,34.8,26,0],[22.4,1.0,-15.2,17],[22.4,1.0,15.2,17]].forEach(([w,d,x,z])=>{const m=new THREE.Mesh(new THREE.BoxGeometry(w,.26,d),lineMat);m.position.set(x,LY,z);m.renderOrder=19;lineG.add(m)});
-labBig('超过 15 cm 的部分 = 待消积水',0,15,0,'#ff8f8f',3.6,'band');
+
 // ===== 下渗 / 水文参数 / 面积 / 长方体 =====
 let paramsOn=false,cubOn=false,areaOn=false,cubA=0,arP=0;
 function dynBig(x,y,z,s,col,grp){const c=document.createElement('canvas');c.width=1200;c.height=200;const g=c.getContext('2d'),tex=new THREE.CanvasTexture(c),F='900 64px "Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif';
@@ -739,7 +738,7 @@ function dynBig(x,y,z,s,col,grp){const c=document.createElement('canvas');c.widt
    const f=Math.sin(Math.PI*age[i]/L);P.pos[j]=X[i];P.pos[j+1]=.42;P.pos[j+2]=Z[i];P.col[j]=.45*f;P.col[j+1]=.95*f;P.col[j+2]=.85*f}
   P.geo.attributes.position.needsUpdate=P.geo.attributes.color.needsUpdate=true}})}
 labGroups.param=[];
-labBig('后山 径流系数 50%',-6,40,-44,'#f0b050',3.2,'param');labBig('小区 下渗比例 30%',0,19,-2,'#5ee0ff',3.2,'param');
+
 // 面积：一块青色地块从左到右铺满小区
 const arPl=new THREE.Mesh(new THREE.PlaneGeometry(51.8,33.8),new THREE.MeshBasicMaterial({color:0x22d3ee,transparent:true,opacity:.5,depthWrite:false,side:THREE.DoubleSide}));arPl.rotation.x=-Math.PI/2;arPl.position.y=.45;arPl.renderOrder=9;arPl.visible=false;sc.add(arPl);
 const arBd=new THREE.Group();sc.add(arBd);arBd.visible=false;

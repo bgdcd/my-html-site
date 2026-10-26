@@ -392,8 +392,8 @@ function signTex(){return canvasTex(1024,280,(g,w,h)=>{
   sun(118,h/2-6);sun(w-118,h/2-6);
   g.textAlign='center';g.textBaseline='middle';g.font='900 150px "Noto Serif SC","Songti SC","STSong","SimSun",serif';g.shadowColor='rgba(0,0,0,.6)';g.shadowOffsetY=6;g.shadowBlur=10;
   const tg=g.createLinearGradient(0,50,0,200);tg.addColorStop(0,'#fff6c8');tg.addColorStop(.5,'#ffd54a');tg.addColorStop(1,'#c9921a');g.fillStyle=tg;
-  '阳光小区'.split('').forEach((ch,i)=>g.fillText(ch,512+(i-1.5)*190,118));
-  g.shadowColor='transparent';g.font='700 26px sans-serif';g.fillStyle='#f3d98a';g.fillText('S U N S H I N E   C O M M U N I T Y',512,232)})}
+  // 按要求移除门头上的所有文字，仅保留门头装饰图形
+  })}
 function mkGateArch(){const g=new THREE.Group();g.position.set(0,0,17);sc.add(g);
  const STONE=0xdcd0b8,DARK=0x4b4f57,BRZ=0x8a5a2b;
  [-1,1].forEach(sg=>{const x=sg*4.7;
@@ -682,7 +682,7 @@ $('rst').onclick=()=>{[...S.pumps].forEach(remPump);S.wells.fill(0);putSand(0);r
 // ===== 视频版新增：水位标尺 / 15 cm 安全线 / 水位分层 =====
 const hazMats=[];
 // 大号标牌：按文字宽度自适应，始终保持清晰的屏幕大小
-function labBig(t,x,y,z,col,s,grp){const c=document.createElement('canvas'),g=c.getContext('2d'),F='900 64px "Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif';g.font=F;const cw=Math.ceil(g.measureText(t).width+100);c.width=cw;c.height=120;
+function labBig(t,x,y,z,col,s,grp){return null;const c=document.createElement('canvas'),g=c.getContext('2d'),F='900 64px "Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif';g.font=F;const cw=Math.ceil(g.measureText(t).width+100);c.width=cw;c.height=120;
  g.fillStyle='rgba(8,14,26,.92)';g.fillRect(0,0,cw,120);g.strokeStyle=col;g.lineWidth=6;g.strokeRect(4,4,cw-8,112);g.font=F;g.fillStyle=col;g.textAlign='center';g.textBaseline='middle';g.fillText(t,cw/2,64);
  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c),depthTest:false,transparent:true}));sp.position.set(x,y,z);sp.renderOrder=30;const bw=cw*s*.01,bh=1.2*s;sp.scale.set(bw,bh,1);sc.add(sp);labels.push({sp,bw,bh});(labGroups[grp]||(labGroups[grp]=[])).push(sp);return sp}
 // ① 水位标尺：加宽、刻度和数字加大；15 cm 处一条贯穿的红色粗标记，不会被水柱挡住
@@ -694,12 +694,12 @@ const rtex=canvasTex(520,512,(g,w,h)=>{
   g.fillStyle='#d9dee6';g.fillRect(318,10,176,h-20);                    // 右侧：水柱槽
   g.fillStyle='rgba(239,68,68,.26)';g.fillRect(0,10,w,Y(15)-10);       // 15 cm 以上：危险区
   g.strokeStyle='#1f2937';g.fillStyle='#1f2937';g.lineWidth=3;g.textAlign='left';g.textBaseline='middle';
-  for(let cm=0;cm<=43;cm++){const L=cm%10==0?100:cm%5==0?72:38;g.beginPath();g.moveTo(0,Y(cm));g.lineTo(L,Y(cm));g.stroke();if(cm%10==0){g.font='bold 40px sans-serif';g.fillText(String(cm),112,Y(cm))}}
+  for(let cm=0;cm<=43;cm++){const L=cm%10==0?100:cm%5==0?72:38;g.beginPath();g.moveTo(0,Y(cm));g.lineTo(L,Y(cm));g.stroke();/*刻度数字已按要求隐藏*/}
   g.strokeStyle='#374151';g.lineWidth=4;g.strokeRect(318,10,176,h-20);
   g.strokeStyle='#ef2b3c';g.lineWidth=11;g.beginPath();g.moveTo(0,Y(15));g.lineTo(w,Y(15));g.stroke();
   g.fillStyle='#fff';g.fillRect(108,Y(15)-30,148,60);g.strokeStyle='#ef2b3c';g.lineWidth=5;g.strokeRect(108,Y(15)-30,148,60);
-  g.fillStyle='#ef2b3c';g.font='900 42px sans-serif';g.fillText('15 cm',120,Y(15)+2);
-  g.font='bold 28px sans-serif';g.fillStyle='#374151';g.fillText('cm',14,32);
+  /*隐藏15 cm文字*/
+  /*隐藏cm文字*/
   g.strokeStyle='#374151';g.lineWidth=6;g.strokeRect(3,3,w-6,h-6)});
 const rMat=new THREE.MeshBasicMaterial({map:rtex,transparent:true,depthTest:false}),rSide=new THREE.MeshBasicMaterial({color:0x8a919b,transparent:true,depthTest:false});
 const rBox=new THREE.Mesh(new THREE.BoxGeometry(RW,RUL_H,.12),[rSide,rSide,rSide,rSide,rMat,rMat]);rBox.position.y=RUL_H/2;rBox.renderOrder=20;rulerG.add(rBox);

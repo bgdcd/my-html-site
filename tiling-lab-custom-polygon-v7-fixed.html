@@ -549,19 +549,11 @@ function fcCutPolygon(o,path){
  };
  const middle=path.slice(1,-1).map(p=>[p.x,p.y]);
  const sameEdge=st.edge===en.edge;
- const lengthOf=pts=>pts.reduce((sum,p,i)=>i?sum+Math.hypot(p[0]-pts[i-1][0],p[1]-pts[i-1][1]):sum,0);
- let shortST,longES;
- if(sameEdge){
-  // 同一条边上的两个切口端点：挖出块走边上的短线，主体沿其余外边界绕行，留下真正的凹口。
-  shortST=[st.p,en.p];
-  longES=arc(en,st,true);
- }else{
-  const arcST=arc(st,en,false),arcES=arc(en,st,false);
-  if(lengthOf(arcST)<=lengthOf(arcES)){shortST=arcST;longES=arcES}
-  else{shortST=arcES.slice().reverse();longES=arcST.slice().reverse()}
- }
- const cutPiece=shortST.concat(middle.slice().reverse());
- const remainder=longES.concat(middle);
+ // 两块都必须由真实的原边界弧与切割线闭合组成：主体走长边界弧，挖出块走另一段边界弧。
+ const boundaryST=arc(st,en,false);
+ const boundaryES=arc(en,st,sameEdge);
+ const cutPiece=boundaryST.concat(middle.slice().reverse());
+ const remainder=boundaryES.concat(middle);
  const halves=[remainder,cutPiece].filter(p=>p.length>=3&&Math.abs(area(p))>25&&isSimple(p));
  if(halves.length!==2)return null;
  const halfAreas=halves.map(p=>Math.abs(area(p))),halfBoxes=halves.map(bbox),halfCenters=halfBoxes.map(b=>[(b[0]+b[2])/2,(b[1]+b[3])/2]);

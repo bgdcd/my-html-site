@@ -435,7 +435,7 @@ function fcExitTiling(){if(!fcTilingActive)return;fcAnimToken++;fcAnimSkip=null;
 const fcSay=(m,bad)=>{fcMsg.textContent=m;fcMsg.style.color=bad?'#ffb38a':'#7cc4ff'};
 const fcPt=e=>{const p=fcB.createSVGPoint();p.x=e.clientX;p.y=e.clientY;const q=p.matrixTransform(fcB.getScreenCTM().inverse());return{x:q.x,y:q.y}};
 const fcLocal=o=>o.pts||fcShapes[o.k].pts;const fcW=o=>{const c=Math.cos(o.r*R),s=Math.sin(o.r*R);return fcLocal(o).map(p=>{const x=p[0]*o.m,y=p[1];return[o.x+x*c-y*s,o.y+x*s+y*c]})};
-const fcSave=()=>{fcHist.push(JSON.stringify(fcP.map(o=>({id:o.id,k:o.k,x:o.x,y:o.y,r:o.r,m:o.m,color:o.color,pts:o.pts?o.pts.map(p=>p.slice()):null,drawings:(o.drawings||[]).map(d=>({...d})),locked:!!o.locked,cutGroup:o.cutGroup,cutBaseX:o.cutBaseX,cutBaseY:o.cutBaseY,cutPiece:o.cutPiece,cutOriginTop:o.cutOriginTop,cutOriginBottom:o.cutOriginBottom,cutOriginHeight:o.cutOriginHeight,cutSnapY:o.cutSnapY,cutHasBottomEdge:o.cutHasBottomEdge,cutUpSnapY:o.cutUpSnapY,tileStepY:o.tileStepY,cutMoveX:o.cutMoveX,cutMoveY:o.cutMoveY,cutTargetX:o.cutTargetX,cutTargetY:o.cutTargetY,cutAxis:o.cutAxis,cloneOf:o.cloneOf,lat:o.lat,fam:o.fam,fr:o.fr,joined:!!o.joined}))));if(fcHist.length>40)fcHist.shift()};
+const fcSave=()=>{fcHist.push(JSON.stringify(fcP.map(o=>({id:o.id,k:o.k,x:o.x,y:o.y,r:o.r,m:o.m,color:o.color,pts:o.pts?o.pts.map(p=>p.slice()):null,drawings:(o.drawings||[]).map(d=>({...d})),locked:!!o.locked,cutGroup:o.cutGroup,cutBaseX:o.cutBaseX,cutBaseY:o.cutBaseY,cutPiece:o.cutPiece,cutOriginTop:o.cutOriginTop,cutOriginBottom:o.cutOriginBottom,cutOriginHeight:o.cutOriginHeight,cutOriginWidth:o.cutOriginWidth,cutSnapY:o.cutSnapY,cutHasBottomEdge:o.cutHasBottomEdge,cutUpSnapY:o.cutUpSnapY,tileStepY:o.tileStepY,cutMoveX:o.cutMoveX,cutMoveY:o.cutMoveY,cutTargetX:o.cutTargetX,cutTargetY:o.cutTargetY,cutAxis:o.cutAxis,cloneOf:o.cloneOf,lat:o.lat,fam:o.fam,fr:o.fr,joined:!!o.joined}))));if(fcHist.length>40)fcHist.shift()};
 function fcPaint(o){o.el.setAttribute('transform',`translate(${o.x} ${o.y}) rotate(${o.r}) scale(${o.m} 1)`);const pl=o.el.firstChild,sel=o===fcSel||fcMulti.has(o);o.el.classList.toggle('sel',sel&&o===fcSel);o.el.classList.toggle('multi-sel',sel&&o!==fcSel);pl.setAttribute('fill',o.color);pl.setAttribute('stroke',shade(o.color))}
 function fcCtl(){if(!fcSel){fcC.style.display='none';return}const w=fcW(fcSel),top=w.reduce((a,p)=>p[1]<a[1]?p:a,w[0]),hx=top[0],hy=top[1]-34;fcC.style.display='';$('fcStem').setAttribute('x1',top[0]);$('fcStem').setAttribute('y1',top[1]);$('fcStem').setAttribute('x2',hx);$('fcStem').setAttribute('y2',hy+12);$('fcRotH').setAttribute('cx',hx);$('fcRotH').setAttribute('cy',hy);$('fcRotT').setAttribute('x',hx);$('fcRotT').setAttribute('y',hy+5.5);fcG.appendChild(fcSel.el);fcB.appendChild(fcC)}
 function fcSelect(o){const old=[...fcMulti];fcSel=o;fcMulti.clear();if(o)fcMulti.add(o);old.forEach(x=>{if(x.el&&x.el.isConnected)fcPaint(x)});if(o)fcPaint(o);fcP.forEach(x=>{if(x!==o)fcPaint(x)});fcCtl()}
@@ -632,13 +632,15 @@ function fcCutPolygon(o,path){
  if(side==='right')cutMoveX=-originWidth;
  if(side==='top')cutMoveY=originHeight;
  if(side==='bottom')cutMoveY=-originHeight;
+ const inheritedLat=fcWorldLat(o);
+ const basisLat=inheritedLat || (Math.abs(Math.abs(area(poly))-originWidth*originHeight)<Math.max(2,originWidth*originHeight*.025)?[[originWidth,0],[0,originHeight]]:null);
  const makePiece=(w,isRemainder)=>{
   const pts=w.map(p=>[p[0]-o.x,p[1]-o.y]);
   return {pts,x:o.x,y:o.y,r:0,m:1,color:o.color,k:'custom',id:fcId++,locked:false,
    cutGroup:'cut-'+fcId,cutRemainder:isRemainder,cutBaseX:o.x,cutBaseY:o.y,
    cutOriginTop:originTop,cutOriginBottom:originBottom,cutOriginWidth:originWidth,cutOriginHeight:originHeight,
    cutSnapY:originTop-Math.max(...pts.map(p=>p[1])),cutUpSnapY:o.y-originHeight,
-   tileStepY:originHeight,cutMoveX:isRemainder?0:cutMoveX,cutMoveY:isRemainder?0:cutMoveY,
+   tileStepY:originHeight,...(basisLat?{lat:basisLat.map(v=>v.slice())}:{}),cutMoveX:isRemainder?0:cutMoveX,cutMoveY:isRemainder?0:cutMoveY,
    cutTargetX:o.x,cutTargetY:o.y,cutAxis:side};
  };
  return [makePiece(remainder,true),makePiece(cutPiece,false)];
@@ -755,8 +757,11 @@ $('fcJoin').onclick=()=>{
  const widths=members.map(o=>Number(o.cutOriginWidth)).filter(v=>Number.isFinite(v)&&v>0);
  const sameWidth=widths.length===members.length&&widths.every(v=>Math.abs(v-widths[0])<1.5);
  const width=sameWidth?widths[0]:undefined;
- // 保留切割前的原始平移格；组合图形克隆后可先验证这组精确格向量，无须只靠耗时搜索。
- const lat=step&&width?[[width,0],[0,step]]:null;
+// 优先继承所有成员共同使用的真实平移格（包括再次剪切/克隆的组合图形）；
+// 没有继承格时才用原始轴对齐矩形的宽高作为候选。
+const lats=members.map(o=>fcWorldLat(o));
+const sameLat=!!(lats.length&&lats[0]&&lats[0].length===2&&lats.every(l=>l&&l.length===2&&l.every((v,i)=>Math.hypot(v[0]-lats[0][i][0],v[1]-lats[0][i][1])<1.5)));
+const lat=sameLat?lats[0].map(v=>v.slice()):(step&&width?[[width,0],[0,step]]:null);
  fcSave();members.forEach(o=>o.el.remove());fcP=fcP.filter(o=>!members.includes(o));
  const o={id:fcId++,k:'custom',pts,x:c[0],y:c[1],r:0,m:1,color:fcSel?fcSel.color:'#71c8f2',locked:false,joined:true,...(step?{tileStepY:step,cutOriginHeight:step}:{}),...(width?{cutOriginWidth:width}:{}),...(lat?{lat}: {})};
  fcP.push(o);fcMulti.clear();fcMake(o);fcSelect(o);fcMultiMode=false;$('fcMultiSelect').classList.remove('primary');
@@ -786,7 +791,7 @@ const need=()=>{if(!fcSel){fcSay('请先点选画布里的一个图形');return 
 $('fcRotL').onclick=()=>{if(need()){if(fcSel.cutGroup)return fcSay('切割后的图形按数学平移规则操作，不能旋转。');fcSave();fcSel.r=(fcSel.r-15+360)%360;fcPaint(fcSel);fcCtl()}};
 $('fcRotR').onclick=()=>{if(need()){if(fcSel.cutGroup)return fcSay('切割后的图形按数学平移规则操作，不能旋转。');fcSave();fcSel.r=(fcSel.r+15)%360;fcPaint(fcSel);fcCtl()}};
 $('fcFlip').onclick=()=>{if(need()){fcSave();fcSel.m*=-1;fcPaint(fcSel);fcCtl()}};
-$('fcDup').onclick=()=>{if(need()){const o=fcSel;fcSave();const n={id:fcId++,k:o.k,pts:o.pts?o.pts.map(p=>p.slice()):null,drawings:(o.drawings||[]).map(d=>({...d})),x:o.x,y:o.y-8,r:o.r,m:o.m,color:o.color,locked:false,joined:!!o.joined,cutGroup:o.cutGroup,cutBaseX:o.cutBaseX,cutBaseY:o.cutBaseY,cutPiece:o.cutPiece,cutOriginTop:o.cutOriginTop,cutOriginBottom:o.cutOriginBottom,cutOriginHeight:o.cutOriginHeight,cutSnapY:o.cutSnapY,cutHasBottomEdge:o.cutHasBottomEdge,cutUpSnapY:o.cutUpSnapY,tileStepY:o.tileStepY||o.cutOriginHeight,cutMoveX:o.cutMoveX,cutMoveY:o.cutMoveY,cutTargetX:o.cutTargetX,cutTargetY:o.cutTargetY,cutAxis:o.cutAxis,cloneOf:o.id,lat:o.lat,fam:o.fam,fr:o.fr};fcP.push(n);fcMake(n);fcSelect(n);fcSay(o.joined?'已克隆复合图形：可向任意方向自由移动，接近其他图形时自动吸附，吸附不会旋转图形。':'已克隆切割图形：保留原来的竖直平移与对应缺口吸附规则。')}};
+$('fcDup').onclick=()=>{if(need()){const o=fcSel;fcSave();const n={id:fcId++,k:o.k,pts:o.pts?o.pts.map(p=>p.slice()):null,drawings:(o.drawings||[]).map(d=>({...d})),x:o.x,y:o.y-8,r:o.r,m:o.m,color:o.color,locked:false,joined:!!o.joined,cutGroup:o.cutGroup,cutBaseX:o.cutBaseX,cutBaseY:o.cutBaseY,cutPiece:o.cutPiece,cutOriginTop:o.cutOriginTop,cutOriginBottom:o.cutOriginBottom,cutOriginHeight:o.cutOriginHeight,cutOriginWidth:o.cutOriginWidth,cutSnapY:o.cutSnapY,cutHasBottomEdge:o.cutHasBottomEdge,cutUpSnapY:o.cutUpSnapY,tileStepY:o.tileStepY||o.cutOriginHeight,cutMoveX:o.cutMoveX,cutMoveY:o.cutMoveY,cutTargetX:o.cutTargetX,cutTargetY:o.cutTargetY,cutAxis:o.cutAxis,cloneOf:o.id,lat:o.lat,fam:o.fam,fr:o.fr};fcP.push(n);fcMake(n);fcSelect(n);fcSay(o.joined?'已克隆复合图形：可向任意方向自由移动，接近其他图形时自动吸附，吸附不会旋转图形。':'已克隆切割图形：保留原来的竖直平移与对应缺口吸附规则。')}};
 $('fcDel').onclick=()=>{if(need()){fcSave();const o=fcSel;fcP=fcP.filter(x=>x!==o);o.el.remove();fcSelect(null);fcSay('已删除，还有 '+fcP.length+' 个图形')}};
 $('fcUndo').onclick=()=>{if(!fcHist.length)return fcSay('没有可撤销的操作');fcRestore(fcHist.pop())};
 $('fcClear').onclick=()=>{fcSave();fcG.innerHTML='';fcP=[];fcMulti.clear();fcMultiMode=false;$('fcMultiSelect').classList.remove('primary');fcSelect(null);fcSay('画布已清空')};

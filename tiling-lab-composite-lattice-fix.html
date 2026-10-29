@@ -1089,6 +1089,13 @@ function fcGrowthEdgeCovered(Q,edge,others,self){
  }}
  return false;
 }
+function fcGrowthSegmentHitsViewport(a,b){
+ const x0=0,y0=0,x1=900,y1=600,dx=b[0]-a[0],dy=b[1]-a[1];let lo=0,hi=1;
+ const p=[-dx,dx,-dy,dy],q=[a[0]-x0,x1-a[0],a[1]-y0,y1-a[1]];
+ for(let i=0;i<4;i++){if(Math.abs(p[i])<1e-9){if(q[i]<0)return false;continue}
+  const r=q[i]/p[i];if(p[i]<0){if(r>hi)return false;if(r>lo)lo=r}else{if(r<lo)return false;if(r<hi)hi=r}}
+ return lo<=hi;
+}
 function fcTileByEdgeGrowth(polys,colors,outline){
  if(outline.length<3||!isSimple(outline))return null;
  const run=preferReflect=>{
@@ -1132,7 +1139,12 @@ function fcTileByEdgeGrowth(polys,colors,outline){
   }
   if(tiles.length<2)return null;
   const outlines=tiles.map(t=>{const q=t.out;q.bb=t.bb;return q});
-  if(!cover(outlines,[0,0,900,600],90,60,performance.now()+1300))return null;
+  // 额外检查：画布内出现的每一段图形边界，都必须有另一块图形整段贴合；避免只靠网格采样漏掉小缝。
+  for(const t of tiles)for(let e=0;e<t.out.length;e++){
+   const a=t.out[e],b=t.out[(e+1)%t.out.length];
+   if(fcGrowthSegmentHitsViewport(a,b)&&!fcGrowthEdgeCovered(t.out,e,tiles,t))return null;
+  }
+  if(!cover(outlines,[0,0,900,600],90,60,performance.now()+1500))return null;
   const copies=[];
   let idx=0;
   for(const t of tiles){

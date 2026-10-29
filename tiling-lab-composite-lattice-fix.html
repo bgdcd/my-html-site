@@ -1050,7 +1050,7 @@ function fcGrowthEdgeCovered(Q,edge,others){
  if(L<1e-5)return true;
  for(const O of others)for(let j=0;j<O.out.length;j++){
   const c=O.out[j],d=O.out[(j+1)%O.out.length],ex=d[0]-c[0],ey=d[1]-c[1],M=Math.hypot(ex,ey);
-  if(M<1e-5||Math.abs(dx*ey-dy*ex)/(L*M)>.002)return false;
+  if(M<1e-5)continue;if(Math.abs(dx*ey-dy*ex)/(L*M)>.002)continue;
   const distC=Math.abs(dx*(c[1]-a[1])-dy*(c[0]-a[0]))/L,distD=Math.abs(dx*(d[1]-a[1])-dy*(d[0]-a[0]))/L;
   if(distC>1||distD>1)continue;
   const ux=dx/L,uy=dy/L,t0=(c[0]-a[0])*ux+(c[1]-a[1])*uy,t1=(d[0]-a[0])*ux+(d[1]-a[1])*uy;
@@ -1100,7 +1100,7 @@ function fcTileByEdgeGrowth(polys,colors,outline){
     // 边外侧暂时没有可放置副本的情况留给最终覆盖校验判断，避免硬塞入重叠图形。
    }
   }
-  if(tiles.length<2||performance.now()>=deadline)return null;
+  if(tiles.length<2)return null;
   const outlines=tiles.map(t=>{const q=t.out;q.bb=t.bb;return q});
   if(!cover(outlines,[0,0,900,600],90,60,performance.now()+1300))return null;
   const copies=[];

@@ -736,7 +736,19 @@ function fcFreeCutDown(ev){
  };
  window.addEventListener('pointermove',move);window.addEventListener('pointerup',finish);window.addEventListener('pointercancel',finish);
 }
-function fcCutDown(ev){if(!fcCutMode)return;const p=fcPt(ev);let target=fcCutTarget||fcSel;if(!target||target.locked)return;
+function fcCutDown(ev){
+ if(!fcCutMode)return;
+ const p=fcPt(ev);
+ // 优先使用本次实际点击的图形，而不是一直沿用上一次选中的图形。
+ // 这样一次剪切完成后，可以直接对另一个图形开始第二次剪切。
+ let hit=null;
+ for(let n=ev.target;n&&n!==fcB.parentNode;n=n.parentNode){if(n.__fcPiece){hit=n.__fcPiece;break}}
+ if(fcCutTarget&&hit&&hit!==fcCutTarget){
+  fcCutReset();
+  fcSay('已切换到当前点击的图形，请从它的边缘重新确定剪切起点。');
+ }
+ let target=fcCutTarget||hit||fcSel;
+ if(!target||target.locked)return;
  const w=fcW(target),edge=fcNearEdge(p,w,22),inside=fcInside(p,w);if(!fcCutTarget){if(!edge){if(ev.target===fcB||ev.target===fcG)return;return}fcCutTarget=target;fcCutPath=[p];fcDrawCutGuide();fcSay('起点已确定。继续点击图形内部的转折位置；最后点击另一处边缘完成切割。');ev.preventDefault();ev.stopPropagation();return}
  if(target!==fcCutTarget)return;
  if(edge&&fcCutPath.length>=2){fcCutPath.push(p);const path=fcCutPath.slice();const pieces=fcCutPolygon(fcCutTarget,path);if(!pieces){fcCutPath.pop();fcSay('这条切割线没有形成有效的两块图形，请再点一个内部转折点，或重新开始。',true);fcDrawCutGuide();ev.preventDefault();ev.stopPropagation();return}

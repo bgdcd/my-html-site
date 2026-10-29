@@ -1,3 +1,5 @@
+<!-- Strong edge snapping build: release-time exact edge/endpoint alignment and tolerant outline welding. -->
+<!-- Composite-lattice fix build: preserves lattice metadata through cut, join, clone and undo. -->
 <!DOCTYPE html>
 <html lang="zh-CN"><head><meta charset="UTF-8"><meta name="theme-color" content="#0a1226"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><title>密铺实验室</title>
 <style>
@@ -351,7 +353,7 @@ board.addEventListener('wheel',e=>{e.preventDefault();if(selected&&(e.shiftKey||
 $('speedBtn').onclick=()=>{speedI=(speedI+1)%3;$('speedBtn').textContent='🐢 铺设速度：'+SPEEDS[speedI][0]};
 
 // ---------- 组合图形：求外轮廓 ----------
-function unionOutline(polys){const TOL=1.5,cl=[],rep=p=>{for(const c of cl)if(Math.hypot(c[0]-p[0],c[1]-p[1])<TOL)return c;const c=[p[0],p[1]];cl.push(c);return c};
+function unionOutline(polys){const TOL=3.0,cl=[],rep=p=>{for(const c of cl)if(Math.hypot(c[0]-p[0],c[1]-p[1])<TOL)return c;const c=[p[0],p[1]];cl.push(c);return c};
  const OV='有图形重叠了，请把它们拖开，只让边和边贴合';
  const P=polys.map(w=>{let q=w.map(rep);q=q.filter((c,i)=>c!==q[(i+1)%q.length]);if(area(q)<0)q.reverse();return q});
  for(let i=0;i<P.length;i++)for(let j=i+1;j<P.length;j++)if(samples(P[i]).some(p=>inP(P[j],p))||samples(P[j]).some(p=>inP(P[i],p)))return{err:OV};
@@ -453,38 +455,57 @@ function fcCutSnapTarget(o){
  return null;
 }
 function fcSnapExactEdges(o,others,E){
+ // 释放鼠标时做一次“硬吸附”：边线先精确共线，再尽可能让最近的一对端点重合。
+ // 只做平移，不偷偷旋转组合图形；角度不匹配的边不会被强行拉到一起。
  const P=fcW(o);if(P.length<3)return false;
- const signedArea=area(P),windA=Math.sign(signedArea)||1;
+ const center=P.reduce((v,p)=>[v[0]+p[0]/P.length,v[1]+p[1]/P.length],[0,0]);
+ const windA=Math.sign(area(P))||1;
  let best=null;
+ const captureT=Math.max(E,30);
  for(const Q of others){
-  if(!Q||Q===o||Q.locked===undefined&&false)continue;
+  if(!Q||Q===o)continue;
   const T=Array.isArray(Q)?Q:fcW(Q);if(!T||T.length<3)continue;
+  const centerB=T.reduce((v,p)=>[v[0]+p[0]/T.length,v[1]+p[1]/T.length],[0,0]);
   const windB=Math.sign(area(T))||1;
-  const ca=P.reduce((v,p)=>[v[0]+p[0]/P.length,v[1]+p[1]/P.length],[0,0]);
-  const cb=T.reduce((v,p)=>[v[0]+p[0]/T.length,v[1]+p[1]/T.length],[0,0]);
   for(let i=0;i<P.length;i++){
    const a=P[i],b=P[(i+1)%P.length],ex=b[0]-a[0],ey=b[1]-a[1],la=Math.hypot(ex,ey);
-   if(la<4)continue;
+   if(la<3)continue;
    const ux=ex/la,uy=ey/la,nx=-uy,ny=ux;
-   const interiorA=Math.sign(ex*(ca[1]-a[1])-ey*(ca[0]-a[0]))||windA;
+   const interiorA=Math.sign(ex*(center[1]-a[1])-ey*(center[0]-a[0]))||windA;
    for(let j=0;j<T.length;j++){
     const c=T[j],d=T[(j+1)%T.length],fx=d[0]-c[0],fy=d[1]-c[1],lb=Math.hypot(fx,fy);
-    if(lb<4)continue;
+    if(lb<3)continue;
     const cross=Math.abs(ex*fy-ey*fx)/(la*lb);
-    if(cross>0.0087)continue; // 约半度：不靠旋转强行掰正，只吸附本来就平行的边。
+    if(cross>0.012)continue; // 约0.69°；不把明显斜交的边误判为可吸附接缝。
     const dot=ux*(fx/lb)+uy*(fy/lb);
-    const interiorB=Math.sign(ex*(cb[1]-a[1])-ey*(cb[0]-a[0]))||windB;
-    if(interiorA*interiorB>=0)continue; // 两个图形必须位于接缝的相反两侧，避免吸到重叠的一侧。
+    const interiorB=Math.sign(ex*(centerB[1]-a[1])-ey*(centerB[0]-a[0]))||windB;
+    if(interiorA*interiorB>=0)continue; // 两块必须位于接缝两侧。
     const normalGap=(c[0]-a[0])*nx+(c[1]-a[1])*ny;
     if(Math.abs(normalGap)>E)continue;
     const t0=(c[0]-a[0])*ux+(c[1]-a[1])*uy;
     const t1=(d[0]-a[0])*ux+(d[1]-a[1])*uy;
-    const ov=Math.min(la,Math.max(t0,t1))-Math.max(0,Math.min(t0,t1));
-    if(ov<Math.max(5,Math.min(la,lb)*0.18))continue; // 没有足够长的边线重合区域时，不吸附，避免只碰一个角。
-    const move=Math.abs(normalGap);
-    if(move>E)continue;
-    const score=move+(1-Math.abs(dot))*E*2;
-    if(!best||score<best.score)best={score,dx:nx*normalGap,dy:ny*normalGap};
+    const curOv=Math.min(la,Math.max(t0,t1))-Math.max(0,Math.min(t0,t1));
+    // 将移动图形的一个端点与静止边的端点对齐；只接受移动量可控且对齐后仍有有效重叠的方案。
+    const shifts=[t0,t1,t0-la,t1-la].sort((x,y)=>Math.abs(x)-Math.abs(y));
+    let tangentShift=0,ov=curOv;
+    const candidate=shifts.find(v=>{
+     if(Math.abs(v)>captureT)return false;
+     const q0=t0-v,q1=t1-v;
+     const z=Math.min(la,Math.max(q0,q1))-Math.max(0,Math.min(q0,q1));
+     if(z<Math.max(4,Math.min(la,lb)*0.14))return false;
+     return true;
+    });
+    if(candidate!==undefined){
+     const q0=t0-candidate,q1=t1-candidate;
+     const shiftedOv=Math.min(la,Math.max(q0,q1))-Math.max(0,Math.min(q0,q1));
+     // 端点微调优先，但不为了对齐远端点而牺牲大段接触边。
+     if(Math.abs(candidate)<captureT*.75 || curOv<Math.min(la,lb)*.72){
+      tangentShift=candidate;ov=shiftedOv;
+     }
+    }
+    if(ov<Math.max(4,Math.min(la,lb)*0.14))continue;
+    const score=Math.abs(normalGap)+Math.abs(tangentShift)*0.55+(1-Math.abs(dot))*E*3;
+    if(!best||score<best.score)best={score,dx:nx*normalGap+ux*tangentShift,dy:ny*normalGap+uy*tangentShift};
    }
   }
  }
@@ -493,7 +514,7 @@ function fcSnapExactEdges(o,others,E){
  return true;
 }
 function fcSnap(o, anchorX=null, deltaY=0, dragStartY=null, isDrop=false){
- const ctm=fcB.getScreenCTM(),u=1/(ctm?Math.abs(ctm.a)||1:1),E=20*u;
+ const ctm=fcB.getScreenCTM(),u=1/(ctm?Math.abs(ctm.a)||1:1),E=38*u;
  // 只有独立切块使用专用对侧平移吸附。已拼接/已组合的图形（包括其克隆体）
  // 必须按整个外轮廓进入通用边线吸附，不能因 cloneOf 标记提前退出。
  if(!o.joined&&(o.cutGroup||(o.cloneOf!==undefined&&o.cloneOf!==null))){
@@ -510,7 +531,7 @@ function fcSnap(o, anchorX=null, deltaY=0, dragStartY=null, isDrop=false){
   if(ob[0]>mb[2]+pad||ob[2]<mb[0]-pad||ob[1]>mb[3]+pad||ob[3]<mb[1]-pad)continue;
   others.push(ow);
  }
- if(others.length)snapCore({w:()=>fcW(o),rotBy:d=>{if(!isJoined)o.r+=d},shift:(dx,dy)=>{o.x+=dx;o.y+=dy}},others,E,isJoined?26*u:15*u,isJoined?3:5);
+ if(others.length){snapCore({w:()=>fcW(o),rotBy:d=>{if(!isJoined)o.r+=d},shift:(dx,dy)=>{o.x+=dx;o.y+=dy}},others,E,isJoined?34*u:24*u,isJoined?3:5);if(isDrop)fcSnapExactEdges(o,others,E);}
 }
 function fcAdd(k,x,y){fcSave();const o={id:fcId++,k,x:Math.max(40,Math.min(860,x)),y:Math.max(40,Math.min(560,y)),r:0,m:1,color:fcShapes[k].color};fcP.push(o);fcMake(o);fcSnap(o);fcSelect(o);fcSay('已放入'+fcShapes[k].name+'。共 '+fcP.length+' 个图形；拖动让边贴合，满意后点“自动密铺”。')}
 function fcStartMove(ev,o){if(ev.button!==undefined&&ev.button!==0)return;ev.stopPropagation();if(ev.shiftKey||fcMultiMode){ev.preventDefault();fcSelectMulti(o);return;}if(o.locked){fcSelect(o);fcSay('该图形已锁定，请先解锁再移动');return;}ev.preventDefault();fcSelect(o);const p0=fcPt(ev),x0=o.x,y0=o.y,r0=o.r,cx=ev.clientX,cy=ev.clientY;let moved=false,fin=false;
@@ -720,13 +741,13 @@ fcB.addEventListener('pointerdown',fcCutDown,true);
 fcB.addEventListener('pointerdown',fcFreeCutDown,true);
 fcB.addEventListener('pointermove',e=>{if(fcCutMode&&fcCutTarget)fcDrawCutGuide(fcPt(e))});
 // 检测两块图形是否真的共享一段边（不是只碰到一个顶点）。
-function fcEdgesTouch(pa,pb,tol=1.8){
+function fcEdgesTouch(pa,pb,tol=3.2){
  for(let i=0;i<pa.length;i++){
   const a=pa[i],b=pa[(i+1)%pa.length],dx=b[0]-a[0],dy=b[1]-a[1],L=Math.hypot(dx,dy);if(L<1)continue;
   const ux=dx/L,uy=dy/L;
   for(let j=0;j<pb.length;j++){
    const c=pb[j],d=pb[(j+1)%pb.length],ex=d[0]-c[0],ey=d[1]-c[1],M=Math.hypot(ex,ey);if(M<1)continue;
-   if(Math.abs(dx*ey-dy*ex)/(L*M)>.025)continue;
+   if(Math.abs(dx*ey-dy*ex)/(L*M)>.03)continue;
    const dc=Math.abs(dx*(c[1]-a[1])-dy*(c[0]-a[0]))/L,dd=Math.abs(dx*(d[1]-a[1])-dy*(d[0]-a[0]))/L;
    if(dc>tol||dd>tol)continue;
    const tc=(c[0]-a[0])*ux+(c[1]-a[1])*uy,td=(d[0]-a[0])*ux+(d[1]-a[1])*uy;

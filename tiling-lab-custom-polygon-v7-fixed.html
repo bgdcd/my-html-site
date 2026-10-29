@@ -552,8 +552,20 @@ function fcCutPolygon(o,path){
  const arc=(from,to,forceLong=false)=>{
   const same=from.edge===to.edge;
   if(same&&!forceLong)return [from.p,to.p];
+  if(same&&forceLong){
+   // 同一边上的长弧不能沿同一方向绕一圈，否则会重复覆盖切口边界。
+   // 按端点在该边上的参数顺序，从相反方向绕过其余顶点。
+   const n=poly.length,e=from.edge,out=[from.p];
+   if(from.t<to.t){
+    out.push(poly[e]);let i=e,guard=0;
+    while(i!==((e+1)%n)&&guard++<n+1){i=(i-1+n)%n;out.push(poly[i])}
+   }else{
+    out.push(poly[(e+1)%n]);let i=(e+1)%n,guard=0;
+    while(i!==e&&guard++<n+1){i=(i+1)%n;out.push(poly[i])}
+   }
+   out.push(to.p);return out;
+  }
   const out=[from.p];let i=from.edge,guard=0;
-  if(same){out.push(poly[(i+1)%poly.length]);i=(i+1)%poly.length}
   while(i!==to.edge&&guard<poly.length+2){out.push(poly[(i+1)%poly.length]);i=(i+1)%poly.length;guard++}
   out.push(to.p);return out;
  };

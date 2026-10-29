@@ -564,7 +564,6 @@ function fcCutPolygon(o,path){
  const remainder=longES.concat(middle);
  const halves=[remainder,cutPiece].filter(p=>p.length>=3&&Math.abs(area(p))>25&&isSimple(p));
  if(halves.length!==2)return null;
- const halves=[p1,p2].filter(p=>p.length>=3&&Math.abs(area(p))>25&&isSimple(p));if(halves.length!==2)return null;
  const halfAreas=halves.map(p=>Math.abs(area(p))),halfBoxes=halves.map(bbox),halfCenters=halfBoxes.map(b=>[(b[0]+b[2])/2,(b[1]+b[3])/2]);
  const remIndex=0,cutIndex=1;
  const originCenter=[(originBox[0]+originBox[2])/2,(originBox[1]+originBox[3])/2],cutCenter=halfCenters[cutIndex];

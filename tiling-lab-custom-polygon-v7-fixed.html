@@ -582,7 +582,8 @@ function fcFinishSplit(old,path,pieces){
   }else{
    // 挖出块立即移到原图形外侧，真正露出缺口；目标位置与初始位置一致，便于随后独立拖动。
    o.x=old.x+(o.cutMoveX||0);o.y=old.y+(o.cutMoveY||0);
-   o.cutTargetX=o.x;o.cutTargetY=o.y;
+   // 吸附目标是原位置的缺口，而不是挖出块移开后的停靠位置。
+   o.cutTargetX=old.x;o.cutTargetY=old.y;
   }
   fcP.splice(idx+j,0,o);fcMake(o)});
  fcSetMode('move');fcMultiMode=false;$('fcMultiSelect').classList.remove('primary');fcSelect(pieces[0]);

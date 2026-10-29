@@ -126,16 +126,20 @@ function removeTrianglePattern(){
 }
 function tileTrianglePattern(P,fill,cx,cy){
  const A=P[0],B=P[1],C=P[2],u=[A[0]-C[0],A[1]-C[1]],v=[B[0]-C[0],B[1]-C[1]];
- const det=u[0]*v[1]-u[1]*v[0];if(Math.abs(det)<1e-6)return false;
+ const det=u[0]*v[1]-u[1]*v[0],W=Math.hypot(u[0],u[1]),H=Math.abs(det)/(W||1);
+ if(Math.abs(det)<1e-6||W<1e-6||H<1e-6)return false;
  removeTrianglePattern();
  const defs=board.querySelector('defs');if(!defs)return false;
  const pid='mainTrianglePattern';
- tilePatternDef=el('pattern',{id:pid,x:0,y:0,width:1,height:1,patternUnits:'userSpaceOnUse',patternContentUnits:'userSpaceOnUse',
-  patternTransform:'matrix('+[u[0],u[1],v[0],v[1],cx,cy].map(x=>Number(x.toFixed(8))).join(' ')+')'});
- // 整个基本平行四边形先铺底色；两块三角形精确分割它，即使像素抗锯齿也不会露出画布背景。
- tilePatternDef.appendChild(el('rect',{x:0,y:0,width:1,height:1,fill:fill}));
- tilePatternDef.appendChild(el('polygon',{points:'0,0 1,0 0,1',fill:fill,stroke:'none'}));
- tilePatternDef.appendChild(el('polygon',{points:'1,0 1,1 0,1',fill:shade(fill,8),stroke:'none'}));
+ // 用“旋转/斜切后的矩形重复单元”表达平行四边形格。
+ // 局部单元宽高为 W、H；矩阵把它的两条边准确映射成 u、v。
+ const matrix=[u[0]/W,u[1]/W,v[0]/H,v[1]/H,cx,cy].map(x=>Number(x.toFixed(10)));
+ tilePatternDef=el('pattern',{id:pid,x:0,y:0,width:W,height:H,patternUnits:'userSpaceOnUse',patternContentUnits:'userSpaceOnUse',
+  patternTransform:'matrix('+matrix.join(' ')+')'});
+ // 基本平行四边形底层铺色；两块三角形正好分割它，抗锯齿处也不会露出画布背景。
+ tilePatternDef.appendChild(el('rect',{x:0,y:0,width:W,height:H,fill:fill}));
+ tilePatternDef.appendChild(el('polygon',{points:'0,0 '+W+',0 0,'+H,fill:fill,stroke:'none'}));
+ tilePatternDef.appendChild(el('polygon',{points:W+',0 '+W+','+H+' 0,'+H,fill:shade(fill,8),stroke:'none'}));
  defs.appendChild(tilePatternDef);
  ensureTileBackdrop(fill);
  tilePatternRect=el('rect',{id:'mainTrianglePatternFill',x:0,y:0,width:1200,height:800,fill:'url(#'+pid+')','pointer-events':'none'});

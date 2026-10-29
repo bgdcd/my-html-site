@@ -636,7 +636,7 @@ function fcCutPolygon(o,path){
   const pts=w.map(p=>[p[0]-o.x,p[1]-o.y]);
   return {pts,x:o.x,y:o.y,r:0,m:1,color:o.color,k:'custom',id:fcId++,locked:false,
    cutGroup:'cut-'+fcId,cutRemainder:isRemainder,cutBaseX:o.x,cutBaseY:o.y,
-   cutOriginTop:originTop,cutOriginBottom:originBottom,cutOriginHeight:originHeight,
+   cutOriginTop:originTop,cutOriginBottom:originBottom,cutOriginWidth:originWidth,cutOriginHeight:originHeight,
    cutSnapY:originTop-Math.max(...pts.map(p=>p[1])),cutUpSnapY:o.y-originHeight,
    tileStepY:originHeight,cutMoveX:isRemainder?0:cutMoveX,cutMoveY:isRemainder?0:cutMoveY,
    cutTargetX:o.x,cutTargetY:o.y,cutAxis:side};
@@ -752,8 +752,13 @@ $('fcJoin').onclick=()=>{
  const steps=members.map(o=>Number(o.tileStepY||o.cutOriginHeight)).filter(v=>Number.isFinite(v)&&v>0);
  const sameStep=steps.length===members.length&&steps.every(v=>Math.abs(v-steps[0])<1.5);
  const step=sameStep?steps[0]:undefined;
+ const widths=members.map(o=>Number(o.cutOriginWidth)).filter(v=>Number.isFinite(v)&&v>0);
+ const sameWidth=widths.length===members.length&&widths.every(v=>Math.abs(v-widths[0])<1.5);
+ const width=sameWidth?widths[0]:undefined;
+ // 保留切割前的原始平移格；组合图形克隆后可先验证这组精确格向量，无须只靠耗时搜索。
+ const lat=step&&width?[[width,0],[0,step]]:null;
  fcSave();members.forEach(o=>o.el.remove());fcP=fcP.filter(o=>!members.includes(o));
- const o={id:fcId++,k:'custom',pts,x:c[0],y:c[1],r:0,m:1,color:fcSel?fcSel.color:'#71c8f2',locked:false,joined:true,...(step?{tileStepY:step,cutOriginHeight:step}:{})};
+ const o={id:fcId++,k:'custom',pts,x:c[0],y:c[1],r:0,m:1,color:fcSel?fcSel.color:'#71c8f2',locked:false,joined:true,...(step?{tileStepY:step,cutOriginHeight:step}:{}),...(width?{cutOriginWidth:width}:{}),...(lat?{lat}: {})};
  fcP.push(o);fcMulti.clear();fcMake(o);fcSelect(o);fcMultiMode=false;$('fcMultiSelect').classList.remove('primary');
  fcSetMode('move');
  fcSay(`拼接成功！已将 ${members.length} 块图形合成为一个复合图形（可跨多次剪切）。现在可以向任意方向自由平移；靠近其他图形时自动吸附，吸附只调整位置，不会擅自旋转。`);
@@ -911,7 +916,11 @@ function fcTileLattice(polys,colors,a,b){
 function fcTryLattice(polys,colors,outline,pieces){
  const cands=[];
  for(const o of pieces){const l=fcWorldLat(o);if(l)cands.push(l)}
- // 没有记录平移格时（旧数据）：用外轮廓宽度 + 切割步长推测
+ // 优先沿用切割前的原始矩形平移格；只有通过面积与无重叠校验才会采用。
+ const width=pieces.map(o=>Number(o.cutOriginWidth)).find(v=>Number.isFinite(v)&&v>0);
+ const height=pieces.map(o=>Number(o.cutOriginHeight||o.tileStepY)).find(v=>Number.isFinite(v)&&v>0);
+ if(width&&height)cands.push([[width,0],[0,height]]);
+ // 旧数据缺少原始宽度时，才用外轮廓宽度与切割步长尝试。
  const step=pieces.map(o=>Number(o.tileStepY)).find(v=>Number.isFinite(v)&&v>0);
  if(step){const bb=fcBBox(outline);cands.push([[bb[2]-bb[0],0],[0,step]])}
  for(const l of cands){const fit=fcLatticeFit(outline,l[0],l[1]);if(fit)return fcTileLattice(polys,colors,fit[0],fit[1])}

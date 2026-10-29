@@ -596,13 +596,35 @@ function fcCutPolygon(o,path){
  const aRem=Math.abs(area(remainder)),aCut=Math.abs(area(cutPiece));
  if(aRem<50||aCut<50)return null;
  const cutBox=bbox(cutPiece);
- const sideCandidates=[
-  {side:'left',margin:Math.max(0,cutBox[0]-originBox[0])/Math.max(1,originWidth),span:(cutBox[3]-cutBox[1])/Math.max(1,originHeight)},
-  {side:'right',margin:Math.max(0,originBox[2]-cutBox[2])/Math.max(1,originWidth),span:(cutBox[3]-cutBox[1])/Math.max(1,originHeight)},
-  {side:'top',margin:Math.max(0,cutBox[1]-originBox[1])/Math.max(1,originHeight),span:(cutBox[2]-cutBox[0])/Math.max(1,originWidth)},
-  {side:'bottom',margin:Math.max(0,originBox[3]-cutBox[3])/Math.max(1,originHeight),span:(cutBox[2]-cutBox[0])/Math.max(1,originWidth)}
- ].sort((a,b)=>(a.margin+a.span*.0001)-(b.margin+b.span*.0001));
- const side=sideCandidates[0].side;
+ // 先测量切块实际沿哪条外边界接触原图形，避免贴着左下角时把“下侧切块”误判成“左侧切块”。
+ const edgeContact=(side,value)=>{
+  let len=0;
+  for(let i=0;i<cutPiece.length;i++){
+   const a=cutPiece[i],b=cutPiece[(i+1)%cutPiece.length];
+   if(side==='left'||side==='right'){
+    if(Math.abs(a[0]-value)<1.6&&Math.abs(b[0]-value)<1.6)len+=Math.abs(b[1]-a[1]);
+   }else{
+    if(Math.abs(a[1]-value)<1.6&&Math.abs(b[1]-value)<1.6)len+=Math.abs(b[0]-a[0]);
+   }
+  }
+  return len;
+ };
+ const contacts=[
+  {side:'left',len:edgeContact('left',originBox[0])},
+  {side:'right',len:edgeContact('right',originBox[2])},
+  {side:'top',len:edgeContact('top',originBox[1])},
+  {side:'bottom',len:edgeContact('bottom',originBox[3])}
+ ].sort((a,b)=>b.len-a.len);
+ let side=contacts[0].len>2?contacts[0].side:null;
+ if(!side){
+  const sideCandidates=[
+   {side:'left',margin:Math.abs(cutBox[0]-originBox[0])/Math.max(1,originWidth),span:(cutBox[3]-cutBox[1])/Math.max(1,originHeight)},
+   {side:'right',margin:Math.abs(originBox[2]-cutBox[2])/Math.max(1,originWidth),span:(cutBox[3]-cutBox[1])/Math.max(1,originHeight)},
+   {side:'top',margin:Math.abs(cutBox[1]-originBox[1])/Math.max(1,originHeight),span:(cutBox[2]-cutBox[0])/Math.max(1,originWidth)},
+   {side:'bottom',margin:Math.abs(originBox[3]-cutBox[3])/Math.max(1,originHeight),span:(cutBox[2]-cutBox[0])/Math.max(1,originWidth)}
+  ].sort((a,b)=>a.margin-b.margin||b.span-a.span);
+  side=sideCandidates[0].side;
+ }
  // 目标是把切块平移到原图形的对侧：左→右、右→左、上→下、下→上。
  // 用原图形真实外接框的宽/高作为平移向量，避免18px人为偏移破坏边界重合。
  let cutMoveX=0,cutMoveY=0;

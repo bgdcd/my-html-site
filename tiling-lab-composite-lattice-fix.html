@@ -942,15 +942,36 @@ function fcNoOverlap(P,a,b){
   for(const p of S){const q=[p[0]-tx,p[1]-ty];if(inP(P,q)&&fcMinEdgeDist(q,P)>2)return false}}
  return true;
 }
-function fcLatticeFit(outline,u,v){
- const A=Math.abs(area(outline)),d0=Math.abs(u[0]*v[1]-u[1]*v[0]);if(d0<1e-3)return null;
- const k=Math.round(A/d0);if(k<1||k>6||Math.abs(A-k*d0)>.03*k*d0)return null;
- // k>1：画布里放了多个相邻的基本单元（如克隆叠放），改用相应的子格
- const cands=k===1?[[u,v]]:[[u,[v[0]*k,v[1]*k]],[[u[0]*k,u[1]*k],v]];
- for(const c of cands)if(fcNoOverlap(outline,c[0],c[1]))return c;
- return null;
-}
-// 从组合轮廓的顶点差中反推平移周期。剪切块跨边平移后，原矩形宽/高常会表现为轮廓中重复顶点的差向量。
+// 在一个平移基本单元内直接检查覆盖数。仅检查“不重叠”和面积比会误收错误周期，
+ // 错误周期虽然面积看似吻合，却会在重复图形之间留下三角形空洞。
+ function fcLatticeCoversCell(P,a,b){
+  const det=a[0]*b[1]-a[1]*b[0];if(Math.abs(det)<1e-3)return false;
+  const co=p=>[(p[0]*b[1]-p[1]*b[0])/det,(a[0]*p[1]-a[1]*p[0])/det];
+  const Q=P.map(co),qb=fcBBox(Q),C=cent(P),nx=26,ny=26;
+  for(let ix=0;ix<nx;ix++)for(let iy=0;iy<ny;iy++){
+   const x=((ix+.371)/nx-.5),y=((iy+.613)/ny-.5);
+   const q=co([C[0]+x*a[0]+y*b[0],C[1]+x*a[1]+y*b[1]]);
+   const i0=Math.floor(q[0]-qb[2])-1,i1=Math.ceil(q[0]-qb[0])+1;
+   const j0=Math.floor(q[1]-qb[3])-1,j1=Math.ceil(q[1]-qb[1])+1;
+   if((i1-i0+1)*(j1-j0+1)>1600)return false;
+   let covers=0;
+   for(let i=i0;i<=i1;i++)for(let j=j0;j<=j1;j++){
+    if(inP(Q,[q[0]-i,q[1]-j]))covers++;
+    if(covers>1)return false;
+   }
+   if(covers!==1)return false;
+  }
+  return true;
+ }
+ function fcLatticeFit(outline,u,v){
+  const A=Math.abs(area(outline)),d0=Math.abs(u[0]*v[1]-u[1]*v[0]);if(d0<1e-3)return null;
+  const k=Math.round(A/d0);if(k<1||k>6||Math.abs(A-k*d0)>.03*k*d0)return null;
+  // k>1：画布里放了多个相邻的基本单元（如克隆叠放），改用相应的子格
+  const cands=k===1?[[u,v]]:[[u,[v[0]*k,v[1]*k]],[[u[0]*k,u[1]*k],v]];
+  for(const c of cands)if(fcNoOverlap(outline,c[0],c[1])&&fcLatticeCoversCell(outline,c[0],c[1]))return c;
+  return null;
+ }
+ // 从组合轮廓的顶点差中反推平移周期。剪切块跨边平移后，原矩形宽/高常会表现为轮廓中重复顶点的差向量。
 function fcTryInferredLattice(polys,colors,outline){
  const P=fcSimplifyOutline(outline),A=Math.abs(area(P));if(P.length<3||A<50)return null;
  const box=fcBBox(P),diag=Math.hypot(box[2]-box[0],box[3]-box[1]),minLen=2.5;
@@ -1121,18 +1142,19 @@ function fcGrowthSegmentHitsViewport(a,b){
 function fcTileByEdgeGrowth(polys,colors,outline){
  if(outline.length<3||!isSimple(outline))return null;
  const run=preferReflect=>{
-  const deadline=performance.now()+1900,P=outline.map(p=>[p[0],p[1]]),n=P.length;
+  const deadline=performance.now()+2300,P=outline.map(p=>[p[0],p[1]]),n=P.length;
   const lengths=P.map((p,i)=>Math.hypot(P[(i+1)%n][0]-p[0],P[(i+1)%n][1]-p[1]));
   const c=cent(P),rootG=[1,0,0,1,450-c[0],300-c[1]];
   const tx=(g,p)=>fcApplyRigid(g,p),apply=(g,poly)=>poly.map(p=>tx(g,p));
   const rootOut=apply(rootG,P),rootBox=fcBBox(rootOut),maxDim=Math.max(rootBox[2]-rootBox[0],rootBox[3]-rootBox[1]);
-  const margin=Math.max(90,Math.min(320,maxDim*1.45)),view=[-margin,-margin,900+margin,600+margin];
+  // 把图形延伸到画布外多圈，防止靠近边缘的邻接块因生成范围太窄而遗漏。
+  const margin=Math.max(450,Math.min(900,maxDim*5)),view=[-margin,-margin,900+margin,600+margin];
   const hit=bb=>bb[2]>=view[0]&&bb[0]<=view[2]&&bb[3]>=view[1]&&bb[1]<=view[3];
   const tiles=[{g:rootG,out:rootOut,bb:fcBBox(rootOut)}];
   let head=0,attempts=0;
-  while(head<tiles.length&&tiles.length<720&&attempts<52000&&performance.now()<deadline){
+  while(head<tiles.length&&tiles.length<1200&&attempts<80000&&performance.now()<deadline){
    const current=tiles[head++],Q=current.out;
-   for(let e=0;e<n&&tiles.length<720&&attempts<52000&&performance.now()<deadline;e++){
+   for(let e=0;e<n&&tiles.length<1200&&attempts<80000&&performance.now()<deadline;e++){
     if(fcGrowthEdgeCovered(Q,e,tiles,current))continue;
     const a=Q[e],b=Q[(e+1)%n],targetLen=Math.hypot(b[0]-a[0],b[1]-a[1]);
     const js=Array.from({length:n},(_,j)=>j).filter(j=>Math.abs(lengths[j]-targetLen)<=.75)
@@ -1170,7 +1192,8 @@ function fcTileByEdgeGrowth(polys,colors,outline){
   const copies=[];
   let idx=0;
   for(const t of tiles){
-   if(t.bb[2]<-1||t.bb[0]>901||t.bb[3]<-1||t.bb[1]>601)continue;
+   // 画布外也保留约 50px 的邻接块，再让 SVG 视口裁切。
+   if(t.bb[2]<-50||t.bb[0]>950||t.bb[3]<-50||t.bb[1]>650)continue;
    const tone=(idx++&1)?7:-7;
    copies.push(polys.map((poly,k)=>({pts:apply(t.g,poly),color:shade(colors[k]||'#71c8f2',tone)})));
   }
@@ -1188,7 +1211,7 @@ function fcTileGeneral(polys,colors,outline){
  if(!sol)return '已清理共线顶点，并从多个起点与正向/反向顺序搜索边配对；在限定计算时间内仍未通过无缝、无重叠校验。请检查组合轮廓是否存在小缝、重叠或自相交，再重试。';
  const sub=polys.map(w=>w.map(p=>[(p[0]-c[0])*k,(p[1]-c[1])*k]));
  const copies=[];
- let tileIndex=0;for(const q of sol){const bb=fcBBox(q);if(bb[2]<145||bb[0]>1055||bb[3]<95||bb[1]>705)continue;const tone=(tileIndex++&1)?9:-9;const items=sub.map((sp,j)=>({pts:sp.map(p=>{const r=ap(q.g,p);return [r[0]-150,r[1]-100]}),color:shade(colors[j]||'#71c8f2',tone)}));copies.push(items);}
+ let tileIndex=0;for(const q of sol){const bb=fcBBox(q);if(bb[2]<100||bb[0]>1100||bb[3]<50||bb[1]>750)continue;const tone=(tileIndex++&1)?9:-9;const items=sub.map((sp,j)=>({pts:sp.map(p=>{const r=ap(q.g,p);return [r[0]-150,r[1]-100]}),color:shade(colors[j]||'#71c8f2',tone)}));copies.push(items);}
  if(!copies.length)return '密铺方案未覆盖当前画布区域，请重试。';fcRenderTilePolys(copies);return `找到密铺方案，已在自由创作画布显示 ${copies.length} 个图案。点击“返回编辑”继续创作。`;
 }
 $('fcTile').onclick=()=>{

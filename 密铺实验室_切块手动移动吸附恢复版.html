@@ -494,11 +494,11 @@ function fcSnapExactEdges(o,others,E){
 }
 function fcSnap(o, anchorX=null, deltaY=0, dragStartY=null, isDrop=false){
  const ctm=fcB.getScreenCTM(),u=1/(ctm?Math.abs(ctm.a)||1:1),E=20*u;
- // 切块在拖动过程中保持完全自由；松开时，只有靠近对侧的精确目标才吸附。
- // 不在拖动中被其他边线抢吸附，避免无法顺畅平移到另一侧。
- if(o.cutGroup||(o.cloneOf!==undefined&&o.cloneOf!==null)){
+ // 只有独立切块使用专用对侧平移吸附。已拼接/已组合的图形（包括其克隆体）
+ // 必须按整个外轮廓进入通用边线吸附，不能因 cloneOf 标记提前退出。
+ if(!o.joined&&(o.cutGroup||(o.cloneOf!==undefined&&o.cloneOf!==null))){
   const target=fcCutSnapTarget(o),capture=34*u;
-  if(isDrop&&target&&Math.hypot(o.x-target.x,o.y-target.y)<=capture){o.x=target.x;o.y=target.y}
+  if(isDrop&&target&&Math.hypot(o.x-target.x,o.y-target.y)<=capture){o.x=target.x;o.y=target.y;return}
   return;
  }
  // 恢复原来的边线+顶点磁吸：接近后主动校正位置，只做小角度对齐，避免大幅旋转或越位。

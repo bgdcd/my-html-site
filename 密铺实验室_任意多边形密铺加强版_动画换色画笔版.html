@@ -136,29 +136,45 @@ const mul=(T,S)=>[T[0]*S[0]+T[2]*S[1],T[1]*S[0]+T[3]*S[1],T[0]*S[2]+T[2]*S[3],T[
 function worldPts(g){const t=info(g),r=t.r*R,c=Math.cos(r),s=Math.sin(r);return pointsFor(g).map(p=>[t.x+t.s*(p[0]*c-p[1]*s),t.y+t.s*(p[0]*s+p[1]*c)])}
 // ---------- 画布上的图形 ----------
 function scaleHandlePoint(g,q){
- const pts=pointsFor(g),sc=Math.max(.25,info(g).s||1),gap=34/sc;
- const minCornerDist=p=>Math.min(...pts.map(v=>Math.hypot(p[0]-v[0],p[1]-v[1])));
- if(minCornerDist(q)>=gap)return q;
+ // 蓝色等比例缩放点始终保留在多边形内部；靠近顶点时只向内微移，
+ // 与红色顶点的透明拖动热区留出至少约 30 个屏幕像素。
+ const pts=pointsFor(g),sc=Math.max(.25,Math.abs(info(g).s)||1),gap=31/sc;
+ const cornerGap=p=>Math.min(...pts.map(v=>Math.hypot(p[0]-v[0],p[1]-v[1])));
+ if(inP(pts,q)&&cornerGap(q)>=gap)return q;
  const avg=pts.reduce((a,p)=>[a[0]+p[0]/pts.length,a[1]+p[1]/pts.length],[0,0]);
+ let area2=0,cx=0,cy=0;
+ for(let i=0;i<pts.length;i++){const a=pts[i],b=pts[(i+1)%pts.length],z=a[0]*b[1]-b[0]*a[1];area2+=z;cx+=(a[0]+b[0])*z;cy+=(a[1]+b[1])*z}
+ const centroid=Math.abs(area2)>1e-7?[cx/(3*area2),cy/(3*area2)]:avg;
  const box=[Math.min(...pts.map(p=>p[0])),Math.min(...pts.map(p=>p[1])),Math.max(...pts.map(p=>p[0])),Math.max(...pts.map(p=>p[1]))];
- const targets=[avg,[(box[0]+box[2])/2,(box[1]+box[3])/2],...pts.map((p,i)=>[(pts[(i+Math.floor(pts.length/2))%pts.length][0]+avg[0])/2,(pts[(i+Math.floor(pts.length/2))%pts.length][1]+avg[1])/2])];
+ const targets=[centroid,avg,[(box[0]+box[2])/2,(box[1]+box[3])/2],...pts.map((p,i)=>[(p[0]+avg[0])/2,(p[1]+avg[1])/2])];
  let best=null,bestMove=Infinity;
- for(const target of targets)for(let step=1;step<=40;step++){
-  const t=step/40,p=[q[0]+(target[0]-q[0])*t,q[1]+(target[1]-q[1])*t];
-  if(!inP(pts,p))break;
-  const d=minCornerDist(p),move=Math.hypot(p[0]-q[0],p[1]-q[1]);
-  if(d>=gap&&move<bestMove){best=p;bestMove=move;break}
+ // First choose the smallest inward shift that safely clears all red vertex hit-zones.
+ for(const target of targets){
+  for(let step=1;step<=100;step++){
+   const t=step/100,p=[q[0]+(target[0]-q[0])*t,q[1]+(target[1]-q[1])*t];
+   if(!inP(pts,p))continue;
+   const d=cornerGap(p),move=Math.hypot(p[0]-q[0],p[1]-q[1]);
+   if(d>=gap&&move<bestMove){best=p;bestMove=move}
+   if(best&&move>bestMove+1)break;
+  }
  }
  if(best)return best;
- // On a narrow or highly concave polygon, use the safest nearby interior point found.
- let safest=q,safeDist=minCornerDist(q),safeMove=0;
- for(const target of targets)for(let step=1;step<=40;step++){
-  const t=step/40,p=[q[0]+(target[0]-q[0])*t,q[1]+(target[1]-q[1])*t];
-  if(!inP(pts,p))break;
-  const d=minCornerDist(p),move=Math.hypot(p[0]-q[0],p[1]-q[1]);
-  if(d>safeDist+0.01||(Math.abs(d-safeDist)<0.01&&move<safeMove)){safest=p;safeDist=d;safeMove=move}
+ // If the point was near a concave/notch region, scan the interior for the nearest safe point.
+ const step=Math.max(2,Math.min(8,gap/3));
+ for(let x=box[0]+step/2;x<=box[2];x+=step)for(let y=box[1]+step/2;y<=box[3];y+=step){
+  const p=[x,y];if(!inP(pts,p))continue;
+  const d=cornerGap(p),move=Math.hypot(p[0]-q[0],p[1]-q[1]);
+  if(d>=gap&&move<bestMove){best=p;bestMove=move}
  }
- return safest;
+ if(best)return best;
+ // Narrow shapes may not fit the full gap; use the deepest available interior point rather than hiding the blue handle.
+ let safest=null,safeDistance=-1,safeMove=Infinity;
+ for(let x=box[0]+step/2;x<=box[2];x+=step)for(let y=box[1]+step/2;y<=box[3];y+=step){
+  const p=[x,y];if(!inP(pts,p))continue;
+  const d=cornerGap(p),move=Math.hypot(p[0]-q[0],p[1]-q[1]);
+  if(d>safeDistance+0.01||(Math.abs(d-safeDistance)<0.01&&move<safeMove)){safest=p;safeDistance=d;safeMove=move}
+ }
+ return safest||q;
 }
 function bind(g){g.addEventListener('pointerdown',startMove);g.addEventListener('click',e=>{e.stopPropagation();if(e.target.closest&&e.target.closest('.control'))return;select(g);if(g.dataset.shape==='custom'&&e.target.tagName&&e.target.tagName.toLowerCase()==='polygon'){const ctm=g.getScreenCTM();if(ctm){const pt=board.createSVGPoint();pt.x=e.clientX;pt.y=e.clientY;const q=pt.matrixTransform(ctm.inverse()),p=scaleHandlePoint(g,[q.x,q.y]);if(inP(pointsFor(g),[q.x,q.y])){activeVertexOwner=null;activeVertex=null;g.dataset.scalePoint=JSON.stringify([Math.round(p[0]),Math.round(p[1])]);redraw(g);$('hint').textContent='蓝色缩放点已放在角点热区之外：拖动蓝点可等比例缩放；点击角点可显示红点调整形状。'}}}refresh()})}
 function chooseCorner(g,i){const key=g.dataset.id+':'+i;if(selectedCorners.has(key))selectedCorners.delete(key);else selectedCorners.set(key,{g,i});showAngles=false;showDegrees=false;$('angleBtn').textContent='∠ 标注对应角';$('degreeBtn').textContent='标注对应角度';if(selected!==g){const old=selected;selected=g;if(old&&old.isConnected)redraw(old);pieces.appendChild(g);redraw(g);syncCustomPreview(g)}refresh()}

@@ -929,7 +929,7 @@ function fcRenderTilePolys(copies){
  fcTileLayer.setAttribute('display','');fcG.style.display='none';fcC.style.display='none';fcTilingActive=true;$('fcTile').textContent='↩ 返回编辑';fc.querySelectorAll('.dz-bar button').forEach(b=>{if(b.id!=='fcTile')b.disabled=true});
  const step=now=>{if(token!==fcAnimToken)return;vt+=(now-prev)*(SPEEDS[speedI]||['',1])[1];prev=now;while(next<N&&st[next]<=vt){spawn(next);active.push(next++)}
   for(let i=active.length-1;i>=0;i--){const k=active[i],p=Math.min(1,(vt-st[k])/dur(k));draw(k,p);if(p>=1){finish(k);active.splice(i,1)}}
-  if(next<N||active.length){const k=Math.max(0,next-1),type=k&&entries[k].motion?entries[k].motion.type:'起始图形';if(next<N)fcMsg.textContent='正在铺设第 '+next+'/'+N+' 块：'+type;requestAnimationFrame(step)}else end()
+  if(next<N||active.length){const k=Math.max(0,next-1),type=k&&entries[k].motion?entries[k].motion.type:'起始图形';requestAnimationFrame(step)}else end()
  };requestAnimationFrame(step)
 }
 

@@ -117,6 +117,14 @@ function say(s){toast.textContent=s;toast.classList.add('show');clearTimeout(say
 function boardPoint(e){const p=board.createSVGPoint();p.x=e.clientX;p.y=e.clientY;const q=p.matrixTransform(board.getScreenCTM().inverse());return{x:q.x,y:q.y}}
 const snapv=v=>snap?Math.round(v/5)*5:v;
 const info=g=>({x:+g.dataset.x,y:+g.dataset.y,r:+g.dataset.r,s:+g.dataset.s||1});
+// 密铺前清除旧试验版本添加过的整块底色/静态图案层；原始画布网格与渐变层不做改动。
+function clearTemporaryTilingOverlays(){
+ const fillRect=$('mainTrianglePatternFill');if(fillRect)fillRect.remove();
+ const oldBackdrop=$('tileBackdrop');if(oldBackdrop)oldBackdrop.remove();
+ const oldPattern=$('mainTrianglePattern');if(oldPattern)oldPattern.remove();
+ const bgRect=$('bg');
+ if(bgRect&&bgRect.getAttribute('fill')!=='url(#gridPattern)')bgRect.setAttribute('fill','url(#gridPattern)');
+}
 const save=()=>{history.push(pieces.innerHTML);if(history.length>40)history.shift()};
 const pointsFor=g=>g.dataset.customPts?JSON.parse(g.dataset.customPts):shapes[g.dataset.shape].pts;
 function shade(h,d=-35){const n=parseInt(h.slice(1),16),c=v=>Math.max(0,Math.min(255,v)).toString(16).padStart(2,'0');return'#'+c((n>>16)+d)+c(((n>>8)&255)+d)+c((n&255)+d)}
@@ -305,7 +313,7 @@ function layTiles(tiles,fill,done,cols){const tok=++anim,N=tiles.length,res=$('t
  requestAnimationFrame(step)}
 const cent=p=>{const A=area(p);let x=0,y=0;for(let i=0;i<p.length;i++){const q=p[(i+1)%p.length],f=p[i][0]*q[1]-q[0]*p[i][1];x+=(p[i][0]+q[0])*f;y+=(p[i][1]+q[1])*f}return[x/(6*A),y/(6*A)]};
 // inPlace=true：poly 是画布上的真实坐标，沿用图形当前的大小、位置和朝向开始铺
-function tileWith(poly,fill,title,inPlace){let cx=600,cy=400,T=TILE_T;if(inPlace){const c=cent(poly);cx=Math.max(150,Math.min(1050,c[0]));cy=Math.max(120,Math.min(680,c[1]));T=Math.max(8000,Math.min(60000,Math.abs(area(poly))))}
+function tileWith(poly,fill,title,inPlace){clearTemporaryTilingOverlays();let cx=600,cy=400,T=TILE_T;if(inPlace){const c=cent(poly);cx=Math.max(150,Math.min(1050,c[0]));cy=Math.max(120,Math.min(680,c[1]));T=Math.max(8000,Math.min(60000,Math.abs(area(poly))))}
  const P=norm(poly,T),res=$('tilingResult'),set=(m,c)=>{res.textContent=m;res.style.color=c;say(m.length>30?m.slice(0,30)+'…':m)};
  if(!isSimple(P))return set('图形的边相交了，请把顶点拖回成正常的多边形','#ff8a8a');
  const angs=interior(P).map(o=>o.ang),txt='内角：'+angs.map(a=>Math.round(a*10)/10+'°').join('、')+'。';
@@ -332,7 +340,7 @@ function drawPreview(pts,suffix){const n=pts.length;shapes.custom.pts=pts.map(a=
 function syncCustomPreview(g){if(g&&g.dataset.shape==='custom'){/* 将画板图形的实际尺寸折算进模板坐标。模板新实例仍用 DEF_S，因此要乘当前缩放比例，避免后续拖出又恢复成默认大小。 */const t=info(g),factor=Math.max(.05,Math.min(20,(t.s||DEF_S)/DEF_S));const latest=pointsFor(g).map(p=>[+(Number(p[0])*factor).toFixed(3),+(Number(p[1])*factor).toFixed(3)]);shapes.custom.pts=latest.map(p=>p.slice());drawPreview(latest,'（同步当前形状与大小）')}}
 sides.addEventListener('input',()=>{drawPreview(makeCustomPts(+sides.value));if(selected&&selected.dataset.shape==='custom'){save();selected.dataset.customPts=JSON.stringify(shapes.custom.pts);selected.querySelector('polygon').setAttribute('points',shapes.custom.pts.map(a=>a.join(',')).join(' '));redraw(selected);refresh()}});
 drawPreview(makeCustomPts(3));dragFrom($('customPreviewDrag'),()=>({shape:'custom',pts:shapes.custom.pts.map(p=>p.slice()),color:shapes.custom.color}));
-$('autoTileCustomBtn').onclick=()=>{const g=selected&&selected.dataset.shape==='custom'?selected:null;const source=g?pointsFor(g).map(p=>[+p[0],+p[1]]):shapes.custom.pts.map(p=>[+p[0],+p[1]]);if(source.length<3||source.length>8)return say('自定义图形需要 3—8 个顶点');const poly=g?worldPts(g):source.map(p=>p.slice());const name='自定义'+(['','','','三角形','四边形','五边形','六边形','七边形','八边形'][source.length]||source.length+'边形');tileWith(poly,g?g.querySelector('polygon').getAttribute('fill'):shapes.custom.color,name,!!g)};
+$('autoTileCustomBtn').onclick=()=>{clearTemporaryTilingOverlays();const g=selected&&selected.dataset.shape==='custom'?selected:null;const source=g?pointsFor(g).map(p=>[+p[0],+p[1]]):shapes.custom.pts.map(p=>[+p[0],+p[1]]);if(source.length<3||source.length>8)return say('自定义图形需要 3—8 个顶点');const poly=g?worldPts(g):source.map(p=>p.slice());const name='自定义'+(['','','','三角形','四边形','五边形','六边形','七边形','八边形'][source.length]||source.length+'边形');tileWith(poly,g?g.querySelector('polygon').getAttribute('fill'):shapes.custom.color,name,!!g)};
 // ---------- 工具栏 ----------
 $('rotateImg').src=ROT;
 $('clearBtn').onclick=()=>{anim++;animSkip=null;pieces.innerHTML='';history=[];selected=null;selectedCorners.clear();showAngles=showDegrees=false;$('angleBtn').textContent='∠ 标注对应角';$('degreeBtn').textContent='标注对应角度';refresh();say('画布已清空')};

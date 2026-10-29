@@ -443,13 +443,13 @@ function fcSelectMulti(o){if(fcMultiMode&&fcMulti.has(o)){fcMulti.delete(o);if(f
 function fcMake(o){o.el=el('g',{class:'fcp'});o.el.__fcPiece=o;const poly=el('polygon',{points:fcLocal(o).map(p=>p.join(',')).join(' '),'stroke-linejoin':'round'});o.el.appendChild(poly);o.drawings=o.drawings||[];const defs=$('fcBrushDefs')||(()=>{const d=el('defs',{id:'fcBrushDefs'});fcB.insertBefore(d,fcB.firstChild);return d})();const cp=el('clipPath',{id:'fcBrushClip'+o.id,clipPathUnits:'userSpaceOnUse'});cp.appendChild(el('polygon',{points:fcLocal(o).map(p=>p.join(',')).join(' ')}));defs.appendChild(cp);o.el.addEventListener('pointerdown',ev=>{if(fcBrushMode){fcStartBrush(ev,o);return}fcStartMove(ev,o)});o.drawings.forEach(d=>o.el.appendChild(el('path',{d:d.d,fill:'none',stroke:d.color,'stroke-width':d.width||4,'stroke-linecap':'round','stroke-linejoin':'round','vector-effect':'non-scaling-stroke','clip-path':'url(#fcBrushClip'+o.id+')'})));fcG.appendChild(o.el);fcPaint(o)}
 // 自由创作吸附：严格边线接合；切割块按方向移动到对侧对应位置后精确吸附。
 function fcCutSnapTarget(o){
- // 剪切块的目标位置在切割完成时按原图形的宽/高和所在边确定，位置只用于吸附，不依赖屏幕近似坐标。
- if(o.cutGroup&&Number.isFinite(o.cutTargetX)&&Number.isFinite(o.cutTargetY))return {x:o.cutTargetX,y:o.cutTargetY};
- // 克隆的切块保持同一方向规则，并以其来源当前所在位置为基准。
+ // 克隆块优先相对来源块定位，避免继承来源块的绝对坐标。
  if(o.cloneOf!==undefined&&o.cloneOf!==null){
   const src=fcP.find(x=>x!==o&&x.id===o.cloneOf);
   if(src&&Number.isFinite(o.cutMoveX)&&Number.isFinite(o.cutMoveY))return {x:src.x+o.cutMoveX,y:src.y+o.cutMoveY};
  }
+ // 切割块的对侧目标坐标由原图形边界尺寸精确计算。
+ if(o.cutGroup&&Number.isFinite(o.cutTargetX)&&Number.isFinite(o.cutTargetY))return {x:o.cutTargetX,y:o.cutTargetY};
  return null;
 }
 function fcSnapExactEdges(o,others,E){
@@ -612,11 +612,13 @@ function fcCutPolygon(o,path){
   {side:'bottom',margin:Math.max(0,originBox[3]-cutBox[3])/Math.max(1,originHeight),span:(cutBox[2]-cutBox[0])/Math.max(1,originWidth)}
  ].sort((a,b)=>(a.margin+a.span*.0001)-(b.margin+b.span*.0001));
  const side=sideCandidates[0].side;
+ // 目标是把切块平移到原图形的对侧：左→右、右→左、上→下、下→上。
+ // 用原图形真实外接框的宽/高作为平移向量，避免18px人为偏移破坏边界重合。
  let cutMoveX=0,cutMoveY=0;
- if(side==='left')cutMoveX=-(originWidth+18);
- if(side==='right')cutMoveX=originWidth+18;
- if(side==='top')cutMoveY=-(originHeight+18);
- if(side==='bottom')cutMoveY=originHeight+18;
+ if(side==='left')cutMoveX=originWidth;
+ if(side==='right')cutMoveX=-originWidth;
+ if(side==='top')cutMoveY=originHeight;
+ if(side==='bottom')cutMoveY=-originHeight;
  const makePiece=(w,isRemainder)=>{
   const pts=w.map(p=>[p[0]-o.x,p[1]-o.y]);
   return {pts,x:o.x,y:o.y,r:0,m:1,color:o.color,k:'custom',id:fcId++,locked:false,
@@ -641,10 +643,10 @@ function fcFinishSplit(old,path,pieces){
    // 面积较大的主体固定在原位，缺口不会被另一块盖回去。
    o.x=old.x;o.y=old.y;o.cutTargetX=old.x;o.cutTargetY=old.y;o.cutMoveX=0;o.cutMoveY=0;
   }else{
-   // 切割块不自动飞走：留在原切割位置，放在主体上层并自动选中，由用户自己拖动。
+   // 切割后留在原位，由用户手动拖动；吸附目标是原图形对侧的严格平移位置。
    o.x=old.x;o.y=old.y;
-   // 吸附目标是原切口位置；拖回时吸附闭合，拖开时露出真实缺口。
-   o.cutMoveX=0;o.cutMoveY=0;o.cutTargetX=old.x;o.cutTargetY=old.y;
+   o.cutTargetX=old.x+(o.cutMoveX||0);
+   o.cutTargetY=old.y+(o.cutMoveY||0);
   }
   fcP.splice(idx+j,0,o);fcMake(o)});
  fcSetMode('move');fcMultiMode=false;$('fcMultiSelect').classList.remove('primary');fcSelect(pieces[1]);

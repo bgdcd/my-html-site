@@ -112,6 +112,14 @@ const shapes={
 };
 const DEF_S=3.84,TILE_T=24000,MAXS=8;
 let id=1,selected=null,selectedCorners=new Map(),activeVertexOwner=null,activeVertex=null,snap=true,showGrid=true,showAngles=false,showDegrees=false,zoom=1,history=[];
+let tileBackdrop=null,tileBackdropColor=null;
+function ensureTileBackdrop(color){
+ if(!tileBackdrop){tileBackdrop=el('rect',{x:0,y:0,width:1200,height:800,'pointer-events':'none'});board.insertBefore(tileBackdrop,pieces)}
+ tileBackdropColor=color||tileBackdropColor||'#ffad66';
+ tileBackdrop.setAttribute('fill',tileBackdropColor);
+ tileBackdrop.setAttribute('display','');
+}
+function removeTileBackdrop(){if(tileBackdrop){tileBackdrop.remove();tileBackdrop=null}tileBackdropColor=null}
 function el(t,a={}){const n=document.createElementNS(NS,t);for(const k in a)n.setAttribute(k,a[k]);return n}
 function say(s){toast.textContent=s;toast.classList.add('show');clearTimeout(say.t);say.t=setTimeout(()=>toast.classList.remove('show'),2400)}
 function boardPoint(e){const p=board.createSVGPoint();p.x=e.clientX;p.y=e.clientY;const q=p.matrixTransform(board.getScreenCTM().inverse());return{x:q.x,y:q.y}}
@@ -304,11 +312,11 @@ function decomp(par,ch){const m=mul(ch.g,inv(par.g)),det=m[0]*m[3]-m[1]*m[2];if(
 function pose(P,d,s){if(d.type==='平移')return P.map(p=>[p[0]+d.v[0]*s,p[1]+d.v[1]*s]);if(d.type==='旋转'){const c=Math.cos(d.th*s),n=Math.sin(d.th*s);return P.map(p=>{const x=p[0]-d.c[0],y=p[1]-d.c[1];return[d.c[0]+x*c-y*n,d.c[1]+x*n+y*c]})}
  const v0=d.tv/2;return P.map(p=>{const pu=p[0]*d.u[0]+p[1]*d.u[1],pv=p[0]*d.v[0]+p[1]*d.v[1],uu=pu+d.tu*s,vv=v0+(pv-v0)*(1-2*s);return[uu*d.u[0]+vv*d.v[0],uu*d.u[1]+vv*d.v[1]]})}
 // 像铺地板一样：从你的图形开始，一块一块边对边贴上去，并显示每块用的是平移、旋转还是轴对称
-function layTiles(tiles,fill,done,cols){const tok=++anim,N=tiles.length,res=$('tilingResult');save();pieces.innerHTML='';selected=null;selectedCorners.clear();refresh();
+function layTiles(tiles,fill,done,cols){const tok=++anim,N=tiles.length,res=$('tilingResult');save();ensureTileBackdrop(fill);pieces.innerHTML='';selected=null;selectedCorners.clear();refresh();
  const mv=tiles.map((q,k)=>k?decomp(tiles[q.par],q):null),cnt={平移:0,旋转:0,轴对称:0};mv.forEach(d=>d&&cnt[d.type]++);
  const tint={平移:0,旋转:26,轴对称:-20},st=tiles.map((_,k)=>k<8?k*650:5200+(k-8)*110),DUR=k=>k<8?600:420,els=[],ease=x=>x<.5?2*x*x:1-Math.pow(-2*x+2,2)/2;let next=0,active=[];
  const fin=k=>{const q=tiles[k],e=els[k],cx=q.reduce((a,p)=>a+p[0],0)/q.length,cy=q.reduce((a,p)=>a+p[1],0)/q.length,loc=q.map(p=>[+(p[0]-cx).toFixed(3),+(p[1]-cy).toFixed(3)]),pl=e.querySelector('polygon');e.dataset.x=cx;e.dataset.y=cy;e.dataset.customPts=JSON.stringify(loc);pl.setAttribute('points',loc.map(p=>p.join(',')).join(' '));pl.removeAttribute('opacity');if(cols)e.querySelectorAll('polygon.sub').forEach((sp,j)=>{sp.setAttribute('points',q.subs[j].map(p=>(p[0]-cx).toFixed(2)+','+(p[1]-cy).toFixed(2)).join(' '));sp.removeAttribute('opacity')});redraw(e)};
- const spawn=k=>{const dd=k&&mv[k].type?tint[mv[k].type]:0,f=dd?shade(fill,dd):fill;els[k]=makePiece('tile',0,0,f,0,1,tiles[k],true);const main=els[k].querySelector('polygon');main.style.setProperty('stroke',f,'important');main.style.setProperty('stroke-width','3px','important');main.style.setProperty('stroke-linejoin','round','important');main.style.setProperty('paint-order','stroke fill','important');main.style.setProperty('fill-opacity','1','important');if(cols)cols.forEach((c,j)=>{const fc=dd?shade(c,dd):c;const sub=el('polygon',{class:'sub',points:tiles[k].subs[j].map(p=>p.join(',')).join(' '),fill:fc,stroke:fc,'stroke-width':3,'stroke-linejoin':'round'});sub.style.setProperty('stroke',fc,'important');sub.style.setProperty('stroke-width','3px','important');sub.style.setProperty('fill-opacity','1','important');sub.style.setProperty('paint-order','stroke fill','important');els[k].appendChild(sub)})};
+ const spawn=k=>{const dd=k&&mv[k].type?tint[mv[k].type]:0,f=dd?shade(fill,dd):fill;els[k]=makePiece('tile',0,0,f,0,1,tiles[k],true);const main=els[k].querySelector('polygon');main.style.setProperty('stroke','none','important');main.style.setProperty('stroke-width','0','important');main.style.setProperty('fill-opacity','1','important');main.style.setProperty('paint-order','fill','important');main.style.setProperty('shape-rendering','geometricPrecision');if(cols)cols.forEach((c,j)=>{const fc=dd?shade(c,dd):c;const sub=el('polygon',{class:'sub',points:tiles[k].subs[j].map(p=>p.join(',')).join(' '),fill:fc});sub.style.setProperty('stroke','none','important');sub.style.setProperty('stroke-width','0','important');sub.style.setProperty('fill-opacity','1','important');sub.style.setProperty('shape-rendering','geometricPrecision');els[k].appendChild(sub)})};
  const draw=(k,s)=>{const pl=els[k].querySelector('polygon');if(!k){pl.setAttribute('opacity',s);if(cols)els[k].querySelectorAll('polygon.sub').forEach(x=>x.setAttribute('opacity',s));return}pl.setAttribute('points',pose(tiles[tiles[k].par],mv[k],ease(s)).map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' '));if(cols){const par=tiles[tiles[k].par];els[k].querySelectorAll('polygon.sub').forEach((x,j)=>x.setAttribute('points',pose(par.subs[j],mv[k],ease(s)).map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ')))}};
  const end=()=>{anim++;animSkip=null;refresh();res.textContent='铺设完成：共 '+N+' 块，无缝不重叠。用到平移 '+cnt.平移+' 次、旋转 '+cnt.旋转+' 次、轴对称 '+cnt.轴对称+' 次（颜色深浅：浅=旋转，深=轴对称，中=平移）。';res.style.color='#6dffb0';done&&done()};
  animSkip=()=>{for(;next<N;next++){spawn(next);fin(next)}active.forEach(fin);active=[];end()};
@@ -392,7 +400,7 @@ $('degreeBtn').onclick=()=>{showDegrees=!showDegrees;showAngles=false;selectedCo
 $('rotateBtn').onclick=()=>{if(!selected)return say('请先选中一个图形');save();selected.dataset.r=(+selected.dataset.r+15)%360;redraw(selected);refresh();checkAssembled()};
 $('duplicateBtn').onclick=()=>{if(!selected)return say('请先选中图形');const t=info(selected),s=selected;add(s.dataset.shape,t.x+45,t.y+35,s.querySelector('polygon').getAttribute('fill'),t.r,t.s,true,s.dataset.customPts?JSON.parse(s.dataset.customPts):null)};
 $('deleteBtn').onclick=()=>{if(!selected)return say('请先选中图形');save();selected.remove();selected=null;refresh()};
-$('undoBtn').onclick=()=>{if(!history.length)return say('没有可撤销的操作');anim++;animSkip=null;pieces.innerHTML=history.pop();selected=null;[...pieces.children].forEach(g=>{bind(g);redraw(g)});refresh()};
+$('undoBtn').onclick=()=>{if(!history.length)return say('没有可撤销的操作');anim++;animSkip=null;pieces.innerHTML=history.pop();selected=null;[...pieces.children].forEach(g=>{bind(g);redraw(g)});if(pieces.querySelector('[data-shape="tile"]')){if(tileBackdropColor)ensureTileBackdrop(tileBackdropColor)}else removeTileBackdrop();refresh()};
 document.querySelectorAll('.swatch').forEach(b=>b.onclick=()=>{document.querySelectorAll('.swatch').forEach(x=>x.classList.toggle('active',x===b));if(selected){save();selected.querySelectorAll('polygon').forEach(p=>{p.setAttribute('fill',b.dataset.color);p.setAttribute('stroke',shade(b.dataset.color))})}});
 $('snapBtn').onclick=()=>{snap=!snap;$('snapBtn').textContent=snap?'🧲 吸附：开':'🧲 吸附：关'};
 $('gridBtn').onclick=()=>{showGrid=!showGrid;bg.style.display=showGrid?'':'none';$('gridBtn').textContent=showGrid?'▦ 网格：开':'▦ 网格：关'};

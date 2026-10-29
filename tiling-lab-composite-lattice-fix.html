@@ -308,7 +308,7 @@ function layTiles(tiles,fill,done,cols){const tok=++anim,N=tiles.length,res=$('t
  const mv=tiles.map((q,k)=>k?decomp(tiles[q.par],q):null),cnt={平移:0,旋转:0,轴对称:0};mv.forEach(d=>d&&cnt[d.type]++);
  const tint={平移:0,旋转:26,轴对称:-20},st=tiles.map((_,k)=>k<8?k*650:5200+(k-8)*110),DUR=k=>k<8?600:420,els=[],ease=x=>x<.5?2*x*x:1-Math.pow(-2*x+2,2)/2;let next=0,active=[];
  const fin=k=>{const q=tiles[k],e=els[k],cx=q.reduce((a,p)=>a+p[0],0)/q.length,cy=q.reduce((a,p)=>a+p[1],0)/q.length,loc=q.map(p=>[+(p[0]-cx).toFixed(3),+(p[1]-cy).toFixed(3)]),pl=e.querySelector('polygon');e.dataset.x=cx;e.dataset.y=cy;e.dataset.customPts=JSON.stringify(loc);pl.setAttribute('points',loc.map(p=>p.join(',')).join(' '));pl.removeAttribute('opacity');if(cols)e.querySelectorAll('polygon.sub').forEach((sp,j)=>{sp.setAttribute('points',q.subs[j].map(p=>(p[0]-cx).toFixed(2)+','+(p[1]-cy).toFixed(2)).join(' '));sp.removeAttribute('opacity')});redraw(e)};
- const spawn=k=>{const dd=k&&mv[k].type?tint[mv[k].type]:0,f=dd?shade(fill,dd):fill;els[k]=makePiece('tile',0,0,f,0,1,tiles[k],true);if(cols)cols.forEach((c,j)=>{const fc=dd?shade(c,dd):c;els[k].appendChild(el('polygon',{class:'sub',points:tiles[k].subs[j].map(p=>p.join(',')).join(' '),fill:fc,stroke:shade(fc),'stroke-width':2,'stroke-linejoin':'round'}))})};
+ const spawn=k=>{const dd=k&&mv[k].type?tint[mv[k].type]:0,f=dd?shade(fill,dd):fill;els[k]=makePiece('tile',0,0,f,0,1,tiles[k],true);const main=els[k].querySelector('polygon');main.setAttribute('stroke',f);main.setAttribute('stroke-width','2.4');main.setAttribute('stroke-linejoin','round');if(cols)cols.forEach((c,j)=>{const fc=dd?shade(c,dd):c;els[k].appendChild(el('polygon',{class:'sub',points:tiles[k].subs[j].map(p=>p.join(',')).join(' '),fill:fc,stroke:fc,'stroke-width':2.4,'stroke-linejoin':'round'}))})};
  const draw=(k,s)=>{const pl=els[k].querySelector('polygon');if(!k){pl.setAttribute('opacity',s);if(cols)els[k].querySelectorAll('polygon.sub').forEach(x=>x.setAttribute('opacity',s));return}pl.setAttribute('points',pose(tiles[tiles[k].par],mv[k],ease(s)).map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' '));if(cols){const par=tiles[tiles[k].par];els[k].querySelectorAll('polygon.sub').forEach((x,j)=>x.setAttribute('points',pose(par.subs[j],mv[k],ease(s)).map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ')))}};
  const end=()=>{anim++;animSkip=null;refresh();res.textContent='铺设完成：共 '+N+' 块，无缝不重叠。用到平移 '+cnt.平移+' 次、旋转 '+cnt.旋转+' 次、轴对称 '+cnt.轴对称+' 次（颜色深浅：浅=旋转，深=轴对称，中=平移）。';res.style.color='#6dffb0';done&&done()};
  animSkip=()=>{for(;next<N;next++){spawn(next);fin(next)}active.forEach(fin);active=[];end()};
@@ -319,11 +319,48 @@ function layTiles(tiles,fill,done,cols){const tok=++anim,N=tiles.length,res=$('t
  requestAnimationFrame(step)}
 const cent=p=>{const A=area(p);let x=0,y=0;for(let i=0;i<p.length;i++){const q=p[(i+1)%p.length],f=p[i][0]*q[1]-q[0]*p[i][1];x+=(p[i][0]+q[0])*f;y+=(p[i][1]+q[1])*f}return[x/(6*A),y/(6*A)]};
 // inPlace=true：poly 是画布上的真实坐标，沿用图形当前的大小、位置和朝向开始铺
-function tileWith(poly,fill,title,inPlace){let cx=600,cy=400,T=TILE_T;if(inPlace){const c=cent(poly);cx=Math.max(150,Math.min(1050,c[0]));cy=Math.max(120,Math.min(680,c[1]));T=Math.max(8000,Math.min(60000,Math.abs(area(poly))))}
+// 主画布专用：任意三角形都能无缝密铺。
+ // 将三角形绕 AB 边中点旋转 180° 得到第二块，组成平行四边形；
+ // 再沿 AC、BC 两条向量平移。这是确定性构造，不依赖近似边配对搜索。
+ function mainTriangleLattice(P,cx,cy){
+  const A=P[0],B=P[1],C=P[2],u=[A[0]-C[0],A[1]-C[1]],v=[B[0]-C[0],B[1]-C[1]];
+  const det=u[0]*v[1]-u[1]*v[0];if(Math.abs(det)<1e-6)return null;
+  const coeff=(x,y)=>[(x*v[1]-y*v[0])/det,(u[0]*y-u[1]*x)/det];
+  const corners=[[0,0],[1200,0],[1200,800],[0,800]].map(p=>coeff(p[0]-cx,p[1]-cy));
+  const i0=Math.floor(Math.min(...corners.map(q=>q[0])))-2,i1=Math.ceil(Math.max(...corners.map(q=>q[0])))+2;
+  const j0=Math.floor(Math.min(...corners.map(q=>q[1])))-2,j1=Math.ceil(Math.max(...corners.map(q=>q[1])))+2;
+  const tiles=[];
+  for(let i=i0;i<=i1;i++)for(let j=j0;j<=j1;j++){
+   const tx=cx-C[0]+i*u[0]+j*v[0],ty=cy-C[1]+i*u[1]+j*v[1];
+   const transforms=[
+    [1,0,0,1,tx,ty],
+    [-1,0,0,-1,A[0]+B[0]+tx,A[1]+B[1]+ty]
+   ];
+   for(const g of transforms){
+    const q=P.map(p=>ap(g,p));
+    const bb=[Math.min(...q.map(p=>p[0])),Math.min(...q.map(p=>p[1])),Math.max(...q.map(p=>p[0])),Math.max(...q.map(p=>p[1]))];
+    // 多保留画布外一圈，再由 SVG 视口裁切边缘。
+    if(bb[2]<-40||bb[0]>1240||bb[3]<-40||bb[1]>840)continue;
+    q.g=g;tiles.push(q);
+    if(tiles.length>1600)return null;
+   }
+  }
+  tiles.sort((a,b)=>{const ca=cent(a),cb=cent(b);return Math.hypot(ca[0]-cx,ca[1]-cy)-Math.hypot(cb[0]-cx,cb[1]-cy)});
+  tiles.forEach((q,i)=>q.par=i?0:-1);
+  return tiles.length?tiles:null;
+ }
+ function tileWith(poly,fill,title,inPlace){let cx=600,cy=400,T=TILE_T;if(inPlace){const c=cent(poly);cx=Math.max(150,Math.min(1050,c[0]));cy=Math.max(120,Math.min(680,c[1]));T=Math.max(8000,Math.min(60000,Math.abs(area(poly))))}
  const P=norm(poly,T),res=$('tilingResult'),set=(m,c)=>{res.textContent=m;res.style.color=c;say(m.length>30?m.slice(0,30)+'…':m)};
  if(!isSimple(P))return set('图形的边相交了，请把顶点拖回成正常的多边形','#ff8a8a');
  const angs=interior(P).map(o=>o.ang),txt='内角：'+angs.map(a=>Math.round(a*10)/10+'°').join('、')+'。';
  if(!canSum360(angs))return set(txt+'这些内角怎么组合都凑不出 360°，所以'+title+'不能密铺。','#ff8a8a');
+ if(P.length===3){
+  const tri=mainTriangleLattice(P,cx,cy);
+  if(!tri)return set('三角形密铺单元生成失败，请调整三角形大小后重试。','#ff8a8a');
+  setZoom(1);
+  layTiles(tri,fill);
+  return;
+ }
  const sol=solve(P,performance.now()+2500,cx,cy);
  if(!sol){const n=P.length;return set(txt+(n===3||n===4?'这是三角形/四边形，理论上可以密铺；本次自动搜索未找到稳定拼法，请稍微调整顶点后重试。':'内角能凑成 360°，但自动搜索未找到经过无缝、不重叠验证的拼法；这不等于数学上绝对不能密铺。请调整顶点后重新验证。'),'#ffc266')}
  setZoom(1);layTiles(sol,fill)}

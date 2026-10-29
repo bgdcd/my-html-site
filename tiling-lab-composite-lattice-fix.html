@@ -556,7 +556,7 @@ $('fcRotH').addEventListener('pointerdown',ev=>{const o=fcSel;if(!o)return;ev.st
   o.r=best===null?r:r+best;fcPaint(o);fcCtl()});
  const up=()=>{if(fin)return;fin=true;window.removeEventListener('pointermove',mv);mv.flush()};window.addEventListener('pointermove',mv);window.addEventListener('pointerup',up,{once:true});window.addEventListener('pointercancel',up,{once:true})});
 // 自由创作：逐点剪切、自由手绘剪切、拼接组合与平移模式
-let fcCutMode=false,fcFreeCutMode=false,fcTranslateMode=true,fcCutStart=null,fcCutGuide=null,fcCutTarget=null,fcCutPath=[];
+let fcCutMode=true,fcFreeCutMode=false,fcTranslateMode=false,fcCutStart=null,fcCutGuide=null,fcCutTarget=null,fcCutPath=[];
 let fcFreeCutGuide=null,fcFreeCutTarget=null,fcFreeCutPath=[],fcFreeCutDrawing=false;
 function fcCutReset(){if(fcCutGuide){fcCutGuide.remove();fcCutGuide=null}if(fcFreeCutGuide){fcFreeCutGuide.remove();fcFreeCutGuide=null}fcCutStart=null;fcCutTarget=null;fcCutPath=[];fcFreeCutTarget=null;fcFreeCutPath=[];fcFreeCutDrawing=false}
 function fcSetMode(mode){fcCutReset();fcCutMode=mode==='points';fcFreeCutMode=mode==='free';fcTranslateMode=mode==='move';$('fcCut').classList.toggle('primary',fcCutMode);$('fcFreeCut').classList.toggle('primary',fcFreeCutMode);$('fcTranslate').classList.toggle('primary',fcTranslateMode)}
@@ -692,7 +692,7 @@ function fcFinishSplit(old,path,pieces){
    o.cutTargetY=old.y+(o.cutMoveY||0);
   }
   fcP.splice(idx+j,0,o);fcMake(o)});
- fcSetMode('move');fcMultiMode=false;$('fcMultiSelect').classList.remove('primary');fcSelect(pieces[1]);
+ fcSetMode('points');fcMultiMode=false;$('fcMultiSelect').classList.remove('primary');fcSelect(pieces[1]);
  fcSay('切割完成：挖出的图形已选中并留在原位，请拖动它查看缺口；拖回切口附近会自动吸附。');return true;
 }
 function fcDrawFreeCutGuide(cursor){if(!fcFreeCutTarget)return;if(!fcFreeCutGuide){fcFreeCutGuide=el('g',{'pointer-events':'none'});fcG.appendChild(fcFreeCutGuide)}fcFreeCutGuide.innerHTML='';const pts=fcFreeCutPath.slice();if(cursor&&pts.length)pts.push(cursor);if(pts.length>=2)fcFreeCutGuide.appendChild(el('polyline',{points:pts.map(v=>`${v.x},${v.y}`).join(' '),fill:'none',stroke:'#ff84c5','stroke-width':4,'stroke-linecap':'round','stroke-linejoin':'round',opacity:.96}));if(pts.length)fcFreeCutGuide.appendChild(el('circle',{cx:pts[0].x,cy:pts[0].y,r:5,fill:'#ffc84d',stroke:'#fff','stroke-width':1.5}));}
@@ -739,16 +739,26 @@ function fcFreeCutDown(ev){
 function fcCutDown(ev){
  if(!fcCutMode)return;
  const p=fcPt(ev);
- // 优先使用本次实际点击的图形，而不是一直沿用上一次选中的图形。
- // 这样一次剪切完成后，可以直接对另一个图形开始第二次剪切。
+ // 优先识别本次点击命中的图形；画布空白处不能借用上一次选中图形作为剪切对象。
  let hit=null;
  for(let n=ev.target;n&&n!==fcB.parentNode;n=n.parentNode){if(n.__fcPiece){hit=n.__fcPiece;break}}
+ if(!hit){
+  let best=null,bestD=Infinity;
+  for(const candidate of fcP){
+   const poly=fcW(candidate),d=Math.min(...poly.map((v,i)=>segD([p.x,p.y],v,poly[(i+1)%poly.length])));
+   if(fcInside(p,poly)||d<=22){if(d<bestD){best=candidate;bestD=d}}
+  }
+  hit=best;
+ }
  if(fcCutTarget&&hit&&hit!==fcCutTarget){
   fcCutReset();
   fcSay('已切换到当前点击的图形，请从它的边缘重新确定剪切起点。');
  }
- let target=fcCutTarget||hit||fcSel;
- if(!target||target.locked)return;
+ let target=fcCutTarget||hit;
+ if(!target||target.locked){
+  if(!fcCutTarget)fcSay('请直接点击要剪切图形的边缘确定起点，不要点击画布空白处。');
+  return;
+ }
  const w=fcW(target),edge=fcNearEdge(p,w,22),inside=fcInside(p,w);if(!fcCutTarget){if(!edge){if(ev.target===fcB||ev.target===fcG)return;return}fcCutTarget=target;fcCutPath=[p];fcDrawCutGuide();fcSay('起点已确定。继续点击图形内部的转折位置；最后点击另一处边缘完成切割。');ev.preventDefault();ev.stopPropagation();return}
  if(target!==fcCutTarget)return;
  if(edge&&fcCutPath.length>=2){fcCutPath.push(p);const path=fcCutPath.slice();const pieces=fcCutPolygon(fcCutTarget,path);if(!pieces){fcCutPath.pop();fcSay('这条切割线没有形成有效的两块图形，请再点一个内部转折点，或重新开始。',true);fcDrawCutGuide();ev.preventDefault();ev.stopPropagation();return}

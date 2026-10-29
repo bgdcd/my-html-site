@@ -493,21 +493,33 @@ function fcSnapExactEdges(o,others,E){
  return true;
 }
 function fcSnap(o, anchorX=null, deltaY=0, dragStartY=null){
- const ctm=fcB.getScreenCTM(),scale=ctm?Math.abs(ctm.a)||1:1,u=1/scale,E=14*u;
- // 任意切割块：允许四向拖动；只有进入指定对侧位置的吸附范围，才精确落到目标坐标。
+ const ctm=fcB.getScreenCTM(),u=1/(ctm?Math.abs(ctm.a)||1:1),E=20*u;
+ // 切块的首要吸附目标是原切口；保留四向移动，靠近切口时一次性精准归位。
  if(o.cutGroup||(o.cloneOf!==undefined&&o.cloneOf!==null)){
-  const target=fcCutSnapTarget(o);
-  if(target&&Math.hypot(o.x-target.x,o.y-target.y)<=E){o.x=target.x;o.y=target.y}
+  const target=fcCutSnapTarget(o),capture=34*u;
+  if(target&&Math.hypot(o.x-target.x,o.y-target.y)<=capture){o.x=target.x;o.y=target.y;return}
+  // 未接近原切口时，也允许切块沿真实平行边线吸附到其他图形。
+  const w=fcW(o),mb=bbox(w),others=[];
+  for(const x of fcP){
+   if(x===o)continue;
+   if(x.cutGroup===o.cutGroup&&o.cutGroup)continue;
+   const ob=bbox(fcW(x)),pad=E+24*u;
+   if(ob[0]>mb[2]+pad||ob[2]<mb[0]-pad||ob[1]>mb[3]+pad||ob[3]<mb[1]-pad)continue;
+   others.push(fcW(x));
+  }
+  if(others.length)snapCore({w:()=>fcW(o),rotBy:d=>{o.r+=d},shift:(dx,dy)=>{o.x+=dx;o.y+=dy}},others,E,15*u,3);
   return;
  }
- // 普通图形和复合图形不再用大范围磁吸或自动旋转，只校正真正重合边线的法向距离。
- const others=[];
- for(const x of fcP){if(x===o||x.cutGroup||(x.cloneOf!==undefined&&x.cloneOf!==null))continue;
-  const ob=bbox(fcW(x)),mb=bbox(fcW(o));
-  if(ob[0]>mb[2]+E||ob[2]<mb[0]-E||ob[1]>mb[3]+E||ob[3]<mb[1]-E)continue;
-  others.push(x);
+ // 恢复原来的边线+顶点磁吸：接近后主动校正位置，只做小角度对齐，避免大幅旋转或越位。
+ const isJoined=!!o.joined,w=fcW(o),mb=bbox(w),others=[];
+ for(const x of fcP){
+  if(x===o)continue;
+  if(!isJoined&&(x.cutGroup||(x.cloneOf!==undefined&&x.cloneOf!==null)))continue;
+  const ow=fcW(x),ob=bbox(ow),pad=E+24*u;
+  if(ob[0]>mb[2]+pad||ob[2]<mb[0]-pad||ob[1]>mb[3]+pad||ob[3]<mb[1]-pad)continue;
+  others.push(ow);
  }
- if(others.length)fcSnapExactEdges(o,others,E);
+ if(others.length)snapCore({w:()=>fcW(o),rotBy:d=>{if(!isJoined)o.r+=d},shift:(dx,dy)=>{o.x+=dx;o.y+=dy}},others,E,isJoined?26*u:15*u,isJoined?3:5);
 }
 function fcAdd(k,x,y){fcSave();const o={id:fcId++,k,x:Math.max(40,Math.min(860,x)),y:Math.max(40,Math.min(560,y)),r:0,m:1,color:fcShapes[k].color};fcP.push(o);fcMake(o);fcSnap(o);fcSelect(o);fcSay('已放入'+fcShapes[k].name+'。共 '+fcP.length+' 个图形；拖动让边贴合，满意后点“自动密铺”。')}
 function fcStartMove(ev,o){if(ev.button!==undefined&&ev.button!==0)return;ev.stopPropagation();if(ev.shiftKey||fcMultiMode){ev.preventDefault();fcSelectMulti(o);return;}if(o.locked){fcSelect(o);fcSay('该图形已锁定，请先解锁再移动');return;}ev.preventDefault();fcSelect(o);const p0=fcPt(ev),x0=o.x,y0=o.y,r0=o.r,cx=ev.clientX,cy=ev.clientY;let moved=false,fin=false;
@@ -629,14 +641,14 @@ function fcFinishSplit(old,path,pieces){
    // 面积较大的主体固定在原位，缺口不会被另一块盖回去。
    o.x=old.x;o.y=old.y;o.cutTargetX=old.x;o.cutTargetY=old.y;o.cutMoveX=0;o.cutMoveY=0;
   }else{
-   // 挖出块立即移到原图形外侧，真正露出缺口；目标位置与初始位置一致，便于随后独立拖动。
-   o.x=old.x+(o.cutMoveX||0);o.y=old.y+(o.cutMoveY||0);
-   // 吸附目标是原位置的缺口，而不是挖出块移开后的停靠位置。
-   o.cutTargetX=old.x;o.cutTargetY=old.y;
+   // 切割块不自动飞走：留在原切割位置，放在主体上层并自动选中，由用户自己拖动。
+   o.x=old.x;o.y=old.y;
+   // 吸附目标是原切口位置；拖回时吸附闭合，拖开时露出真实缺口。
+   o.cutMoveX=0;o.cutMoveY=0;o.cutTargetX=old.x;o.cutTargetY=old.y;
   }
   fcP.splice(idx+j,0,o);fcMake(o)});
- fcSetMode('move');fcMultiMode=false;$('fcMultiSelect').classList.remove('primary');fcSelect(pieces[0]);
- fcSay('挖取成功：原图形主体仍保留并形成缺口；挖出的图形已独立生成，可向左、右、上、下拖动，与对应缺口组合。');return true;
+ fcSetMode('move');fcMultiMode=false;$('fcMultiSelect').classList.remove('primary');fcSelect(pieces[1]);
+ fcSay('切割完成：挖出的图形已选中并留在原位，请拖动它查看缺口；拖回切口附近会自动吸附。');return true;
 }
 function fcDrawFreeCutGuide(cursor){if(!fcFreeCutTarget)return;if(!fcFreeCutGuide){fcFreeCutGuide=el('g',{'pointer-events':'none'});fcG.appendChild(fcFreeCutGuide)}fcFreeCutGuide.innerHTML='';const pts=fcFreeCutPath.slice();if(cursor&&pts.length)pts.push(cursor);if(pts.length>=2)fcFreeCutGuide.appendChild(el('polyline',{points:pts.map(v=>`${v.x},${v.y}`).join(' '),fill:'none',stroke:'#ff84c5','stroke-width':4,'stroke-linecap':'round','stroke-linejoin':'round',opacity:.96}));if(pts.length)fcFreeCutGuide.appendChild(el('circle',{cx:pts[0].x,cy:pts[0].y,r:5,fill:'#ffc84d',stroke:'#fff','stroke-width':1.5}));}
 function fcNearestBoundaryPoint(p,poly){

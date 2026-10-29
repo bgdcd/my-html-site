@@ -461,7 +461,7 @@ function fcSnapExactEdges(o,others,E){
  const center=P.reduce((v,p)=>[v[0]+p[0]/P.length,v[1]+p[1]/P.length],[0,0]);
  const windA=Math.sign(area(P))||1;
  let best=null;
- const captureT=Math.max(E,30);
+ const captureT=Math.max(E*1.6,55);
  for(const Q of others){
   if(!Q||Q===o)continue;
   const T=Array.isArray(Q)?Q:fcW(Q);if(!T||T.length<3)continue;
@@ -476,7 +476,7 @@ function fcSnapExactEdges(o,others,E){
     const c=T[j],d=T[(j+1)%T.length],fx=d[0]-c[0],fy=d[1]-c[1],lb=Math.hypot(fx,fy);
     if(lb<3)continue;
     const cross=Math.abs(ex*fy-ey*fx)/(la*lb);
-    if(cross>0.012)continue; // 约0.69°；不把明显斜交的边误判为可吸附接缝。
+    if(cross>0.02)continue; // 加强吸附容差；仍排除明显斜交边，避免把不同方向的边误吸在一起。
     const dot=ux*(fx/lb)+uy*(fy/lb);
     const interiorB=Math.sign(ex*(centerB[1]-a[1])-ey*(centerB[0]-a[0]))||windB;
     if(interiorA*interiorB>=0)continue; // 两块必须位于接缝两侧。
@@ -514,7 +514,7 @@ function fcSnapExactEdges(o,others,E){
  return true;
 }
 function fcSnap(o, anchorX=null, deltaY=0, dragStartY=null, isDrop=false){
- const ctm=fcB.getScreenCTM(),u=1/(ctm?Math.abs(ctm.a)||1:1),E=38*u;
+ const ctm=fcB.getScreenCTM(),u=1/(ctm?Math.abs(ctm.a)||1:1),E=58*u;
  // 只有独立切块使用专用对侧平移吸附。已拼接/已组合的图形（包括其克隆体）
  // 必须按整个外轮廓进入通用边线吸附，不能因 cloneOf 标记提前退出。
  if(!o.joined&&(o.cutGroup||(o.cloneOf!==undefined&&o.cloneOf!==null))){
@@ -843,11 +843,11 @@ function fcSimplifyOutline(input){
 }
 // 改变轮廓的起始顶点顺序重试：同一多边形的几何形状不变，但搜索顺序会改变，避免一个固定顺序过早耗尽尝试次数。
 function fcSolveMoreRobust(P,cx=600,cy=400){
- const end=performance.now()+6500,n=P.length;
+ const end=performance.now()+15000,n=P.length;
  const shifts=[0,Math.floor(n/4),Math.floor(n/2),Math.floor(3*n/4)].filter((x,i,a)=>a.indexOf(x)===i);
  const variants=[];for(const shift of shifts)variants.push(P.map((_,i)=>P[(i+shift)%n]));
  const rev=[...P].reverse();for(const shift of shifts)variants.push(rev.map((_,i)=>rev[(i+shift)%n]));
- for(const Q of variants){if(performance.now()>=end)break;const deadline=Math.min(end,performance.now()+850);const sol=solve(Q,deadline,cx,cy,6500);if(sol)return sol;}
+ for(const Q of variants){if(performance.now()>=end)break;const deadline=Math.min(end,performance.now()+2200);const sol=solve(Q,deadline,cx,cy,18000);if(sol)return sol;}
  return null;
 }
 // 判断外轮廓是否为平行四边形（正方形、长方形也包含在内）。平行四边形可直接用两条边向量做平移格，不需要依赖搜索算法。

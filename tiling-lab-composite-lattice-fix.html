@@ -949,13 +949,21 @@ function fcTileLattice(polys,colors,a,b){
 function fcTryLattice(polys,colors,outline,pieces){
  const cands=[];
  for(const o of pieces){const l=fcWorldLat(o);if(l)cands.push(l)}
- // 优先沿用切割前的原始矩形平移格；只有通过面积与无重叠校验才会采用。
+ // 割补来源明确时，优先验证并使用原始平移格，避免近似采样把正确的割补密铺误判为失败。
  const width=pieces.map(o=>Number(o.cutOriginWidth)).find(v=>Number.isFinite(v)&&v>0);
  const height=pieces.map(o=>Number(o.cutOriginHeight||o.tileStepY)).find(v=>Number.isFinite(v)&&v>0);
+ const knownCut=pieces.some(o=>o.joined||o.cutGroup||o.cutOriginWidth||o.cutOriginHeight);
  if(width&&height)cands.push([[width,0],[0,height]]);
- // 旧数据缺少原始宽度时，才用外轮廓宽度与切割步长尝试。
- const step=pieces.map(o=>Number(o.tileStepY)).find(v=>Number.isFinite(v)&&v>0);
- if(step){const bb=fcBBox(outline);cands.push([[bb[2]-bb[0],0],[0,step]])}
+ // 对有可信割补来源、且组合轮廓面积与原始平移单元面积一致的图形，采用确定性格点。
+ // unionOutline 已先检查图形间重叠、接缝闭合和外轮廓；此处避免基于网格采样的启发式检测造成假阴性。
+ if(knownCut&&width&&height){
+  const l=cands.find(v=>v&&v.length===2)||[[width,0],[0,height]];
+  const det=Math.abs(l[0][0]*l[1][1]-l[0][1]*l[1][0]),A=Math.abs(area(outline));
+  if(det>1e-3&&Math.abs(A-det)<=Math.max(2,det*.008)){
+   return fcTileLattice(polys,colors,l[0],l[1]);
+  }
+ }
+ // 普通图形仍必须通过平移单元面积与无重叠验证。
  for(const l of cands){const fit=fcLatticeFit(outline,l[0],l[1]);if(fit)return fcTileLattice(polys,colors,fit[0],fit[1])}
  return null;
 }

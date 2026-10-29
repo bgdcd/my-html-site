@@ -557,7 +557,7 @@ function fcCutPolygon(o,path){
  const halves=[remainder,cutPiece].filter(p=>p.length>=3&&Math.abs(area(p))>25&&isSimple(p));
  if(halves.length!==2)return null;
  const halfAreas=halves.map(p=>Math.abs(area(p))),halfBoxes=halves.map(bbox),halfCenters=halfBoxes.map(b=>[(b[0]+b[2])/2,(b[1]+b[3])/2]);
- const remIndex=0,cutIndex=1;
+ const remIndex=halfAreas[0]>=halfAreas[1]?0:1,cutIndex=1-remIndex;
  const originCenter=[(originBox[0]+originBox[2])/2,(originBox[1]+originBox[3])/2],cutCenter=halfCenters[cutIndex];
  const dxNorm=Math.abs(cutCenter[0]-originCenter[0])/Math.max(1,originWidth),dyNorm=Math.abs(cutCenter[1]-originCenter[1])/Math.max(1,originHeight),axis=dxNorm>=dyNorm?'x':'y';
  const makePiece=(w,isRemainder)=>{
@@ -576,7 +576,14 @@ function fcFinishSplit(old,path,pieces){
  fcSave();const idx=fcP.indexOf(old);old.el.remove();fcP=fcP.filter(o=>o!==old);
  const group='cut-'+Date.now()+'-'+Math.random().toString(36).slice(2,7);
  pieces.forEach((o,j)=>{o.cutGroup=group;o.cutPiece=j;o.cutOriginHeight=o.cutOriginHeight||Math.max(...fcLocal(old).map(p=>p[1]))-Math.min(...fcLocal(old).map(p=>p[1]));o.tileStepY=o.cutOriginHeight;
-  if(o.cutRemainder){o.x=old.x;o.y=old.y;o.cutTargetX=o.x;o.cutTargetY=o.y;o.cutMoveX=0;o.cutMoveY=0}
+  if(o.cutRemainder){
+   // 面积较大的主体固定在原位，缺口不会被另一块盖回去。
+   o.x=old.x;o.y=old.y;o.cutTargetX=old.x;o.cutTargetY=old.y;o.cutMoveX=0;o.cutMoveY=0;
+  }else{
+   // 挖出块立即移到原图形外侧，真正露出缺口；目标位置与初始位置一致，便于随后独立拖动。
+   o.x=old.x+(o.cutMoveX||0);o.y=old.y+(o.cutMoveY||0);
+   o.cutTargetX=o.x;o.cutTargetY=o.y;
+  }
   fcP.splice(idx+j,0,o);fcMake(o)});
  fcSetMode('move');fcMultiMode=false;$('fcMultiSelect').classList.remove('primary');fcSelect(pieces[0]);
  fcSay('挖取成功：原图形主体仍保留并形成缺口；挖出的图形已独立生成，可向左、右、上、下拖动，与对应缺口组合。');return true;

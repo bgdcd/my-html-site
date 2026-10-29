@@ -308,7 +308,7 @@ function layTiles(tiles,fill,done,cols){const tok=++anim,N=tiles.length,res=$('t
  const mv=tiles.map((q,k)=>k?decomp(tiles[q.par],q):null),cnt={平移:0,旋转:0,轴对称:0};mv.forEach(d=>d&&cnt[d.type]++);
  const tint={平移:0,旋转:26,轴对称:-20},st=tiles.map((_,k)=>k<8?k*650:5200+(k-8)*110),DUR=k=>k<8?600:420,els=[],ease=x=>x<.5?2*x*x:1-Math.pow(-2*x+2,2)/2;let next=0,active=[];
  const fin=k=>{const q=tiles[k],e=els[k],cx=q.reduce((a,p)=>a+p[0],0)/q.length,cy=q.reduce((a,p)=>a+p[1],0)/q.length,loc=q.map(p=>[+(p[0]-cx).toFixed(3),+(p[1]-cy).toFixed(3)]),pl=e.querySelector('polygon');e.dataset.x=cx;e.dataset.y=cy;e.dataset.customPts=JSON.stringify(loc);pl.setAttribute('points',loc.map(p=>p.join(',')).join(' '));pl.removeAttribute('opacity');if(cols)e.querySelectorAll('polygon.sub').forEach((sp,j)=>{sp.setAttribute('points',q.subs[j].map(p=>(p[0]-cx).toFixed(2)+','+(p[1]-cy).toFixed(2)).join(' '));sp.removeAttribute('opacity')});redraw(e)};
- const spawn=k=>{const dd=k&&mv[k].type?tint[mv[k].type]:0,f=dd?shade(fill,dd):fill;els[k]=makePiece('tile',0,0,f,0,1,tiles[k],true);const main=els[k].querySelector('polygon');main.setAttribute('stroke',f);main.setAttribute('stroke-width','2.4');main.setAttribute('stroke-linejoin','round');if(cols)cols.forEach((c,j)=>{const fc=dd?shade(c,dd):c;els[k].appendChild(el('polygon',{class:'sub',points:tiles[k].subs[j].map(p=>p.join(',')).join(' '),fill:fc,stroke:fc,'stroke-width':2.4,'stroke-linejoin':'round'}))})};
+ const spawn=k=>{const dd=k&&mv[k].type?tint[mv[k].type]:0,f=dd?shade(fill,dd):fill;els[k]=makePiece('tile',0,0,f,0,1,tiles[k],true);const main=els[k].querySelector('polygon');main.setAttribute('stroke',f);main.setAttribute('stroke-width','8');main.setAttribute('stroke-linejoin','round');main.setAttribute('paint-order','stroke fill');if(cols)cols.forEach((c,j)=>{const fc=dd?shade(c,dd):c;els[k].appendChild(el('polygon',{class:'sub',points:tiles[k].subs[j].map(p=>p.join(',')).join(' '),fill:fc,stroke:fc,'stroke-width':8,'stroke-linejoin':'round','paint-order':'stroke fill'}))})};
  const draw=(k,s)=>{const pl=els[k].querySelector('polygon');if(!k){pl.setAttribute('opacity',s);if(cols)els[k].querySelectorAll('polygon.sub').forEach(x=>x.setAttribute('opacity',s));return}pl.setAttribute('points',pose(tiles[tiles[k].par],mv[k],ease(s)).map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' '));if(cols){const par=tiles[tiles[k].par];els[k].querySelectorAll('polygon.sub').forEach((x,j)=>x.setAttribute('points',pose(par.subs[j],mv[k],ease(s)).map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ')))}};
  const end=()=>{anim++;animSkip=null;refresh();res.textContent='铺设完成：共 '+N+' 块，无缝不重叠。用到平移 '+cnt.平移+' 次、旋转 '+cnt.旋转+' 次、轴对称 '+cnt.轴对称+' 次（颜色深浅：浅=旋转，深=轴对称，中=平移）。';res.style.color='#6dffb0';done&&done()};
  animSkip=()=>{for(;next<N;next++){spawn(next);fin(next)}active.forEach(fin);active=[];end()};
@@ -339,8 +339,8 @@ const cent=p=>{const A=area(p);let x=0,y=0;for(let i=0;i<p.length;i++){const q=p
    for(const g of transforms){
     const q=P.map(p=>ap(g,p));
     const bb=[Math.min(...q.map(p=>p[0])),Math.min(...q.map(p=>p[1])),Math.max(...q.map(p=>p[0])),Math.max(...q.map(p=>p[1]))];
-    // 多保留画布外一圈，再由 SVG 视口裁切边缘。
-    if(bb[2]<-40||bb[0]>1240||bb[3]<-40||bb[1]>840)continue;
+    // 多保留画布外至少两圈，并用同色粗描边覆盖 SVG 抗锯齿的细缝。
+    if(bb[2]<-100||bb[0]>1300||bb[3]<-100||bb[1]>900)continue;
     q.g=g;tiles.push(q);
     if(tiles.length>1600)return null;
    }

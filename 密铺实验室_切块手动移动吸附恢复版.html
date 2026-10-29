@@ -494,20 +494,11 @@ function fcSnapExactEdges(o,others,E){
 }
 function fcSnap(o, anchorX=null, deltaY=0, dragStartY=null, isDrop=false){
  const ctm=fcB.getScreenCTM(),u=1/(ctm?Math.abs(ctm.a)||1:1),E=20*u;
- // 切块的首要吸附目标是原切口；保留四向移动，靠近切口时一次性精准归位。
+ // 切块在拖动过程中保持完全自由；松开时，只有靠近对侧的精确目标才吸附。
+ // 不在拖动中被其他边线抢吸附，避免无法顺畅平移到另一侧。
  if(o.cutGroup||(o.cloneOf!==undefined&&o.cloneOf!==null)){
   const target=fcCutSnapTarget(o),capture=34*u;
-  if(isDrop&&target&&Math.hypot(o.x-target.x,o.y-target.y)<=capture){o.x=target.x;o.y=target.y;return}
-  // 未接近原切口时，也允许切块沿真实平行边线吸附到其他图形。
-  const w=fcW(o),mb=bbox(w),others=[];
-  for(const x of fcP){
-   if(x===o)continue;
-   if(x.cutGroup===o.cutGroup&&o.cutGroup)continue;
-   const ob=bbox(fcW(x)),pad=E+24*u;
-   if(ob[0]>mb[2]+pad||ob[2]<mb[0]-pad||ob[1]>mb[3]+pad||ob[3]<mb[1]-pad)continue;
-   others.push(fcW(x));
-  }
-  if(others.length)snapCore({w:()=>fcW(o),rotBy:d=>{o.r+=d},shift:(dx,dy)=>{o.x+=dx;o.y+=dy}},others,E,15*u,3);
+  if(isDrop&&target&&Math.hypot(o.x-target.x,o.y-target.y)<=capture){o.x=target.x;o.y=target.y}
   return;
  }
  // 恢复原来的边线+顶点磁吸：接近后主动校正位置，只做小角度对齐，避免大幅旋转或越位。

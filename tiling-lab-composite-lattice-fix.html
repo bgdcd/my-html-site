@@ -271,15 +271,29 @@ function bfs(P,T,box,max,c0=[600,400],deadline=Infinity){const n=P.length,out=[]
  const find=c=>{const kx=Math.round(c[0]/4),ky=Math.round(c[1]/4);for(let a=-1;a<=1;a++)for(let b=-1;b<=1;b++){const l=bk.get((kx+a)+','+(ky+b));if(l)for(const o of l)if(Math.hypot(o.c[0]-c[0],o.c[1]-c[1])<0.15)return o}return null};
  const same=(q,r)=>q.every(p=>r.some(s=>Math.hypot(p[0]-s[0],p[1]-s[1])<0.15)),hit=q=>{let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;for(const p of q){x0=Math.min(x0,p[0]);x1=Math.max(x1,p[0]);y0=Math.min(y0,p[1]);y1=Math.max(y1,p[1])}return x1>=box[0]&&x0<=box[2]&&y1>=box[1]&&y0<=box[3]};
  const qu=[{g:[1,0,0,1,c0[0],c0[1]],par:-1}];for(let h=0;h<qu.length;h++){if((h&7)===0&&performance.now()>deadline)return null;const{g,par}=qu[h],q=P.map(p=>ap(g,p)),c=cen(q),o=find(c);if(o){if(!same(q,o.q))return null;continue}if(!hit(q))continue;const k=key(c),idx=out.length;(bk.get(k)||bk.set(k,[]).get(k)).push({c,q});q.g=g;q.par=par;out.push(q);if(out.length>max)return null;for(let i=0;i<n;i++)qu.push({g:mul(g,T[i]),par:idx})}return out}
-function cover(T,box,nx,ny,deadline=Infinity){for(const q of T)if(!q.bb){let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;for(const p of q){x0=Math.min(x0,p[0]);x1=Math.max(x1,p[0]);y0=Math.min(y0,p[1]);y1=Math.max(y1,p[1])}q.bb=[x0,y0,x1,y1]}
- for(let a=0;a<nx;a++)for(let b=0;b<ny;b++){if((a*ny+b&31)===0&&performance.now()>deadline)return false;const p=[box[0]+(a+.37)*(box[2]-box[0])/nx,box[1]+(b+.61)*(box[3]-box[1])/ny],near=[];let c=0;for(const q of T){const bb=q.bb;if(p[0]<bb[0]-2||p[0]>bb[2]+2||p[1]<bb[1]-2||p[1]>bb[3]+2)continue;near.push(q);if(inP(q,p))c++}if(c!==1){let md=1e9;for(const q of near)for(let i=0;i<q.length;i++)md=Math.min(md,segD(p,q[i],q[(i+1)%q.length]));if(md>0.15)return false}}return true}
+function cover(T,box,nx,ny,deadline=Infinity){
+ for(const q of T)if(!q.bb){let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;for(const p of q){x0=Math.min(x0,p[0]);x1=Math.max(x1,p[0]);y0=Math.min(y0,p[1]);y1=Math.max(y1,p[1])}q.bb=[x0,y0,x1,y1]}
+ for(let a=0;a<nx;a++)for(let b=0;b<ny;b++){
+  if((a*ny+b&31)===0&&performance.now()>deadline)return false;
+  const p=[box[0]+(a+.371)*(box[2]-box[0])/nx,box[1]+(b+.613)*(box[3]-box[1])/ny],near=[];let c=0;
+  for(const q of T){const bb=q.bb;if(p[0]<bb[0]-2||p[0]>bb[2]+2||p[1]<bb[1]-2||p[1]>bb[3]+2)continue;near.push(q);if(inP(q,p))c++}
+  if(c!==1){let md=1e9;for(const q of near)for(let i=0;i<q.length;i++)md=Math.min(md,segD(p,q[i],q[(i+1)%q.length]));if(md>0.08)return false}
+ }
+ return true
+}
 // 搜索“每条边与哪条边（经平移/旋转/镜像）配对”的密铺方案，并用采样逐点验证：每点恰被一块覆盖＝无缝、不重叠
 function solve(P,deadline,cx=600,cy=400,maxTries=4000){const n=P.length,len=P.map((p,i)=>{const q=P[(i+1)%n];return Math.hypot(q[0]-p[0],q[1]-p[1])}),part=Array(n).fill(null),S=samples(P);let found=null,tries=0;
  const test=()=>{if(performance.now()>deadline)return null;const T=part.map((o,i)=>edgeMap(P,i,o.j,o.r)),N=T.map(t=>P.map(p=>ap(t,p))),NSm=T.map(t=>S.map(p=>ap(t,p)));
+  // 配对边必须端点真正重合；边长仅仅“差不多”时，刚体变换后仍会留下接缝。
+  for(let i=0;i<n;i++){
+   const o=part[i],g=T[i],ta=P[(i+(o.r?0:1))%n],tb=P[(i+(o.r?1:0))%n];
+   const sa=ap(g,P[o.j]),sb=ap(g,P[(o.j+1)%n]);
+   if(Math.hypot(sa[0]-ta[0],sa[1]-ta[1])>0.12||Math.hypot(sb[0]-tb[0],sb[1]-tb[1])>0.12)return null;
+  }
   for(let i=0;i<n;i++){if(performance.now()>deadline)return null;if(S.some(p=>inP(N[i],p))||NSm[i].some(p=>inP(P,p)))return null;for(let k=i+1;k<n;k++)if(NSm[i].some(p=>inP(N[k],p))||NSm[k].some(p=>inP(N[i],p)))return null}
-  const c0=[cx,cy],a=bfs(P,T,[cx-220,cy-220,cx+220,cy+220],160,c0,deadline);if(!a||performance.now()>deadline||!cover(a,[cx-100,cy-100,cx+100,cy+100],14,14,deadline))return null;const b=bfs(P,T,[-90,-70,1290,870],700,c0,deadline);return b&&performance.now()<=deadline&&cover(b,[0,0,1200,800],36,24,deadline)?b:null};
+  const c0=[cx,cy],a=bfs(P,T,[cx-220,cy-220,cx+220,cy+220],160,c0,deadline);if(!a||performance.now()>deadline||!cover(a,[cx-100,cy-100,cx+100,cy+100],24,24,deadline))return null;const b=bfs(P,T,[-120,-100,1320,900],900,c0,deadline);return b&&performance.now()<=deadline&&cover(b,[0,0,1200,800],96,64,deadline)?b:null};
  const rec=i=>{if(found||performance.now()>deadline||tries>maxTries)return;while(i<n&&part[i])i++;if(i===n){tries++;found=test();return}
-  for(const j of Array.from({length:n-i-1},(_,x)=>i+1+x).sort((x,y)=>Math.abs(x-i-n/2)-Math.abs(y-i-n/2))){if(part[j]||Math.abs(len[i]-len[j])>.02*len[i])continue;for(const r of[0,1]){part[i]={j,r};part[j]={j:i,r};rec(i+1);part[i]=part[j]=null;if(found)return}}
+  for(const j of Array.from({length:n-i-1},(_,x)=>i+1+x).sort((x,y)=>Math.abs(x-i-n/2)-Math.abs(y-i-n/2))){if(part[j]||Math.abs(len[i]-len[j])>Math.max(.08,len[i]*.001))continue;for(const r of[0,1]){part[i]={j,r};part[j]={j:i,r};rec(i+1);part[i]=part[j]=null;if(found)return}}
   part[i]={j:i,r:0};rec(i+1);part[i]=null};
  rec(0);return found}
 let anim=0,animSkip=null,speedI=0;const SPEEDS=[['慢',1],['中',2.4],['快',10]];

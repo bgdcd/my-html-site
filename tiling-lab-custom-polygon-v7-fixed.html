@@ -435,61 +435,87 @@ function fcExitTiling(){if(!fcTilingActive)return;fcAnimToken++;fcAnimSkip=null;
 const fcSay=(m,bad)=>{fcMsg.textContent=m;fcMsg.style.color=bad?'#ffb38a':'#7cc4ff'};
 const fcPt=e=>{const p=fcB.createSVGPoint();p.x=e.clientX;p.y=e.clientY;const q=p.matrixTransform(fcB.getScreenCTM().inverse());return{x:q.x,y:q.y}};
 const fcLocal=o=>o.pts||fcShapes[o.k].pts;const fcW=o=>{const c=Math.cos(o.r*R),s=Math.sin(o.r*R);return fcLocal(o).map(p=>{const x=p[0]*o.m,y=p[1];return[o.x+x*c-y*s,o.y+x*s+y*c]})};
-const fcSave=()=>{fcHist.push(JSON.stringify(fcP.map(o=>({id:o.id,k:o.k,x:o.x,y:o.y,r:o.r,m:o.m,color:o.color,pts:o.pts?o.pts.map(p=>p.slice()):null,drawings:(o.drawings||[]).map(d=>({...d})),locked:!!o.locked,cutGroup:o.cutGroup,cutBaseX:o.cutBaseX,cutBaseY:o.cutBaseY,cutPiece:o.cutPiece,cutOriginTop:o.cutOriginTop,cutOriginBottom:o.cutOriginBottom,cutOriginHeight:o.cutOriginHeight,cutSnapY:o.cutSnapY,cutHasBottomEdge:o.cutHasBottomEdge,cutUpSnapY:o.cutUpSnapY,tileStepY:o.tileStepY,cloneOf:o.cloneOf,lat:o.lat,fam:o.fam,fr:o.fr,joined:!!o.joined}))));if(fcHist.length>40)fcHist.shift()};
+const fcSave=()=>{fcHist.push(JSON.stringify(fcP.map(o=>({id:o.id,k:o.k,x:o.x,y:o.y,r:o.r,m:o.m,color:o.color,pts:o.pts?o.pts.map(p=>p.slice()):null,drawings:(o.drawings||[]).map(d=>({...d})),locked:!!o.locked,cutGroup:o.cutGroup,cutBaseX:o.cutBaseX,cutBaseY:o.cutBaseY,cutPiece:o.cutPiece,cutOriginTop:o.cutOriginTop,cutOriginBottom:o.cutOriginBottom,cutOriginHeight:o.cutOriginHeight,cutSnapY:o.cutSnapY,cutHasBottomEdge:o.cutHasBottomEdge,cutUpSnapY:o.cutUpSnapY,tileStepY:o.tileStepY,cutMoveX:o.cutMoveX,cutMoveY:o.cutMoveY,cutTargetX:o.cutTargetX,cutTargetY:o.cutTargetY,cutAxis:o.cutAxis,cloneOf:o.cloneOf,lat:o.lat,fam:o.fam,fr:o.fr,joined:!!o.joined}))));if(fcHist.length>40)fcHist.shift()};
 function fcPaint(o){o.el.setAttribute('transform',`translate(${o.x} ${o.y}) rotate(${o.r}) scale(${o.m} 1)`);const pl=o.el.firstChild,sel=o===fcSel||fcMulti.has(o);o.el.classList.toggle('sel',sel&&o===fcSel);o.el.classList.toggle('multi-sel',sel&&o!==fcSel);pl.setAttribute('fill',o.color);pl.setAttribute('stroke',shade(o.color))}
 function fcCtl(){if(!fcSel){fcC.style.display='none';return}const w=fcW(fcSel),top=w.reduce((a,p)=>p[1]<a[1]?p:a,w[0]),hx=top[0],hy=top[1]-34;fcC.style.display='';$('fcStem').setAttribute('x1',top[0]);$('fcStem').setAttribute('y1',top[1]);$('fcStem').setAttribute('x2',hx);$('fcStem').setAttribute('y2',hy+12);$('fcRotH').setAttribute('cx',hx);$('fcRotH').setAttribute('cy',hy);$('fcRotT').setAttribute('x',hx);$('fcRotT').setAttribute('y',hy+5.5);fcG.appendChild(fcSel.el);fcB.appendChild(fcC)}
 function fcSelect(o){const old=[...fcMulti];fcSel=o;fcMulti.clear();if(o)fcMulti.add(o);old.forEach(x=>{if(x.el&&x.el.isConnected)fcPaint(x)});if(o)fcPaint(o);fcP.forEach(x=>{if(x!==o)fcPaint(x)});fcCtl()}
 function fcSelectMulti(o){if(fcMultiMode&&fcMulti.has(o)){fcMulti.delete(o);if(fcSel===o)fcSel=[...fcMulti].pop()||null}else fcMulti.add(o);if(fcMulti.has(o))fcSel=o;fcP.forEach(fcPaint);fcCtl();fcSay(`已选择 ${fcMulti.size} 个图形。继续点击其他图形，选好后点“拼接组合”。`)}
 function fcMake(o){o.el=el('g',{class:'fcp'});o.el.__fcPiece=o;const poly=el('polygon',{points:fcLocal(o).map(p=>p.join(',')).join(' '),'stroke-linejoin':'round'});o.el.appendChild(poly);o.drawings=o.drawings||[];const defs=$('fcBrushDefs')||(()=>{const d=el('defs',{id:'fcBrushDefs'});fcB.insertBefore(d,fcB.firstChild);return d})();const cp=el('clipPath',{id:'fcBrushClip'+o.id,clipPathUnits:'userSpaceOnUse'});cp.appendChild(el('polygon',{points:fcLocal(o).map(p=>p.join(',')).join(' ')}));defs.appendChild(cp);o.el.addEventListener('pointerdown',ev=>{if(fcBrushMode){fcStartBrush(ev,o);return}fcStartMove(ev,o)});o.drawings.forEach(d=>o.el.appendChild(el('path',{d:d.d,fill:'none',stroke:d.color,'stroke-width':d.width||4,'stroke-linecap':'round','stroke-linejoin':'round','vector-effect':'non-scaling-stroke','clip-path':'url(#fcBrushClip'+o.id+')'})));fcG.appendChild(o.el);fcPaint(o)}
-// 自由创作吸附：切割底块向上移动一个原方形高度，底边与原方形上边重合；
-// 拼接后的复合图形及其克隆沿同一个 tileStepY 平移，保持边界周期一致。
-function fcSnapTargetY(o){
- // 克隆件优先跟随它的直接来源，目标是一格正上方；避免沿用母切块旧缺口坐标而叠回原处。
+// 自由创作吸附：严格边线接合；切割块按方向移动到对侧对应位置后精确吸附。
+function fcCutSnapTarget(o){
+ // 剪切块的目标位置在切割完成时按原图形的宽/高和所在边确定，位置只用于吸附，不依赖屏幕近似坐标。
+ if(o.cutGroup&&Number.isFinite(o.cutTargetX)&&Number.isFinite(o.cutTargetY))return {x:o.cutTargetX,y:o.cutTargetY};
+ // 克隆的切块保持同一方向规则，并以其来源当前所在位置为基准。
  if(o.cloneOf!==undefined&&o.cloneOf!==null){
-   const src=fcP.find(x=>x!==o&&x.id===o.cloneOf);
-   if(src && Number.isFinite(o.tileStepY) && o.tileStepY>0)return src.y-o.tileStepY;
-   if(src){const sb=bbox(fcW(src)),local=fcLocal(o),lowRel=Math.max(...local.map(p=>p[1]));return sb[1]-lowRel;}
+  const src=fcP.find(x=>x!==o&&x.id===o.cloneOf);
+  if(src&&Number.isFinite(o.cutMoveX)&&Number.isFinite(o.cutMoveY))return {x:src.x+o.cutMoveX,y:src.y+o.cutMoveY};
  }
- // 切割件使用固定的原始锚点与母图形高度；误拖其他切块不会改变其目标。
- if(o.cutGroup){const h=Number(o.cutOriginHeight||o.tileStepY||0),baseY=Number(o.cutBaseY);if(h>0&&Number.isFinite(baseY))return baseY-h;}
  return null;
 }
+function fcSnapExactEdges(o,others,E){
+ const P=fcW(o);if(P.length<3)return false;
+ const signedArea=area(P),windA=Math.sign(signedArea)||1;
+ let best=null;
+ for(const Q of others){
+  if(!Q||Q===o||Q.locked===undefined&&false)continue;
+  const T=Array.isArray(Q)?Q:fcW(Q);if(!T||T.length<3)continue;
+  const windB=Math.sign(area(T))||1;
+  const ca=P.reduce((v,p)=>[v[0]+p[0]/P.length,v[1]+p[1]/P.length],[0,0]);
+  const cb=T.reduce((v,p)=>[v[0]+p[0]/T.length,v[1]+p[1]/T.length],[0,0]);
+  for(let i=0;i<P.length;i++){
+   const a=P[i],b=P[(i+1)%P.length],ex=b[0]-a[0],ey=b[1]-a[1],la=Math.hypot(ex,ey);
+   if(la<4)continue;
+   const ux=ex/la,uy=ey/la,nx=-uy,ny=ux;
+   const interiorA=Math.sign(ex*(ca[1]-a[1])-ey*(ca[0]-a[0]))||windA;
+   for(let j=0;j<T.length;j++){
+    const c=T[j],d=T[(j+1)%T.length],fx=d[0]-c[0],fy=d[1]-c[1],lb=Math.hypot(fx,fy);
+    if(lb<4)continue;
+    const cross=Math.abs(ex*fy-ey*fx)/(la*lb);
+    if(cross>0.0087)continue; // 约半度：不靠旋转强行掰正，只吸附本来就平行的边。
+    const dot=ux*(fx/lb)+uy*(fy/lb);
+    const interiorB=Math.sign(ex*(cb[1]-a[1])-ey*(cb[0]-a[0]))||windB;
+    if(interiorA*interiorB>=0)continue; // 两个图形必须位于接缝的相反两侧，避免吸到重叠的一侧。
+    const normalGap=(c[0]-a[0])*nx+(c[1]-a[1])*ny;
+    if(Math.abs(normalGap)>E)continue;
+    const t0=(c[0]-a[0])*ux+(c[1]-a[1])*uy;
+    const t1=(d[0]-a[0])*ux+(d[1]-a[1])*uy;
+    const ov=Math.min(la,Math.max(t0,t1))-Math.max(0,Math.min(t0,t1));
+    if(ov<Math.max(5,Math.min(la,lb)*0.18))continue; // 没有足够长的边线重合区域时，不吸附，避免只碰一个角。
+    const move=Math.abs(normalGap);
+    if(move>E)continue;
+    const score=move+(1-Math.abs(dot))*E*2;
+    if(!best||score<best.score)best={score,dx:nx*normalGap,dy:ny*normalGap};
+   }
+  }
+ }
+ if(!best)return false;
+ o.x+=best.dx;o.y+=best.dy;
+ return true;
+}
 function fcSnap(o, anchorX=null, deltaY=0, dragStartY=null){
- const ctm=fcB.getScreenCTM(),u=1/(ctm?Math.abs(ctm.a)||1:1),E=20*u;
- const verticalOnly=!o.joined&&(!!o.cutGroup||(o.cloneOf!==undefined&&o.cloneOf!==null)||Number.isFinite(o.tileStepY));
- if(verticalOnly){
-   if(anchorX!==null)o.x=anchorX;
-   const targetY=fcSnapTargetY(o);
-   // 只有向上拖并越过目标吸附带才吸附；不旋转、不改形、不横向漂移。
-   // dragStartY 用于判断是否真正从目标下方越过目标，避免一移动就被拉回。
-   const crossed=targetY!==null && (dragStartY===null || dragStartY>targetY-E) && o.y<=targetY+E;
-   if(targetY!==null && deltaY<0 && crossed)o.y=targetY;
-   return;
+ const ctm=fcB.getScreenCTM(),scale=ctm?Math.abs(ctm.a)||1:1,u=1/scale,E=14*u;
+ // 任意切割块：允许四向拖动；只有进入指定对侧位置的吸附范围，才精确落到目标坐标。
+ if(o.cutGroup||(o.cloneOf!==undefined&&o.cloneOf!==null)){
+  const target=fcCutSnapTarget(o);
+  if(target&&Math.hypot(o.x-target.x,o.y-target.y)<=E){o.x=target.x;o.y=target.y}
+  return;
  }
- // 普通图形和拼接后的复合图形都可以向任意方向自由平移。
- // 复合图形靠近任何其他图形（含较早剪切的切块、克隆件或其他复合图形）时自动吸附；吸附只平移，不旋转。
- const isJoined=!!o.joined;
- const w=fcW(o),mb=bbox(w),others=[];
- for(const x of fcP){
-  if(x===o)continue;
-  // 独立切割块仍保留其专用的竖直割补规则；拼接后的复合图形则允许吸附到所有图形。
-  if(!isJoined&&(x.cutGroup||(x.cloneOf!==undefined&&x.cloneOf!==null)||Number.isFinite(x.tileStepY)))continue;
-  const ow=fcW(x),ob=bbox(ow),pad=isJoined?E+34:E+24;
-  if(ob[0]>mb[2]+pad||ob[2]<mb[0]-pad||ob[1]>mb[3]+pad||ob[3]<mb[1]-pad)continue;
-  others.push(ow);
+ // 普通图形和复合图形不再用大范围磁吸或自动旋转，只校正真正重合边线的法向距离。
+ const others=[];
+ for(const x of fcP){if(x===o||x.cutGroup||(x.cloneOf!==undefined&&x.cloneOf!==null))continue;
+  const ob=bbox(fcW(x)),mb=bbox(fcW(o));
+  if(ob[0]>mb[2]+E||ob[2]<mb[0]-E||ob[1]>mb[3]+E||ob[3]<mb[1]-E)continue;
+  others.push(x);
  }
- if(others.length){
-  const edgeRange=isJoined?26*u:E,vertexRange=isJoined?23*u:15*u;
-  snapCore({w:()=>fcW(o),rotBy:d=>{if(!isJoined)o.r+=d},shift:(dx,dy)=>{o.x+=dx;o.y+=dy}},others,edgeRange,vertexRange,isJoined?3:8);
- }
+ if(others.length)fcSnapExactEdges(o,others,E);
 }
 function fcAdd(k,x,y){fcSave();const o={id:fcId++,k,x:Math.max(40,Math.min(860,x)),y:Math.max(40,Math.min(560,y)),r:0,m:1,color:fcShapes[k].color};fcP.push(o);fcMake(o);fcSnap(o);fcSelect(o);fcSay('已放入'+fcShapes[k].name+'。共 '+fcP.length+' 个图形；拖动让边贴合，满意后点“自动密铺”。')}
 function fcStartMove(ev,o){if(ev.button!==undefined&&ev.button!==0)return;ev.stopPropagation();if(ev.shiftKey||fcMultiMode){ev.preventDefault();fcSelectMulti(o);return;}if(o.locked){fcSelect(o);fcSay('该图形已锁定，请先解锁再移动');return;}ev.preventDefault();fcSelect(o);const p0=fcPt(ev),x0=o.x,y0=o.y,r0=o.r,cx=ev.clientX,cy=ev.clientY;let moved=false,fin=false;
- const verticalOnly=!o.joined&&(!!o.cutGroup||(o.cloneOf!==undefined&&o.cloneOf!==null));const mv=raf1(e=>{const q=fcPt(e),dy=q.y-p0.y;o.r=r0;if(verticalOnly){o.x=x0;o.y=y0+dy;}else{o.x=x0+q.x-p0.x;o.y=y0+dy;}/* 切割块/克隆块只沿竖直轴移动；吸附按真实几何目标自动校准 */fcSnap(o,verticalOnly?x0:null,q.y-p0.y,y0);fcPaint(o);fcCtl()});
+ const verticalOnly=false;const mv=raf1(e=>{const q=fcPt(e),dy=q.y-p0.y;o.r=r0;if(verticalOnly){o.x=x0;o.y=y0+dy;}else{o.x=x0+q.x-p0.x;o.y=y0+dy;}/* 切割块/克隆块只沿竖直轴移动；吸附按真实几何目标自动校准 */fcSnap(o,verticalOnly?x0:null,q.y-p0.y,y0);fcPaint(o);fcCtl()});
  const onmv=e=>{if(!moved){if(Math.hypot(e.clientX-cx,e.clientY-cy)<4)return;moved=true;fcHist.push(JSON.stringify(fcP.map(a=>({id:a.id,k:a.k,pts:a.pts?a.pts.map(p=>p.slice()):null,x:a.id===o.id?x0:a.x,y:a.id===o.id?y0:a.y,r:a.id===o.id?r0:a.r,m:a.m,color:a.color,drawings:(a.drawings||[]).map(d=>({...d})),locked:!!a.locked,joined:!!a.joined,cutGroup:a.cutGroup,cutBaseX:a.cutBaseX,cutBaseY:a.cutBaseY,cutPiece:a.cutPiece,cutOriginTop:a.cutOriginTop,cutOriginBottom:a.cutOriginBottom,cutOriginHeight:a.cutOriginHeight,cutSnapY:a.cutSnapY,cutHasBottomEdge:a.cutHasBottomEdge,cutUpSnapY:a.cutUpSnapY,tileStepY:a.tileStepY,cloneOf:a.cloneOf}))));}mv(e)};
  const up=()=>{if(fin)return;fin=true;window.removeEventListener('pointermove',onmv);mv.flush();
   /* 松开时再执行一次精确吸附；只改变 x/y，不旋转、不变形。切割后的形状也参与边/顶点吸附，便于克隆件严丝合缝地拼接。 */
-  if(moved){const verticalOnly=!o.joined&&(!!o.cutGroup||(o.cloneOf!==undefined&&o.cloneOf!==null));const endY=o.y;fcSnap(o,verticalOnly?x0:null,endY-y0,y0);fcPaint(o);fcCtl()}
+  if(moved){const verticalOnly=false;const endY=o.y;fcSnap(o,verticalOnly?x0:null,endY-y0,y0);fcPaint(o);fcCtl()}
  };
  window.addEventListener('pointermove',onmv);window.addEventListener('pointerup',up,{once:true});window.addEventListener('pointercancel',up,{once:true})}
 $('fcRotH').addEventListener('pointerdown',ev=>{const o=fcSel;if(!o)return;ev.stopPropagation();ev.preventDefault();fcSave();const s0=fcPt(ev),base=Math.atan2(s0.y-o.y,s0.x-o.x),r0=o.r;let fin=false;
@@ -505,20 +531,37 @@ function fcCutReset(){if(fcCutGuide){fcCutGuide.remove();fcCutGuide=null}if(fcFr
 function fcSetMode(mode){fcCutReset();fcCutMode=mode==='points';fcFreeCutMode=mode==='free';fcTranslateMode=mode==='move';$('fcCut').classList.toggle('primary',fcCutMode);$('fcFreeCut').classList.toggle('primary',fcFreeCutMode);$('fcTranslate').classList.toggle('primary',fcTranslateMode)}
 $('fcCut').onclick=()=>{fcSetMode(fcCutMode?'move':'points');fcSay(fcCutMode?'已退出逐点剪切模式，可继续平移图形。':'逐点剪切：先选中图形，从边缘点击起点，再点内部转折点，最后点击另一处边缘完成切割。')};
 $('fcFreeCut').onclick=()=>{fcSetMode(fcFreeCutMode?'move':'free');fcSay(fcFreeCutMode?'已退出任意画切割模式。':'任意画切割：选中要切的图形，从它的边缘按住鼠标，沿任意折线路径拖画，最后在另一处边缘松开；这不是逐点点击。')};
-$('fcTranslate').onclick=()=>{fcSetMode('move');fcSay('平移模式：普通图形和拼接后的复合图形可向任意方向移动，接近其他图形时自动吸附；独立切割块仍遵循对应缺口的竖直平移规则。')};
+$('fcTranslate').onclick=()=>{fcSetMode('move');fcSay('平移模式：普通图形和拼接后的复合图形可向任意方向移动，接近其他图形时自动吸附；独立切割块可四向平移，到对侧对应缺口自动吸附。')};
 $('fcMultiSelect').onclick=()=>{fcMultiMode=!fcMultiMode;$('fcMultiSelect').classList.toggle('primary',fcMultiMode);if(fcMultiMode){fcSel=null;fcMulti.clear();fcP.forEach(fcPaint);fcCtl();fcSay('多选拼接模式已开启：依次点击要组合的图形（再点一次可取消），可以混选不同次剪切的图形，选好后点“拼接组合”。')}else{const keep=fcSel;fcSelect(keep);fcSay('已退出多选模式。单选图形后可继续平移或剪切。')}};
 $('fcLock').onclick=()=>{if(!fcSel)return fcSay('请先选中一个图形');fcSave();fcSel.locked=!fcSel.locked;$('fcLock').textContent=fcSel.locked?'🔓 解锁':'🔒 锁定';fcSel.el.style.opacity=fcSel.locked?'.78':'1';fcSay(fcSel.locked?'图形已锁定，避免误拖动。':'图形已解锁，可以继续编辑。')};
 function fcCutPolygon(o,path){
  const poly=fcW(o);if(path.length<2)return null;
- const originBox=bbox(poly),originTop=originBox[1],originBottom=originBox[3],originHeight=originBottom-originTop;
+ const originBox=bbox(poly),originTop=originBox[1],originBottom=originBox[3],originHeight=originBottom-originTop,originWidth=originBox[2]-originBox[0];
  const nearest=(q)=>{let best=null;for(let i=0;i<poly.length;i++){const a=poly[i],b=poly[(i+1)%poly.length],dx=b[0]-a[0],dy=b[1]-a[1],t=Math.max(0,Math.min(1,((q.x-a[0])*dx+(q.y-a[1])*dy)/(dx*dx+dy*dy||1))),p=[a[0]+dx*t,a[1]+dy*t],d=Math.hypot(q.x-p[0],q.y-p[1]);if(!best||d<best.d)best={p,edge:i,t,d}}return best};
  const st=nearest(path[0]),en=nearest(path[path.length-1]);if(st.d>28||en.d>28)return null;
  const arc=(from,to)=>{const out=[from.p];let i=from.edge,guard=0;if(from.edge===to.edge&&to.t>=from.t)return[from.p,to.p];do{out.push(poly[(i+1)%poly.length]);i=(i+1)%poly.length;guard++}while(i!==to.edge&&guard<poly.length+2);out.push(to.p);return out};
  const middle=path.slice(1,-1).map(p=>[p.x,p.y]);
  const p1=arc(st,en).concat(middle.slice().reverse()),p2=arc(en,st).concat(middle);
  const halves=[p1,p2].filter(p=>p.length>=3&&Math.abs(area(p))>25&&isSimple(p));if(halves.length!==2)return null;
- // 两个切割块共用原图形锚点(o.x,o.y)，而不是各自重新以质心定位；这样纯竖直平移不会横向漂移。
- return halves.map(w=>{const pts=w.map(p=>[p[0]-o.x,p[1]-o.y]);const bottomRel=originBottom-o.y;let hasBottomEdge=false;for(let i=0;i<pts.length;i++){const a=pts[i],b=pts[(i+1)%pts.length];if(Math.abs(a[1]-bottomRel)<1.5&&Math.abs(b[1]-bottomRel)<1.5&&Math.abs(a[0]-b[0])>5){hasBottomEdge=true;break;}}return {pts,x:o.x,y:o.y,r:0,m:1,color:o.color,k:'custom',id:fcId++,locked:false,cutBaseX:o.x,cutBaseY:o.y,cutOriginTop:originTop,cutOriginBottom:originBottom,cutOriginHeight:originHeight,cutSnapY:originTop-Math.max(...pts.map(p=>p[1])),cutHasBottomEdge:hasBottomEdge,cutUpSnapY:o.y-originHeight,tileStepY:originHeight};});
+ const halfBoxes=halves.map(bbox),halfCenters=halfBoxes.map(b=>[(b[0]+b[2])/2,(b[1]+b[3])/2]);
+ const dxSep=Math.abs(halfCenters[0][0]-halfCenters[1][0])/Math.max(1,originWidth);
+ const dySep=Math.abs(halfCenters[0][1]-halfCenters[1][1])/Math.max(1,originHeight);
+ // 主要沿左右分开的切块走水平方向：左块→右侧，右块→左侧；
+ // 主要沿上下分开的切块走竖直方向：上块→下侧，下块→上侧。
+ const axis=dxSep>=dySep?'x':'y';
+ const halvesWithTargets=halves.map((w,i)=>{
+  const pts=w.map(p=>[p[0]-o.x,p[1]-o.y]),box=halfBoxes[i],center=halfCenters[i];
+  let cutMoveX=0,cutMoveY=0;
+  if(axis==='x')cutMoveX=center[0]<=halfCenters[1-i][0]?originWidth:-originWidth;
+  else cutMoveY=center[1]<=halfCenters[1-i][1]?originHeight:-originHeight;
+  const bottomRel=originBottom-o.y;let hasBottomEdge=false;
+  for(let j=0;j<pts.length;j++){const a=pts[j],b=pts[(j+1)%pts.length];if(Math.abs(a[1]-bottomRel)<1.5&&Math.abs(b[1]-bottomRel)<1.5&&Math.abs(a[0]-b[0])>5){hasBottomEdge=true;break}}
+  return {pts,x:o.x,y:o.y,r:0,m:1,color:o.color,k:'custom',id:fcId++,locked:false,
+   cutBaseX:o.x,cutBaseY:o.y,cutOriginTop:originTop,cutOriginBottom:originBottom,cutOriginHeight:originHeight,
+   cutSnapY:originTop-Math.max(...pts.map(p=>p[1])),cutHasBottomEdge:hasBottomEdge,cutUpSnapY:o.y-originHeight,tileStepY:originHeight,
+   cutMoveX,cutMoveY,cutTargetX:o.x+cutMoveX,cutTargetY:o.y+cutMoveY,cutAxis:axis};
+ });
+ return halvesWithTargets;
 }
 function fcInside(p,poly){let inside=false;for(let i=0,j=poly.length-1;i<poly.length;j=i++){const a=poly[i],b=poly[j];if(((a[1]>p.y)!==(b[1]>p.y))&&(p.x<(b[0]-a[0])*(p.y-a[1])/(b[1]-a[1])+a[0]))inside=!inside}return inside}
 function fcNearEdge(p,poly,tol=20){return poly.some((v,i)=>segD([p.x,p.y],v,poly[(i+1)%poly.length])<tol)}
@@ -527,7 +570,7 @@ function fcFinishSplit(old,path,pieces){
  if(!pieces||pieces.length!==2)return false;
  fcSave();const idx=fcP.indexOf(old);old.el.remove();fcP=fcP.filter(o=>o!==old);const group='cut-'+Date.now()+'-'+Math.random().toString(36).slice(2,7);
  pieces.forEach((o,j)=>{o.cutGroup=group;o.cutBaseX=old.x;o.cutBaseY=old.y;o.cutPiece=j;o.cutOriginHeight=o.cutOriginHeight||Math.max(...fcLocal(old).map(p=>p[1]))-Math.min(...fcLocal(old).map(p=>p[1]));o.tileStepY=o.cutOriginHeight;fcP.splice(idx+j,0,o);fcMake(o)});
- fcSetMode('move');fcMultiMode=false;$('fcMultiSelect').classList.remove('primary');fcSelect(pieces[0]);fcSay('切割成功！已生成两块独立图形并保留相同的原始切割锚点。现在可以向上平移，接近原图形正上方一格时自动吸附。');return true;
+ fcSetMode('move');fcMultiMode=false;$('fcMultiSelect').classList.remove('primary');fcSelect(pieces[0]);fcSay('切割成功！切块可以向四个方向拖动：左块向右、右块向左、上块向下、下块向上；到达对侧目标时会严格对齐吸附。');return true;
 }
 function fcDrawFreeCutGuide(cursor){if(!fcFreeCutTarget)return;if(!fcFreeCutGuide){fcFreeCutGuide=el('g',{'pointer-events':'none'});fcG.appendChild(fcFreeCutGuide)}fcFreeCutGuide.innerHTML='';const pts=fcFreeCutPath.slice();if(cursor&&pts.length)pts.push(cursor);if(pts.length>=2)fcFreeCutGuide.appendChild(el('polyline',{points:pts.map(v=>`${v.x},${v.y}`).join(' '),fill:'none',stroke:'#ff84c5','stroke-width':4,'stroke-linecap':'round','stroke-linejoin':'round',opacity:.96}));if(pts.length)fcFreeCutGuide.appendChild(el('circle',{cx:pts[0].x,cy:pts[0].y,r:5,fill:'#ffc84d',stroke:'#fff','stroke-width':1.5}));}
 function fcFreeCutDown(ev){if(!fcFreeCutMode||ev.button!==undefined&&ev.button!==0)return;const host=ev.target.closest&&ev.target.closest('.fcp'),target=(host&&host.__fcPiece)||fcSel;if(!target||target.locked){fcSay('请先选中一个未锁定的图形，再用任意画切割。',true);return}const p=fcPt(ev),w=fcW(target);if(!fcNearEdge(p,w,26)){fcSay('请从所选图形的边缘开始画切割线，再沿路径拖到另一处边缘。',true);return}ev.preventDefault();ev.stopPropagation();fcSelect(target);fcFreeCutTarget=target;fcFreeCutPath=[p];fcFreeCutDrawing=true;fcDrawFreeCutGuide();let last=p;const move=e=>{if(!fcFreeCutDrawing)return;const q=fcPt(e);if(Math.hypot(q.x-last.x,q.y-last.y)>=2.6){fcFreeCutPath.push(q);last=q;fcDrawFreeCutGuide(q)}};const finish=e=>{if(!fcFreeCutDrawing)return;fcFreeCutDrawing=false;window.removeEventListener('pointermove',move);window.removeEventListener('pointerup',finish);window.removeEventListener('pointercancel',finish);const q=fcPt(e);if(Math.hypot(q.x-last.x,q.y-last.y)>1)fcFreeCutPath.push(q);const targetNow=fcFreeCutTarget,path=fcFreeCutPath.slice(),edgeEnd=targetNow&&fcNearEdge(q,fcW(targetNow),28);if(!targetNow||!edgeEnd||path.length<3){if(fcFreeCutGuide)fcFreeCutGuide.remove();fcFreeCutGuide=null;fcFreeCutTarget=null;fcFreeCutPath=[];fcSay('任意画切割未完成：请从图形边缘起笔，连续画过内部，再在另一处边缘松开。',true);return}const pieces=fcCutPolygon(targetNow,path);if(fcFreeCutGuide)fcFreeCutGuide.remove();fcFreeCutGuide=null;fcFreeCutTarget=null;fcFreeCutPath=[];if(!pieces){fcSay('这条手绘切线没有形成有效的两块图形。请重试一条从边缘到边缘、不自相交的切线。',true);return}fcFinishSplit(targetNow,path,pieces)};window.addEventListener('pointermove',move);window.addEventListener('pointerup',finish);window.addEventListener('pointercancel',finish)}
@@ -606,7 +649,7 @@ const need=()=>{if(!fcSel){fcSay('请先点选画布里的一个图形');return 
 $('fcRotL').onclick=()=>{if(need()){if(fcSel.cutGroup)return fcSay('切割后的图形按数学平移规则操作，不能旋转。');fcSave();fcSel.r=(fcSel.r-15+360)%360;fcPaint(fcSel);fcCtl()}};
 $('fcRotR').onclick=()=>{if(need()){if(fcSel.cutGroup)return fcSay('切割后的图形按数学平移规则操作，不能旋转。');fcSave();fcSel.r=(fcSel.r+15)%360;fcPaint(fcSel);fcCtl()}};
 $('fcFlip').onclick=()=>{if(need()){fcSave();fcSel.m*=-1;fcPaint(fcSel);fcCtl()}};
-$('fcDup').onclick=()=>{if(need()){const o=fcSel;fcSave();const n={id:fcId++,k:o.k,pts:o.pts?o.pts.map(p=>p.slice()):null,drawings:(o.drawings||[]).map(d=>({...d})),x:o.x,y:o.y-8,r:o.r,m:o.m,color:o.color,locked:false,joined:!!o.joined,cutGroup:o.cutGroup,cutBaseX:o.cutBaseX,cutBaseY:o.cutBaseY,cutPiece:o.cutPiece,cutOriginTop:o.cutOriginTop,cutOriginBottom:o.cutOriginBottom,cutOriginHeight:o.cutOriginHeight,cutSnapY:o.cutSnapY,cutHasBottomEdge:o.cutHasBottomEdge,cutUpSnapY:o.cutUpSnapY,tileStepY:o.tileStepY||o.cutOriginHeight,cloneOf:o.id,lat:o.lat,fam:o.fam,fr:o.fr};fcP.push(n);fcMake(n);fcSelect(n);fcSay(o.joined?'已克隆复合图形：可向任意方向自由移动，接近其他图形时自动吸附，吸附不会旋转图形。':'已克隆切割图形：保留原来的竖直平移与对应缺口吸附规则。')}};
+$('fcDup').onclick=()=>{if(need()){const o=fcSel;fcSave();const n={id:fcId++,k:o.k,pts:o.pts?o.pts.map(p=>p.slice()):null,drawings:(o.drawings||[]).map(d=>({...d})),x:o.x,y:o.y-8,r:o.r,m:o.m,color:o.color,locked:false,joined:!!o.joined,cutGroup:o.cutGroup,cutBaseX:o.cutBaseX,cutBaseY:o.cutBaseY,cutPiece:o.cutPiece,cutOriginTop:o.cutOriginTop,cutOriginBottom:o.cutOriginBottom,cutOriginHeight:o.cutOriginHeight,cutSnapY:o.cutSnapY,cutHasBottomEdge:o.cutHasBottomEdge,cutUpSnapY:o.cutUpSnapY,tileStepY:o.tileStepY||o.cutOriginHeight,cutMoveX:o.cutMoveX,cutMoveY:o.cutMoveY,cutTargetX:o.cutTargetX,cutTargetY:o.cutTargetY,cutAxis:o.cutAxis,cloneOf:o.id,lat:o.lat,fam:o.fam,fr:o.fr};fcP.push(n);fcMake(n);fcSelect(n);fcSay(o.joined?'已克隆复合图形：可向任意方向自由移动，接近其他图形时自动吸附，吸附不会旋转图形。':'已克隆切割图形：保留原来的竖直平移与对应缺口吸附规则。')}};
 $('fcDel').onclick=()=>{if(need()){fcSave();const o=fcSel;fcP=fcP.filter(x=>x!==o);o.el.remove();fcSelect(null);fcSay('已删除，还有 '+fcP.length+' 个图形')}};
 $('fcUndo').onclick=()=>{if(!fcHist.length)return fcSay('没有可撤销的操作');fcRestore(fcHist.pop())};
 $('fcClear').onclick=()=>{fcSave();fcG.innerHTML='';fcP=[];fcMulti.clear();fcMultiMode=false;$('fcMultiSelect').classList.remove('primary');fcSelect(null);fcSay('画布已清空')};

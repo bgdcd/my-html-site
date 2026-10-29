@@ -492,12 +492,12 @@ function fcSnapExactEdges(o,others,E){
  o.x+=best.dx;o.y+=best.dy;
  return true;
 }
-function fcSnap(o, anchorX=null, deltaY=0, dragStartY=null){
+function fcSnap(o, anchorX=null, deltaY=0, dragStartY=null, isDrop=false){
  const ctm=fcB.getScreenCTM(),u=1/(ctm?Math.abs(ctm.a)||1:1),E=20*u;
  // 切块的首要吸附目标是原切口；保留四向移动，靠近切口时一次性精准归位。
  if(o.cutGroup||(o.cloneOf!==undefined&&o.cloneOf!==null)){
   const target=fcCutSnapTarget(o),capture=34*u;
-  if(target&&Math.hypot(o.x-target.x,o.y-target.y)<=capture){o.x=target.x;o.y=target.y;return}
+  if(isDrop&&target&&Math.hypot(o.x-target.x,o.y-target.y)<=capture){o.x=target.x;o.y=target.y;return}
   // 未接近原切口时，也允许切块沿真实平行边线吸附到其他图形。
   const w=fcW(o),mb=bbox(w),others=[];
   for(const x of fcP){
@@ -527,7 +527,7 @@ function fcStartMove(ev,o){if(ev.button!==undefined&&ev.button!==0)return;ev.sto
  const onmv=e=>{if(!moved){if(Math.hypot(e.clientX-cx,e.clientY-cy)<4)return;moved=true;fcHist.push(JSON.stringify(fcP.map(a=>({id:a.id,k:a.k,pts:a.pts?a.pts.map(p=>p.slice()):null,x:a.id===o.id?x0:a.x,y:a.id===o.id?y0:a.y,r:a.id===o.id?r0:a.r,m:a.m,color:a.color,drawings:(a.drawings||[]).map(d=>({...d})),locked:!!a.locked,joined:!!a.joined,cutGroup:a.cutGroup,cutBaseX:a.cutBaseX,cutBaseY:a.cutBaseY,cutPiece:a.cutPiece,cutOriginTop:a.cutOriginTop,cutOriginBottom:a.cutOriginBottom,cutOriginHeight:a.cutOriginHeight,cutSnapY:a.cutSnapY,cutHasBottomEdge:a.cutHasBottomEdge,cutUpSnapY:a.cutUpSnapY,tileStepY:a.tileStepY,cloneOf:a.cloneOf}))));}mv(e)};
  const up=()=>{if(fin)return;fin=true;window.removeEventListener('pointermove',onmv);mv.flush();
   /* 松开时再执行一次精确吸附；只改变 x/y，不旋转、不变形。切割后的形状也参与边/顶点吸附，便于克隆件严丝合缝地拼接。 */
-  if(moved){const verticalOnly=false;const endY=o.y;fcSnap(o,verticalOnly?x0:null,endY-y0,y0);fcPaint(o);fcCtl()}
+  if(moved){const verticalOnly=false;const endY=o.y;fcSnap(o,verticalOnly?x0:null,endY-y0,y0,true);fcPaint(o);fcCtl()}
  };
  window.addEventListener('pointermove',onmv);window.addEventListener('pointerup',up,{once:true});window.addEventListener('pointercancel',up,{once:true})}
 $('fcRotH').addEventListener('pointerdown',ev=>{const o=fcSel;if(!o)return;ev.stopPropagation();ev.preventDefault();fcSave();const s0=fcPt(ev),base=Math.atan2(s0.y-o.y,s0.x-o.x),r0=o.r;let fin=false;

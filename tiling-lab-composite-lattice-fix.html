@@ -112,7 +112,7 @@ const shapes={
 };
 const DEF_S=3.84,TILE_T=24000,MAXS=8;
 let id=1,selected=null,selectedCorners=new Map(),activeVertexOwner=null,activeVertex=null,snap=true,showGrid=true,showAngles=false,showDegrees=false,zoom=1,history=[];
-let tileBackdrop=null,tileBackdropColor=null;
+let tileBackdrop=null,tileBackdropColor=null,tilePatternRect=null,tilePatternDef=null;
 function ensureTileBackdrop(color){
  if(!tileBackdrop){tileBackdrop=el('rect',{x:0,y:0,width:1200,height:800,'pointer-events':'none'});board.insertBefore(tileBackdrop,pieces)}
  tileBackdropColor=color||tileBackdropColor||'#ffad66';
@@ -120,6 +120,28 @@ function ensureTileBackdrop(color){
  tileBackdrop.setAttribute('display','');
 }
 function removeTileBackdrop(){if(tileBackdrop){tileBackdrop.remove();tileBackdrop=null}tileBackdropColor=null}
+function removeTrianglePattern(){
+ if(tilePatternRect){tilePatternRect.remove();tilePatternRect=null}
+ if(tilePatternDef){tilePatternDef.remove();tilePatternDef=null}
+}
+function tileTrianglePattern(P,fill,cx,cy){
+ const A=P[0],B=P[1],C=P[2],u=[A[0]-C[0],A[1]-C[1]],v=[B[0]-C[0],B[1]-C[1]];
+ const det=u[0]*v[1]-u[1]*v[0];if(Math.abs(det)<1e-6)return false;
+ removeTrianglePattern();
+ const defs=board.querySelector('defs');if(!defs)return false;
+ const pid='mainTrianglePattern';
+ tilePatternDef=el('pattern',{id:pid,x:0,y:0,width:1,height:1,patternUnits:'userSpaceOnUse',patternContentUnits:'userSpaceOnUse',
+  patternTransform:'matrix('+[u[0],u[1],v[0],v[1],cx,cy].map(x=>Number(x.toFixed(8))).join(' ')+')'});
+ // 整个基本平行四边形先铺底色；两块三角形精确分割它，即使像素抗锯齿也不会露出画布背景。
+ tilePatternDef.appendChild(el('rect',{x:0,y:0,width:1,height:1,fill:fill}));
+ tilePatternDef.appendChild(el('polygon',{points:'0,0 1,0 0,1',fill:fill,stroke:'none'}));
+ tilePatternDef.appendChild(el('polygon',{points:'1,0 1,1 0,1',fill:shade(fill,8),stroke:'none'}));
+ defs.appendChild(tilePatternDef);
+ ensureTileBackdrop(fill);
+ tilePatternRect=el('rect',{id:'mainTrianglePatternFill',x:0,y:0,width:1200,height:800,fill:'url(#'+pid+')','pointer-events':'none'});
+ board.insertBefore(tilePatternRect,pieces);
+ return true;
+}
 function el(t,a={}){const n=document.createElementNS(NS,t);for(const k in a)n.setAttribute(k,a[k]);return n}
 function say(s){toast.textContent=s;toast.classList.add('show');clearTimeout(say.t);say.t=setTimeout(()=>toast.classList.remove('show'),2400)}
 function boardPoint(e){const p=board.createSVGPoint();p.x=e.clientX;p.y=e.clientY;const q=p.matrixTransform(board.getScreenCTM().inverse());return{x:q.x,y:q.y}}
@@ -363,10 +385,12 @@ const cent=p=>{const A=area(p);let x=0,y=0;for(let i=0;i<p.length;i++){const q=p
  const angs=interior(P).map(o=>o.ang),txt='内角：'+angs.map(a=>Math.round(a*10)/10+'°').join('、')+'。';
  if(!canSum360(angs))return set(txt+'这些内角怎么组合都凑不出 360°，所以'+title+'不能密铺。','#ff8a8a');
  if(P.length===3){
-  const tri=mainTriangleLattice(P,cx,cy);
-  if(!tri)return set('三角形密铺单元生成失败，请调整三角形大小后重试。','#ff8a8a');
   setZoom(1);
-  layTiles(tri,fill);
+  save();anim++;animSkip=null;removeTrianglePattern();pieces.innerHTML='';selected=null;selectedCorners.clear();
+  if(!tileTrianglePattern(P,fill,cx,cy))return set('三角形平铺图案无法生成，请调整图形后重试。','#ff8a8a');
+  refresh();
+  res.textContent='已用 SVG 重复单元直接覆盖整张画布，三角形按平行四边形格连续平铺。';
+  res.style.color='#168a53';
   return;
  }
  const sol=solve(P,performance.now()+2500,cx,cy);
@@ -400,7 +424,7 @@ $('degreeBtn').onclick=()=>{showDegrees=!showDegrees;showAngles=false;selectedCo
 $('rotateBtn').onclick=()=>{if(!selected)return say('请先选中一个图形');save();selected.dataset.r=(+selected.dataset.r+15)%360;redraw(selected);refresh();checkAssembled()};
 $('duplicateBtn').onclick=()=>{if(!selected)return say('请先选中图形');const t=info(selected),s=selected;add(s.dataset.shape,t.x+45,t.y+35,s.querySelector('polygon').getAttribute('fill'),t.r,t.s,true,s.dataset.customPts?JSON.parse(s.dataset.customPts):null)};
 $('deleteBtn').onclick=()=>{if(!selected)return say('请先选中图形');save();selected.remove();selected=null;refresh()};
-$('undoBtn').onclick=()=>{if(!history.length)return say('没有可撤销的操作');anim++;animSkip=null;pieces.innerHTML=history.pop();selected=null;[...pieces.children].forEach(g=>{bind(g);redraw(g)});if(pieces.querySelector('[data-shape="tile"]')){if(tileBackdropColor)ensureTileBackdrop(tileBackdropColor)}else removeTileBackdrop();refresh()};
+$('undoBtn').onclick=()=>{if(!history.length)return say('没有可撤销的操作');anim++;animSkip=null;removeTrianglePattern();removeTileBackdrop();pieces.innerHTML=history.pop();selected=null;[...pieces.children].forEach(g=>{bind(g);redraw(g)});if(pieces.querySelector('[data-shape="tile"]')){if(tileBackdropColor)ensureTileBackdrop(tileBackdropColor)}else removeTileBackdrop();refresh()};
 document.querySelectorAll('.swatch').forEach(b=>b.onclick=()=>{document.querySelectorAll('.swatch').forEach(x=>x.classList.toggle('active',x===b));if(selected){save();selected.querySelectorAll('polygon').forEach(p=>{p.setAttribute('fill',b.dataset.color);p.setAttribute('stroke',shade(b.dataset.color))})}});
 $('snapBtn').onclick=()=>{snap=!snap;$('snapBtn').textContent=snap?'🧲 吸附：开':'🧲 吸附：关'};
 $('gridBtn').onclick=()=>{showGrid=!showGrid;bg.style.display=showGrid?'':'none';$('gridBtn').textContent=showGrid?'▦ 网格：开':'▦ 网格：关'};

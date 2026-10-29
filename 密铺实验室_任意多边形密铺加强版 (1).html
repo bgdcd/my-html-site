@@ -135,7 +135,32 @@ const ap=(T,p)=>[T[0]*p[0]+T[2]*p[1]+T[4],T[1]*p[0]+T[3]*p[1]+T[5]];
 const mul=(T,S)=>[T[0]*S[0]+T[2]*S[1],T[1]*S[0]+T[3]*S[1],T[0]*S[2]+T[2]*S[3],T[1]*S[2]+T[3]*S[3],T[0]*S[4]+T[2]*S[5]+T[4],T[1]*S[4]+T[3]*S[5]+T[5]];
 function worldPts(g){const t=info(g),r=t.r*R,c=Math.cos(r),s=Math.sin(r);return pointsFor(g).map(p=>[t.x+t.s*(p[0]*c-p[1]*s),t.y+t.s*(p[0]*s+p[1]*c)])}
 // ---------- 画布上的图形 ----------
-function bind(g){g.addEventListener('pointerdown',startMove);g.addEventListener('click',e=>{e.stopPropagation();select(g);if(g.dataset.shape==='custom'&&e.target.tagName&&e.target.tagName.toLowerCase()==='polygon'){const ctm=g.getScreenCTM();if(ctm){const pt=board.createSVGPoint();pt.x=e.clientX;pt.y=e.clientY;const q=pt.matrixTransform(ctm.inverse());if(inP(pointsFor(g),[q.x,q.y])){activeVertexOwner=null;activeVertex=null;g.dataset.scalePoint=JSON.stringify([Math.round(q.x),Math.round(q.y)]);redraw(g);$('hint').textContent='已在图形内部放置蓝色缩放点：拖动蓝点可等比例缩放；点击一个角可改用红点调整形状。'}}}refresh()})}
+function scaleHandlePoint(g,q){
+ const pts=pointsFor(g),sc=Math.max(.25,info(g).s||1),gap=34/sc;
+ const minCornerDist=p=>Math.min(...pts.map(v=>Math.hypot(p[0]-v[0],p[1]-v[1])));
+ if(minCornerDist(q)>=gap)return q;
+ const avg=pts.reduce((a,p)=>[a[0]+p[0]/pts.length,a[1]+p[1]/pts.length],[0,0]);
+ const box=[Math.min(...pts.map(p=>p[0])),Math.min(...pts.map(p=>p[1])),Math.max(...pts.map(p=>p[0])),Math.max(...pts.map(p=>p[1]))];
+ const targets=[avg,[(box[0]+box[2])/2,(box[1]+box[3])/2],...pts.map((p,i)=>[(pts[(i+Math.floor(pts.length/2))%pts.length][0]+avg[0])/2,(pts[(i+Math.floor(pts.length/2))%pts.length][1]+avg[1])/2])];
+ let best=null,bestMove=Infinity;
+ for(const target of targets)for(let step=1;step<=40;step++){
+  const t=step/40,p=[q[0]+(target[0]-q[0])*t,q[1]+(target[1]-q[1])*t];
+  if(!inP(pts,p))break;
+  const d=minCornerDist(p),move=Math.hypot(p[0]-q[0],p[1]-q[1]);
+  if(d>=gap&&move<bestMove){best=p;bestMove=move;break}
+ }
+ if(best)return best;
+ // On a narrow or highly concave polygon, use the safest nearby interior point found.
+ let safest=q,safeDist=minCornerDist(q),safeMove=0;
+ for(const target of targets)for(let step=1;step<=40;step++){
+  const t=step/40,p=[q[0]+(target[0]-q[0])*t,q[1]+(target[1]-q[1])*t];
+  if(!inP(pts,p))break;
+  const d=minCornerDist(p),move=Math.hypot(p[0]-q[0],p[1]-q[1]);
+  if(d>safeDist+0.01||(Math.abs(d-safeDist)<0.01&&move<safeMove)){safest=p;safeDist=d;safeMove=move}
+ }
+ return safest;
+}
+function bind(g){g.addEventListener('pointerdown',startMove);g.addEventListener('click',e=>{e.stopPropagation();if(e.target.closest&&e.target.closest('.control'))return;select(g);if(g.dataset.shape==='custom'&&e.target.tagName&&e.target.tagName.toLowerCase()==='polygon'){const ctm=g.getScreenCTM();if(ctm){const pt=board.createSVGPoint();pt.x=e.clientX;pt.y=e.clientY;const q=pt.matrixTransform(ctm.inverse()),p=scaleHandlePoint(g,[q.x,q.y]);if(inP(pointsFor(g),[q.x,q.y])){activeVertexOwner=null;activeVertex=null;g.dataset.scalePoint=JSON.stringify([Math.round(p[0]),Math.round(p[1])]);redraw(g);$('hint').textContent='蓝色缩放点已放在角点热区之外：拖动蓝点可等比例缩放；点击角点可显示红点调整形状。'}}}refresh()})}
 function chooseCorner(g,i){const key=g.dataset.id+':'+i;if(selectedCorners.has(key))selectedCorners.delete(key);else selectedCorners.set(key,{g,i});showAngles=false;showDegrees=false;$('angleBtn').textContent='∠ 标注对应角';$('degreeBtn').textContent='标注对应角度';if(selected!==g){const old=selected;selected=g;if(old&&old.isConnected)redraw(old);pieces.appendChild(g);redraw(g);syncCustomPreview(g)}refresh()}
 function makePiece(shape,x,y,fill,r,s,pts,exact){const g=el('g',{class:'piece','data-id':id++,'data-shape':shape,'data-x':exact?x:snapv(x),'data-y':exact?y:snapv(y),'data-r':r,'data-s':s});if(pts)g.dataset.customPts=JSON.stringify(pts);g.appendChild(el('polygon',{points:(pts||shapes[shape].pts).map(p=>p.join(',')).join(' '),fill,stroke:shade(fill),'stroke-width':2,'stroke-linejoin':'round'}));bind(g);pieces.appendChild(g);return g}
 function add(shape,x=600,y=400,fill,r=0,s=null,record=true,pts=null){if(record)save();const g=makePiece(shape,x,y,fill||shapes[shape].color,r,s===null?DEF_S:s,pts||(shape==='custom'?shapes.custom.pts.map(a=>a.slice()):null));select(g);refresh();return g}

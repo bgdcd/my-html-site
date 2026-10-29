@@ -1045,10 +1045,10 @@ function fcGrowthOverlap(A,B,ba,bb){
  for(const p of samples(B))if(strictIn(p,A))return true;
  return false;
 }
-function fcGrowthEdgeCovered(Q,edge,others){
+function fcGrowthEdgeCovered(Q,edge,others,self){
  const a=Q[edge],b=Q[(edge+1)%Q.length],dx=b[0]-a[0],dy=b[1]-a[1],L=Math.hypot(dx,dy);
  if(L<1e-5)return true;
- for(const O of others)for(let j=0;j<O.out.length;j++){
+ for(const O of others){if(O===self)continue;for(let j=0;j<O.out.length;j++){
   const c=O.out[j],d=O.out[(j+1)%O.out.length],ex=d[0]-c[0],ey=d[1]-c[1],M=Math.hypot(ex,ey);
   if(M<1e-5)continue;if(Math.abs(dx*ey-dy*ex)/(L*M)>.002)continue;
   const distC=Math.abs(dx*(c[1]-a[1])-dy*(c[0]-a[0]))/L,distD=Math.abs(dx*(d[1]-a[1])-dy*(d[0]-a[0]))/L;
@@ -1056,7 +1056,7 @@ function fcGrowthEdgeCovered(Q,edge,others){
   const ux=dx/L,uy=dy/L,t0=(c[0]-a[0])*ux+(c[1]-a[1])*uy,t1=(d[0]-a[0])*ux+(d[1]-a[1])*uy;
   const ov=Math.min(L,Math.max(t0,t1))-Math.max(0,Math.min(t0,t1));
   if(ov>=L-1.1)return true;
- }
+ }}
  return false;
 }
 function fcTileByEdgeGrowth(polys,colors,outline){
@@ -1074,7 +1074,7 @@ function fcTileByEdgeGrowth(polys,colors,outline){
   while(head<tiles.length&&tiles.length<720&&attempts<52000&&performance.now()<deadline){
    const current=tiles[head++],Q=current.out;
    for(let e=0;e<n&&tiles.length<720&&attempts<52000&&performance.now()<deadline;e++){
-    if(fcGrowthEdgeCovered(Q,e,tiles))continue;
+    if(fcGrowthEdgeCovered(Q,e,tiles,current))continue;
     const a=Q[e],b=Q[(e+1)%n],targetLen=Math.hypot(b[0]-a[0],b[1]-a[1]);
     const js=Array.from({length:n},(_,j)=>j).filter(j=>Math.abs(lengths[j]-targetLen)<=.75)
       .sort((j,k)=>(j===e?-1:k===e?1:0)||Math.abs(lengths[j]-targetLen)-Math.abs(lengths[k]-targetLen)||j-k);

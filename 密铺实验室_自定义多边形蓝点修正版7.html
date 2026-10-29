@@ -530,7 +530,7 @@ let fcFreeCutGuide=null,fcFreeCutTarget=null,fcFreeCutPath=[],fcFreeCutDrawing=f
 function fcCutReset(){if(fcCutGuide){fcCutGuide.remove();fcCutGuide=null}if(fcFreeCutGuide){fcFreeCutGuide.remove();fcFreeCutGuide=null}fcCutStart=null;fcCutTarget=null;fcCutPath=[];fcFreeCutTarget=null;fcFreeCutPath=[];fcFreeCutDrawing=false}
 function fcSetMode(mode){fcCutReset();fcCutMode=mode==='points';fcFreeCutMode=mode==='free';fcTranslateMode=mode==='move';$('fcCut').classList.toggle('primary',fcCutMode);$('fcFreeCut').classList.toggle('primary',fcFreeCutMode);$('fcTranslate').classList.toggle('primary',fcTranslateMode)}
 $('fcCut').onclick=()=>{fcSetMode(fcCutMode?'move':'points');fcSay(fcCutMode?'已退出逐点剪切模式，可继续平移图形。':'逐点剪切：先选中图形，从边缘点击起点，再点内部转折点，最后点击另一处边缘完成切割。')};
-$('fcFreeCut').onclick=()=>{fcSetMode(fcFreeCutMode?'move':'free');fcSay(fcFreeCutMode?'已退出任意画切割模式。':'任意画切割：选中要切的图形，从它的边缘按住鼠标，沿任意折线路径拖画，最后在另一处边缘松开；这不是逐点点击。')};
+$('fcFreeCut').onclick=()=>{fcSetMode(fcFreeCutMode?'move':'free');fcSay(fcFreeCutMode?'已退出任意画切割模式。':'任意画切割：从图形边界开始，画出挖取区域后回到边界；主体保留为缺口形状，挖出块独立生成。')};
 $('fcTranslate').onclick=()=>{fcSetMode('move');fcSay('平移模式：普通图形和拼接后的复合图形可向任意方向移动，接近其他图形时自动吸附；独立切割块可四向平移，到对侧对应缺口自动吸附。')};
 $('fcMultiSelect').onclick=()=>{fcMultiMode=!fcMultiMode;$('fcMultiSelect').classList.toggle('primary',fcMultiMode);if(fcMultiMode){fcSel=null;fcMulti.clear();fcP.forEach(fcPaint);fcCtl();fcSay('多选拼接模式已开启：依次点击要组合的图形（再点一次可取消），可以混选不同次剪切的图形，选好后点“拼接组合”。')}else{const keep=fcSel;fcSelect(keep);fcSay('已退出多选模式。单选图形后可继续平移或剪切。')}};
 $('fcLock').onclick=()=>{if(!fcSel)return fcSay('请先选中一个图形');fcSave();fcSel.locked=!fcSel.locked;$('fcLock').textContent=fcSel.locked?'🔓 解锁':'🔒 锁定';fcSel.el.style.opacity=fcSel.locked?'.78':'1';fcSay(fcSel.locked?'图形已锁定，避免误拖动。':'图形已解锁，可以继续编辑。')};
@@ -539,38 +539,42 @@ function fcCutPolygon(o,path){
  const originBox=bbox(poly),originTop=originBox[1],originBottom=originBox[3],originHeight=originBottom-originTop,originWidth=originBox[2]-originBox[0];
  const nearest=(q)=>{let best=null;for(let i=0;i<poly.length;i++){const a=poly[i],b=poly[(i+1)%poly.length],dx=b[0]-a[0],dy=b[1]-a[1],t=Math.max(0,Math.min(1,((q.x-a[0])*dx+(q.y-a[1])*dy)/(dx*dx+dy*dy||1))),p=[a[0]+dx*t,a[1]+dy*t],d=Math.hypot(q.x-p[0],q.y-p[1]);if(!best||d<best.d)best={p,edge:i,t,d}}return best};
  const st=nearest(path[0]),en=nearest(path[path.length-1]);if(st.d>28||en.d>28)return null;
- const arc=(from,to)=>{const out=[from.p];let i=from.edge,guard=0;if(from.edge===to.edge&&to.t>=from.t)return[from.p,to.p];do{out.push(poly[(i+1)%poly.length]);i=(i+1)%poly.length;guard++}while(i!==to.edge&&guard<poly.length+2);out.push(to.p);return out};
+ const arc=(from,to,forceLong=false)=>{
+  const same=from.edge===to.edge;
+  if(same&&!forceLong)return [from.p,to.p];
+  const out=[from.p];let i=from.edge,guard=0;
+  if(same){out.push(poly[(i+1)%poly.length]);i=(i+1)%poly.length}
+  while(i!==to.edge&&guard<poly.length+2){out.push(poly[(i+1)%poly.length]);i=(i+1)%poly.length;guard++}
+  out.push(to.p);return out;
+ };
  const middle=path.slice(1,-1).map(p=>[p.x,p.y]);
- const p1=arc(st,en).concat(middle.slice().reverse()),p2=arc(en,st).concat(middle);
+ const sameEdge=st.edge===en.edge;
+ const p1=arc(st,en,false).concat(middle.slice().reverse()),p2=arc(en,st,sameEdge).concat(middle);
  const halves=[p1,p2].filter(p=>p.length>=3&&Math.abs(area(p))>25&&isSimple(p));if(halves.length!==2)return null;
- const halfBoxes=halves.map(bbox),halfCenters=halfBoxes.map(b=>[(b[0]+b[2])/2,(b[1]+b[3])/2]);
- const dxSep=Math.abs(halfCenters[0][0]-halfCenters[1][0])/Math.max(1,originWidth);
- const dySep=Math.abs(halfCenters[0][1]-halfCenters[1][1])/Math.max(1,originHeight);
- // 主要沿左右分开的切块走水平方向：左块→右侧，右块→左侧；
- // 主要沿上下分开的切块走竖直方向：上块→下侧，下块→上侧。
- const axis=dxSep>=dySep?'x':'y';
- const halvesWithTargets=halves.map((w,i)=>{
-  const pts=w.map(p=>[p[0]-o.x,p[1]-o.y]),box=halfBoxes[i],center=halfCenters[i];
-  let cutMoveX=0,cutMoveY=0;
-  if(axis==='x')cutMoveX=center[0]<=halfCenters[1-i][0]?originWidth:-originWidth;
-  else cutMoveY=center[1]<=halfCenters[1-i][1]?originHeight:-originHeight;
-  const bottomRel=originBottom-o.y;let hasBottomEdge=false;
-  for(let j=0;j<pts.length;j++){const a=pts[j],b=pts[(j+1)%pts.length];if(Math.abs(a[1]-bottomRel)<1.5&&Math.abs(b[1]-bottomRel)<1.5&&Math.abs(a[0]-b[0])>5){hasBottomEdge=true;break}}
-  return {pts,x:o.x,y:o.y,r:0,m:1,color:o.color,k:'custom',id:fcId++,locked:false,
-   cutBaseX:o.x,cutBaseY:o.y,cutOriginTop:originTop,cutOriginBottom:originBottom,cutOriginHeight:originHeight,
-   cutSnapY:originTop-Math.max(...pts.map(p=>p[1])),cutHasBottomEdge:hasBottomEdge,cutUpSnapY:o.y-originHeight,tileStepY:originHeight,
-   cutMoveX,cutMoveY,cutTargetX:o.x+cutMoveX,cutTargetY:o.y+cutMoveY,cutAxis:axis};
- });
- return halvesWithTargets;
+ const halfAreas=halves.map(p=>Math.abs(area(p))),halfBoxes=halves.map(bbox),halfCenters=halfBoxes.map(b=>[(b[0]+b[2])/2,(b[1]+b[3])/2]);
+ const remIndex=halfAreas[0]>=halfAreas[1]?0:1,cutIndex=1-remIndex;
+ const originCenter=[(originBox[0]+originBox[2])/2,(originBox[1]+originBox[3])/2],cutCenter=halfCenters[cutIndex];
+ const dxNorm=Math.abs(cutCenter[0]-originCenter[0])/Math.max(1,originWidth),dyNorm=Math.abs(cutCenter[1]-originCenter[1])/Math.max(1,originHeight),axis=dxNorm>=dyNorm?'x':'y';
+ const makePiece=(w,isRemainder)=>{
+  const pts=w.map(p=>[p[0]-o.x,p[1]-o.y]);let cutMoveX=0,cutMoveY=0;
+  if(!isRemainder){if(axis==='x')cutMoveX=cutCenter[0]<=originCenter[0]?originWidth:-originWidth;else cutMoveY=cutCenter[1]<=originCenter[1]?originHeight:-originHeight}
+  return {pts,x:o.x,y:o.y,r:0,m:1,color:o.color,k:'custom',id:fcId++,locked:false,cutGroup:'cut-'+fcId,cutRemainder:isRemainder,cutBaseX:o.x,cutBaseY:o.y,cutOriginTop:originTop,cutOriginBottom:originBottom,cutOriginHeight:originHeight,cutSnapY:originTop-Math.max(...pts.map(p=>p[1])),cutUpSnapY:o.y-originHeight,tileStepY:originHeight,cutMoveX,cutMoveY,cutTargetX:o.x+cutMoveX,cutTargetY:o.y+cutMoveY,cutAxis:axis};
+ };
+ return [makePiece(halves[remIndex],true),makePiece(halves[cutIndex],false)];
 }
 function fcInside(p,poly){let inside=false;for(let i=0,j=poly.length-1;i<poly.length;j=i++){const a=poly[i],b=poly[j];if(((a[1]>p.y)!==(b[1]>p.y))&&(p.x<(b[0]-a[0])*(p.y-a[1])/(b[1]-a[1])+a[0]))inside=!inside}return inside}
 function fcNearEdge(p,poly,tol=20){return poly.some((v,i)=>segD([p.x,p.y],v,poly[(i+1)%poly.length])<tol)}
 function fcDrawCutGuide(cursor){if(!fcCutTarget)return;if(!fcCutGuide){fcCutGuide=el('g',{'pointer-events':'none'});fcG.appendChild(fcCutGuide)}fcCutGuide.innerHTML='';const pts=fcCutPath.slice();if(cursor&&pts.length)pts.push(cursor);if(pts.length){fcCutGuide.appendChild(el('polyline',{points:pts.map(v=>`${v.x},${v.y}`).join(' '),fill:'none',stroke:'#fff18a','stroke-width':3,'stroke-linecap':'round','stroke-linejoin':'round','stroke-dasharray':'7 5'}));fcCutPath.forEach((v,i)=>fcCutGuide.appendChild(el('circle',{cx:v.x,cy:v.y,r:i===0?5:4,fill:i===0?'#ffcc55':'#fff',stroke:'#1b2436','stroke-width':1.5})));}}
 function fcFinishSplit(old,path,pieces){
  if(!pieces||pieces.length!==2)return false;
- fcSave();const idx=fcP.indexOf(old);old.el.remove();fcP=fcP.filter(o=>o!==old);const group='cut-'+Date.now()+'-'+Math.random().toString(36).slice(2,7);
- pieces.forEach((o,j)=>{o.cutGroup=group;o.cutBaseX=old.x;o.cutBaseY=old.y;o.cutPiece=j;o.cutOriginHeight=o.cutOriginHeight||Math.max(...fcLocal(old).map(p=>p[1]))-Math.min(...fcLocal(old).map(p=>p[1]));o.tileStepY=o.cutOriginHeight;fcP.splice(idx+j,0,o);fcMake(o)});
- fcSetMode('move');fcMultiMode=false;$('fcMultiSelect').classList.remove('primary');fcSelect(pieces[0]);fcSay('切割成功！切块可以向四个方向拖动：左块向右、右块向左、上块向下、下块向上；到达对侧目标时会严格对齐吸附。');return true;
+ // 主体保留为带凹口的图形，另一块是独立挖出块；主体仍在原位置。
+ fcSave();const idx=fcP.indexOf(old);old.el.remove();fcP=fcP.filter(o=>o!==old);
+ const group='cut-'+Date.now()+'-'+Math.random().toString(36).slice(2,7);
+ pieces.forEach((o,j)=>{o.cutGroup=group;o.cutPiece=j;o.cutOriginHeight=o.cutOriginHeight||Math.max(...fcLocal(old).map(p=>p[1]))-Math.min(...fcLocal(old).map(p=>p[1]));o.tileStepY=o.cutOriginHeight;
+  if(o.cutRemainder){o.x=old.x;o.y=old.y;o.cutTargetX=o.x;o.cutTargetY=o.y;o.cutMoveX=0;o.cutMoveY=0}
+  fcP.splice(idx+j,0,o);fcMake(o)});
+ fcSetMode('move');fcMultiMode=false;$('fcMultiSelect').classList.remove('primary');fcSelect(pieces[0]);
+ fcSay('挖取成功：原图形主体仍保留并形成缺口；挖出的图形已独立生成，可向左、右、上、下拖动，与对应缺口组合。');return true;
 }
 function fcDrawFreeCutGuide(cursor){if(!fcFreeCutTarget)return;if(!fcFreeCutGuide){fcFreeCutGuide=el('g',{'pointer-events':'none'});fcG.appendChild(fcFreeCutGuide)}fcFreeCutGuide.innerHTML='';const pts=fcFreeCutPath.slice();if(cursor&&pts.length)pts.push(cursor);if(pts.length>=2)fcFreeCutGuide.appendChild(el('polyline',{points:pts.map(v=>`${v.x},${v.y}`).join(' '),fill:'none',stroke:'#ff84c5','stroke-width':4,'stroke-linecap':'round','stroke-linejoin':'round',opacity:.96}));if(pts.length)fcFreeCutGuide.appendChild(el('circle',{cx:pts[0].x,cy:pts[0].y,r:5,fill:'#ffc84d',stroke:'#fff','stroke-width':1.5}));}
 function fcFreeCutDown(ev){if(!fcFreeCutMode||ev.button!==undefined&&ev.button!==0)return;const host=ev.target.closest&&ev.target.closest('.fcp'),target=(host&&host.__fcPiece)||fcSel;if(!target||target.locked){fcSay('请先选中一个未锁定的图形，再用任意画切割。',true);return}const p=fcPt(ev),w=fcW(target);if(!fcNearEdge(p,w,26)){fcSay('请从所选图形的边缘开始画切割线，再沿路径拖到另一处边缘。',true);return}ev.preventDefault();ev.stopPropagation();fcSelect(target);fcFreeCutTarget=target;fcFreeCutPath=[p];fcFreeCutDrawing=true;fcDrawFreeCutGuide();let last=p;const move=e=>{if(!fcFreeCutDrawing)return;const q=fcPt(e);if(Math.hypot(q.x-last.x,q.y-last.y)>=2.6){fcFreeCutPath.push(q);last=q;fcDrawFreeCutGuide(q)}};const finish=e=>{if(!fcFreeCutDrawing)return;fcFreeCutDrawing=false;window.removeEventListener('pointermove',move);window.removeEventListener('pointerup',finish);window.removeEventListener('pointercancel',finish);const q=fcPt(e);if(Math.hypot(q.x-last.x,q.y-last.y)>1)fcFreeCutPath.push(q);const targetNow=fcFreeCutTarget,path=fcFreeCutPath.slice(),edgeEnd=targetNow&&fcNearEdge(q,fcW(targetNow),28);if(!targetNow||!edgeEnd||path.length<3){if(fcFreeCutGuide)fcFreeCutGuide.remove();fcFreeCutGuide=null;fcFreeCutTarget=null;fcFreeCutPath=[];fcSay('任意画切割未完成：请从图形边缘起笔，连续画过内部，再在另一处边缘松开。',true);return}const pieces=fcCutPolygon(targetNow,path);if(fcFreeCutGuide)fcFreeCutGuide.remove();fcFreeCutGuide=null;fcFreeCutTarget=null;fcFreeCutPath=[];if(!pieces){fcSay('这条手绘切线没有形成有效的两块图形。请重试一条从边缘到边缘、不自相交的切线。',true);return}fcFinishSplit(targetNow,path,pieces)};window.addEventListener('pointermove',move);window.addEventListener('pointerup',finish);window.addEventListener('pointercancel',finish)}

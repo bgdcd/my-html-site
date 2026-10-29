@@ -73,6 +73,7 @@ html,body{color:var(--txt);background:#060b1a}
 /* 密铺过程：逐个基本图案弹入画布，而非一次性整页出现 */
 @keyframes fcTileArrive{0%{opacity:0;transform:scale(.62);filter:drop-shadow(0 0 0 rgba(84,222,255,0))}65%{opacity:1;transform:scale(1.045);filter:drop-shadow(0 0 7px rgba(84,222,255,.38))}100%{opacity:1;transform:scale(1);filter:drop-shadow(0 0 2px rgba(84,222,255,.18))}}
 .fc-tile-copy{transform-box:fill-box;transform-origin:center;animation:fcTileArrive .48s cubic-bezier(.2,.8,.2,1) both}
+.fcsw{width:22px;height:22px;min-width:22px;padding:0;border:2px solid rgba(255,255,255,.7);border-radius:50%;box-shadow:0 0 0 1px rgba(38,69,110,.24);flex:none;cursor:pointer}.fcsw.active{outline:2px solid #9eeaff;outline-offset:2px;box-shadow:0 0 10px rgba(125,249,255,.55)}
 @media(prefers-reduced-motion:reduce){.fc-tile-copy{animation-duration:.01ms!important;animation-delay:0ms!important}}
 </style></head><body><div class="app">
 <header class="topbar"><div class="logo">铺</div><div class="heading"><h1>密铺实验室</h1><p>拖动图形 · 任意旋转 · 放大缩小 · 观察角与角度</p></div><div class="top-tip">💡 把左侧图形直接拖到画布，试试怎样铺满平面！</div><button class="free-create-entry" id="freeCreateEntry">✦ 自由创作</button></header>
@@ -89,7 +90,7 @@ html,body{color:var(--txt);background:#060b1a}
 <div id="fc" class="dz" hidden><div class="dz-card">
 <div class="dz-head"><strong>自由创作</strong><span>逐点剪切或手绘切割；多次剪切的图形可一起拼接，组合轮廓会清理共线点并扩大自动密铺搜索</span><button class="dzb" id="fcClose">✕ 关闭</button></div>
 <div class="dz-body"><div class="dz-pal" id="fcPal"></div><div class="dz-main"><svg id="fcBoard" viewBox="0 0 900 600" preserveAspectRatio="xMidYMid meet"><defs><pattern id="fcGrid" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0H0V40" fill="none" stroke="rgba(110,150,255,.22)"/></pattern></defs><rect id="fcBg" width="900" height="600" fill="url(#fcGrid)"/><g id="fcPieces"></g><g id="fcCtl" style="display:none"><line id="fcStem" stroke="#7df9ff" stroke-width="2" pointer-events="none"/><circle id="fcRotH" r="13" fill="#f44336" stroke="#fff" stroke-width="2" style="cursor:grab"/><text id="fcRotT" text-anchor="middle" font-size="16" font-weight="800" fill="#fff" pointer-events="none">↻</text></g></svg></div></div>
-<div class="dz-bar"><button class="dzb primary" id="fcCut">✂ 逐点剪切</button><button class="dzb" id="fcFreeCut">✍ 任意画切割</button><button class="dzb" id="fcTranslate">✥ 平移</button><button class="dzb" id="fcMultiSelect">▦ 多选拼接</button><button class="dzb" id="fcJoin">拼接组合</button><button class="dzb" id="fcLock">🔒 锁定</button><button class="dzb" id="fcDup">⧉ 克隆</button><button class="dzb" id="fcRotL">↺ 左转15°</button><button class="dzb" id="fcRotR">↻ 右转15°</button><button class="dzb" id="fcFlip">⇋ 翻转</button><button class="dzb" id="fcDel">⌫ 删除</button><button class="dzb" id="fcUndo">↶ 撤销</button><button class="dzb danger" id="fcClear">▣ 清空</button><span id="fcColors" style="display:flex;gap:5px;margin:0 4px"></span><label class="dzb" for="fcColorPicker" style="display:flex;align-items:center;gap:5px;white-space:nowrap">🎨 换色 <input id="fcColorPicker" type="color" value="#ffc84d" aria-label="选择图形颜色" style="width:28px;height:26px;padding:0;border:0;background:transparent;cursor:pointer"></label><label class="dzb" for="fcBrushColorPicker" style="display:flex;align-items:center;gap:5px;white-space:nowrap">🖌 笔色 <input id="fcBrushColorPicker" type="color" value="#183354" aria-label="选择画笔颜色" style="width:28px;height:26px;padding:0;border:0;background:transparent;cursor:pointer"></label><button class="dzb" id="fcBrush" title="开启后在图形内部按住拖动画画">画笔模式</button><button class="dzb primary" id="fcTile" style="margin-left:auto">▦ 密铺</button></div>
+<div class="dz-bar"><button class="dzb primary" id="fcCut">✂ 逐点剪切</button><button class="dzb" id="fcFreeCut">✍ 任意画切割</button><button class="dzb" id="fcTranslate">✥ 平移</button><button class="dzb" id="fcMultiSelect">▦ 多选拼接</button><button class="dzb" id="fcJoin">拼接组合</button><button class="dzb" id="fcLock">🔒 锁定</button><button class="dzb" id="fcDup">⧉ 克隆</button><button class="dzb" id="fcRotL">↺ 左转15°</button><button class="dzb" id="fcRotR">↻ 右转15°</button><button class="dzb" id="fcFlip">⇋ 翻转</button><button class="dzb" id="fcDel">⌫ 删除</button><button class="dzb" id="fcUndo">↶ 撤销</button><button class="dzb danger" id="fcClear">▣ 清空</button><span id="fcColors" style="display:flex;gap:6px;margin:0 4px"></span><button class="dzb" id="fcBrush" title="开启后用清空按钮旁的六种颜色在图形内部画画">🖌 画笔</button><button class="dzb primary" id="fcTile" style="margin-left:auto">▦ 密铺</button></div>
 <div class="dz-msg" id="fcMsg">操作：可选“逐点剪切”逐个点击转折点，也可选“任意画切割”按住鼠标从图形一侧边缘直接画到另一侧边缘。可点“多选拼接”后连续点击多个图形，再点“拼接组合”；也可单选一块，自动组合所有与它边对边相接的图形（可跨多次剪切）。电脑也支持 Shift+点击多选。切割块只能平移，靠近正上方对应缺口时自动吸附。</div></div></div>
 <script>
 (()=>{
@@ -376,11 +377,11 @@ window.__tiling={decomp,pose,layTiles,solve,norm,canSum360,interior,isSimple,sha
 
 // 独立的“自由创作”画布：不改变原“组合图形设计”画布。
 {
-const fcShapes={tri:{name:'正三角形',pts:[[-40,23.09],[40,23.09],[0,-46.19]],color:'#ff8588'},sq:{name:'正方形',pts:[[-80,-80],[80,-80],[80,80],[-80,80]],color:'#ffc84d'},rtri:{name:'直角三角形',pts:[[-26.67,-26.67],[53.33,-26.67],[-26.67,53.33]],color:'#71c8f2'},rect:{name:'长方形',pts:[[-40,-80],[40,-80],[40,80],[-40,80]],color:'#8fdaa1'},rho:{name:'菱形',pts:[[-40,0],[0,-69.28],[40,0],[0,69.28]],color:'#c99bf5'},trap:{name:'梯形',pts:[[-40,-34.64],[40,-34.64],[80,34.64],[-80,34.64]],color:'#f49bb7'},pent:{name:'正五边形',pts:reg(5,68.05,-90),color:'#52d4e9'},hex:{name:'正六边形',pts:reg(6,80,0),color:'#b49af5'},oct:{name:'正八边形',pts:reg(8,104.52,22.5),color:'#ffad66'}};
-const fc=$('fc'),fcB=$('fcBoard'),fcG=$('fcPieces'),fcC=$('fcCtl'),fcMsg=$('fcMsg');let fcP=[],fcSel=null,fcMulti=new Set(),fcMultiMode=false,fcHist=[],fcId=1,fcBrushMode=false;
+const fcShapes={tri:{name:'正三角形',pts:[[-80,46.18],[80,46.18],[0,-92.38]],color:'#ff8588'},sq:{name:'正方形',pts:[[-80,-80],[80,-80],[80,80],[-80,80]],color:'#ffc84d'},rtri:{name:'直角三角形',pts:[[-53.34,-53.34],[106.66,-53.34],[-53.34,106.66]],color:'#71c8f2'},rect:{name:'长方形',pts:[[-80,-160],[80,-160],[80,160],[-80,160]],color:'#8fdaa1'},rho:{name:'菱形',pts:[[-80,0],[0,-138.56],[80,0],[0,138.56]],color:'#c99bf5'},trap:{name:'梯形',pts:[[-80,-69.28],[80,-69.28],[160,69.28],[-160,69.28]],color:'#f49bb7'},pent:{name:'正五边形',pts:reg(5,136.1,-90),color:'#52d4e9'},hex:{name:'正六边形',pts:reg(6,160,0),color:'#b49af5'},oct:{name:'正八边形',pts:reg(8,160,22.5),color:'#ffad66'}};
+const fc=$('fc'),fcB=$('fcBoard'),fcG=$('fcPieces'),fcC=$('fcCtl'),fcMsg=$('fcMsg');let fcP=[],fcSel=null,fcMulti=new Set(),fcMultiMode=false,fcHist=[],fcId=1,fcBrushMode=false,fcBrushColor='#ff8588',fcAnimToken=0,fcAnimSkip=null;
 // 独立密铺显示层：自由创作里的密铺结果显示在自己的 SVG 画布中，不再画到被遮住的主画布。
 const fcTileLayer=el('g',{id:'fcTileLayer','pointer-events':'none',display:'none'});fcB.insertBefore(fcTileLayer,fcG);let fcTilingActive=false;
-function fcExitTiling(){if(!fcTilingActive)return;fcTilingActive=false;fcTileLayer.innerHTML='';fcTileLayer.setAttribute('display','none');fcG.style.display='';fcC.style.display='';$('fcTile').textContent='▦ 密铺';fc.querySelectorAll('.dz-bar button').forEach(b=>{if(b.id!=='fcTile')b.disabled=false});fcSay('已返回自由创作编辑画布。')}
+function fcExitTiling(){if(!fcTilingActive)return;fcAnimToken++;fcAnimSkip=null;fcTilingActive=false;fcTileLayer.innerHTML='';fcTileLayer.setAttribute('display','none');fcG.style.display='';fcC.style.display='';$('fcTile').textContent='▦ 密铺';fc.querySelectorAll('.dz-bar button').forEach(b=>{if(b.id!=='fcTile')b.disabled=false});fcSay('已返回自由创作编辑画布。')}
 const fcSay=(m,bad)=>{fcMsg.textContent=m;fcMsg.style.color=bad?'#ffb38a':'#7cc4ff'};
 const fcPt=e=>{const p=fcB.createSVGPoint();p.x=e.clientX;p.y=e.clientY;const q=p.matrixTransform(fcB.getScreenCTM().inverse());return{x:q.x,y:q.y}};
 const fcLocal=o=>o.pts||fcShapes[o.k].pts;const fcW=o=>{const c=Math.cos(o.r*R),s=Math.sin(o.r*R);return fcLocal(o).map(p=>{const x=p[0]*o.m,y=p[1];return[o.x+x*c-y*s,o.y+x*s+y*c]})};
@@ -573,15 +574,14 @@ const fcPal=$('fcPal');Object.entries(fcShapes).forEach(([k,d])=>{const c=docume
   const up=ev=>{window.removeEventListener('pointermove',mv);const b=fcB.getBoundingClientRect();if(ghost){ghost.remove();if(ev.clientX>=b.left&&ev.clientX<=b.right&&ev.clientY>=b.top&&ev.clientY<=b.bottom){const p=fcPt(ev);fcAdd(k,p.x,p.y)}}
    else{const l=fcP[fcP.length-1];fcAdd(k,l?l.x+130:450,l?l.y:300)}};
   window.addEventListener('pointermove',mv);window.addEventListener('pointerup',up,{once:true})})});
-const fcCols=$('fcColors');['#ff8588','#71c8f2','#8fdaa1','#ffc84d','#c99bf5','#52d4e9'].forEach(c=>{const b=document.createElement('button');b.className='fcsw';b.style.background=c;b.title='给选中的图形换色';b.onclick=()=>{const targets=fcMulti.size?[...fcMulti]:fcSel?[fcSel]:[];if(!targets.length)return fcSay('请先选中一个或多个图形');fcSave();targets.forEach(o=>{o.color=c;fcPaint(o)});$('fcColorPicker').value=c;fcSay(`已将 ${targets.length} 个选中图形改为 ${c}`)};fcCols.appendChild(b)});
-$('fcColorPicker').addEventListener('input',e=>{const targets=fcMulti.size?[...fcMulti]:fcSel?[fcSel]:[];if(!targets.length){fcSay('先选中一个或多个图形，再调整填充颜色。');return}fcSave();targets.forEach(o=>{o.color=e.target.value;fcPaint(o)});fcSay(`填充颜色：${e.target.value}`)});
-$('fcBrush').onclick=()=>{fcBrushMode=!fcBrushMode;$('fcBrush').classList.toggle('primary',fcBrushMode);fcSetMode('move');fcSay(fcBrushMode?'画笔已开启：先选中图形，再在图形内部按住拖动画画；笔迹会留在图形上并随图形一起移动。再次点“画笔”退出。':'已退出画笔模式。')};
+const fcCols=$('fcColors');['#ff8588','#71c8f2','#8fdaa1','#ffc84d','#c99bf5','#52d4e9'].forEach((c,i)=>{const b=document.createElement('button');b.type='button';b.className='fcsw'+(i===0?' active':'');b.style.background=c;b.title=c+'（画笔模式开启时作为笔色，否则作为图形色）';b.setAttribute('aria-label','颜色 '+c);b.onclick=()=>{fcBrushColor=c;fcCols.querySelectorAll('.fcsw').forEach(x=>x.classList.toggle('active',x===b));if(fcBrushMode){fcSay('画笔颜色已设为 '+c+'。在选中的图形上按住拖动即可画画。');return}const targets=fcMulti.size?[...fcMulti]:fcSel?[fcSel]:[];if(!targets.length){fcSay('已选中颜色 '+c+'；先选图形再点击色块即可换色。');return}fcSave();targets.forEach(o=>{o.color=c;fcPaint(o)});fcSay(`已将 ${targets.length} 个选中图形改为 ${c}`)};fcCols.appendChild(b)});
+$('fcBrush').onclick=()=>{fcBrushMode=!fcBrushMode;$('fcBrush').classList.toggle('primary',fcBrushMode);fcCols.querySelectorAll('.fcsw').forEach(b=>b.classList.toggle('active',b.style.background===fcBrushColor));fcSetMode('move');fcSay(fcBrushMode?'画笔模式已开启：点击清空按钮旁的六种颜色选择笔色，再在图形内部拖动画画。':'已退出画笔模式；点击六色可给选中的图形换色。')};
 function fcStartBrush(ev,o){
  if(ev.button!==undefined&&ev.button!==0)return;ev.preventDefault();ev.stopPropagation();if(o.locked)return fcSay('该图形已锁定，请先解锁。');
  fcSelect(o);fcSave();const toLocal=e=>{const p=fcPt(e),dx=p.x-o.x,dy=p.y-o.y,c=Math.cos(o.r*R),sn=Math.sin(o.r*R);return[(dx*c+dy*sn)/(o.m||1),-dx*sn+dy*c]};
- const first=toLocal(ev),coords=[first],path=el('path',{d:'M '+first[0].toFixed(2)+' '+first[1].toFixed(2),fill:'none',stroke:$('fcBrushColorPicker').value||'#183354','stroke-width':4,'stroke-linecap':'round','stroke-linejoin':'round','vector-effect':'non-scaling-stroke','clip-path':'url(#fcBrushClip'+o.id+')'});o.el.appendChild(path);
+ const first=toLocal(ev),coords=[first],path=el('path',{d:'M '+first[0].toFixed(2)+' '+first[1].toFixed(2),fill:'none',stroke:fcBrushColor,'stroke-width':4,'stroke-linecap':'round','stroke-linejoin':'round','vector-effect':'non-scaling-stroke','clip-path':'url(#fcBrushClip'+o.id+')'});o.el.appendChild(path);
  let last=first,done=false;const move=e=>{const q=toLocal(e);if(Math.hypot(q[0]-last[0],q[1]-last[1])<1.5)return;coords.push(q);last=q;path.setAttribute('d','M '+coords.map((p,i)=>(i?'L ':'')+p[0].toFixed(2)+' '+p[1].toFixed(2)).join(' '))};
- const up=()=>{if(done)return;done=true;window.removeEventListener('pointermove',move);const d='M '+coords.map((p,i)=>(i?'L ':'')+p[0].toFixed(2)+' '+p[1].toFixed(2)).join(' ');o.drawings=o.drawings||[];o.drawings.push({d,color:$('fcBrushColorPicker').value||'#183354',width:4});fcSay('画笔笔迹已保存，会随图形一起移动；可用“撤销”撤回。')};
+ const up=()=>{if(done)return;done=true;window.removeEventListener('pointermove',move);const d='M '+coords.map((p,i)=>(i?'L ':'')+p[0].toFixed(2)+' '+p[1].toFixed(2)).join(' ');o.drawings=o.drawings||[];o.drawings.push({d,color:fcBrushColor,width:4});fcSay('画笔笔迹已保存，会随图形一起移动；可用“撤销”撤回。')};
  window.addEventListener('pointermove',move);window.addEventListener('pointerup',up,{once:true});window.addEventListener('pointercancel',up,{once:true});
 }
 const need=()=>{if(!fcSel){fcSay('请先点选画布里的一个图形');return false}return true};
@@ -627,14 +627,45 @@ function fcIsParallelogram(P,tol=2.0){
  return Math.hypot(a[0]+c[0]-b[0]-d[0],a[1]+c[1]-b[1]-d[1])<Math.max(tol,scale*.012);
 }
 function fcBBox(P){return [Math.min(...P.map(p=>p[0])),Math.min(...P.map(p=>p[1])),Math.max(...P.map(p=>p[0])),Math.max(...P.map(p=>p[1]))]}
+function fcCopyCenter(cp){const p=cp.flatMap(item=>item.pts||[]);return p.length?[p.reduce((a,q)=>a+q[0],0)/p.length,p.reduce((a,q)=>a+q[1],0)/p.length]:[450,300]}
+function fcFitRigid(src,dst){
+ if(!src||!dst||src.length!==dst.length||src.length<2)return null;
+ const center=P=>P.reduce((a,p)=>[a[0]+p[0]/P.length,a[1]+p[1]/P.length],[0,0]);
+ const A=center(src),B=center(dst),X=src.map(p=>[p[0]-A[0],p[1]-A[1]]),Y=dst.map(p=>[p[0]-B[0],p[1]-B[1]]);
+ let den=0,cn=0,sn=0,cr=0,sr=0;
+ for(let i=0;i<X.length;i++){const [x,y]=X[i],[u,v]=Y[i];den+=x*x+y*y;cn+=x*u+y*v;sn+=x*v-y*u;cr+=x*u-y*v;sr+=x*v+y*u}
+ if(den<1e-9)return null;
+ const build=(C,S,reflect)=>{const z=Math.hypot(C,S)||1,c=C/z,s=S/z,a=c,b=s,cc=reflect?s:-s,d=reflect?-c:c,tx=B[0]-a*A[0]-cc*A[1],ty=B[1]-b*A[0]-d*A[1],g=[a,b,cc,d,tx,ty];let err=0;for(let i=0;i<src.length;i++){const q=src[i],t=dst[i],dx=a*q[0]+cc*q[1]+tx-t[0],dy=b*q[0]+d*q[1]+ty-t[1];err+=dx*dx+dy*dy}return{g,err}};
+ const p=build(cn,sn,false),r=build(cr,sr,true);return p.err<=r.err?p:r;
+}
+function fcApplyRigid(g,p){return[g[0]*p[0]+g[2]*p[1]+g[4],g[1]*p[0]+g[3]*p[1]+g[5]]}
+function fcSameTransform(a,b,g){if(a.length!==b.length)return false;for(let j=0;j<a.length;j++){if(a[j].pts.length!==b[j].pts.length)return false;for(let k=0;k<a[j].pts.length;k++){const p=fcApplyRigid(g,a[j].pts[k]),q=b[j].pts[k];if(Math.hypot(p[0]-q[0],p[1]-q[1])>1.8)return false}}return true}
 function fcRenderTilePolys(copies){
- fcTileLayer.innerHTML='';
- // 按空间位置从左下向右上排序，再用均匀时间差逐块出现；不是一次性显示整幅图。
- const ordered=copies.map((cp,sourceIndex)=>{const pts=cp.flatMap(item=>item.pts||[]);const cx=pts.length?pts.reduce((a,p)=>a+p[0],0)/pts.length:0;const cy=pts.length?pts.reduce((a,p)=>a+p[1],0)/pts.length:0;return{cp,sourceIndex,cx,cy}}).sort((a,b)=>(a.cx-a.cy)-(b.cx-b.cy)||a.cx-b.cx||a.sourceIndex-b.sourceIndex);
- const span=Math.min(7200,Math.max(1800,ordered.length*78));
- ordered.forEach((entry,index)=>{const cp=entry.cp;const delay=ordered.length>1?(index/(ordered.length-1))*span:0;const group=el('g',{class:'fc-tile-copy',style:'animation-delay:'+delay.toFixed(0)+'ms'});for(const item of cp){const pts=item.pts;if(!pts||pts.length<3)continue;group.appendChild(el('polygon',{points:pts.map(p=>p.map(v=>+v.toFixed(3)).join(',')).join(' '),fill:item.color,stroke:shade(item.color,-52),'stroke-width':1.55,'stroke-linejoin':'round','vector-effect':'non-scaling-stroke'}));}if(group.childNodes.length)fcTileLayer.appendChild(group)});
- fcTileLayer.setAttribute('display','');fcG.style.display='none';fcC.style.display='none';fcTilingActive=true;
- $('fcTile').textContent='↩ 返回编辑';fc.querySelectorAll('.dz-bar button').forEach(b=>{if(b.id!=='fcTile')b.disabled=true});
+ fcAnimToken++;const token=fcAnimToken;fcAnimSkip=null;fcTileLayer.innerHTML='';
+ // Reuse the original canvas' rigid-motion model: every new tile moves from a placed tile by translation, rotation, or axial reflection.
+ const entries=copies.map((cp,index)=>({cp,index,center:fcCopyCenter(cp),group:null,parent:-1,g:null,motion:null}));
+ if(!entries.length)return;
+ const root=entries.reduce((best,e)=>Math.hypot(e.center[0]-450,e.center[1]-300)<Math.hypot(best.center[0]-450,best.center[1]-300)?e:best,entries[0]);
+ entries.splice(entries.indexOf(root),1);entries.sort((a,b)=>Math.hypot(a.center[0]-root.center[0],a.center[1]-root.center[1])-Math.hypot(b.center[0]-root.center[0],b.center[1]-root.center[1]));entries.unshift(root);
+ const placed=[];
+ entries.forEach((e,i)=>{if(i===0){placed.push(e);return}
+  const candidates=placed.map(p=>({p,d:Math.hypot(p.center[0]-e.center[0],p.center[1]-e.center[1])})).sort((a,b)=>a.d-b.d).slice(0,24);
+  for(const c of candidates){if(!c.p.cp[0]||!e.cp[0])continue;const fit=fcFitRigid(c.p.cp[0].pts,e.cp[0].pts);if(!fit||!fcSameTransform(c.p.cp,e.cp,fit.g))continue;e.parent=entries.indexOf(c.p);e.g=fit.g;e.motion=decomp({g:[1,0,0,1,0,0]},{g:fit.g});break}
+  if(e.parent<0){const p=placed[placed.length-1];e.parent=entries.indexOf(p);e.g=[1,0,0,1,e.center[0]-p.center[0],e.center[1]-p.center[1]];e.motion=decomp({g:[1,0,0,1,0,0]},{g:e.g})}
+  placed.push(e)
+ });
+ const N=entries.length,st=entries.map((_,k)=>k<8?k*650:5200+(k-8)*110),dur=k=>k<8?600:420,els=[],ease=x=>x<.5?2*x*x:1-Math.pow(-2*x+2,2)/2;
+ let next=0,active=[],prev=performance.now(),vt=0;const counts={平移:0,旋转:0,轴对称:0};entries.forEach((e,k)=>{if(k&&e.motion)counts[e.motion.type]++});
+ const spawn=k=>{const e=entries[k],g=el('g',{class:'fc-moving-tile'});e.cp.forEach((item,j)=>{const start=k&&entries[e.parent]&&entries[e.parent].cp[j]?entries[e.parent].cp[j].pts:item.pts;g.appendChild(el('polygon',{points:start.map(p=>p.map(v=>+v.toFixed(3)).join(',')).join(' '),fill:item.color,stroke:shade(item.color,-52),'stroke-width':1.55,'stroke-linejoin':'round','vector-effect':'non-scaling-stroke'}))});if(k===0)g.setAttribute('opacity','0');e.group=g;els[k]=g;fcTileLayer.appendChild(g)};
+ const finish=k=>{const e=entries[k],g=e.group;if(!g)return;e.cp.forEach((item,j)=>{g.children[j].setAttribute('points',item.pts.map(p=>p.map(v=>+v.toFixed(3)).join(',')).join(' '));g.children[j].removeAttribute('opacity')});g.removeAttribute('opacity')};
+ const draw=(k,progress)=>{const e=entries[k],g=e.group;if(!g)return;if(k===0){g.setAttribute('opacity',progress);return}const parent=entries[e.parent],d=e.motion;e.cp.forEach((item,j)=>{const pts=pose(parent.cp[j].pts,d,ease(progress));g.children[j].setAttribute('points',pts.map(p=>p.map(v=>+v.toFixed(2)).join(',')).join(' '))})};
+ const end=()=>{if(token!==fcAnimToken)return;fcAnimSkip=null;entries.forEach((_,k)=>finish(k));fcSay('铺设完成：共 '+N+' 块。运动方式：平移 '+counts.平移+' 次、旋转 '+counts.旋转+' 次、轴对称 '+counts.轴对称+' 次。')};
+ fcAnimSkip=()=>{if(token!==fcAnimToken)return;for(;next<N;next++){if(!entries[next].group)spawn(next);finish(next)}active.forEach(finish);active=[];end()};
+ fcTileLayer.setAttribute('display','');fcG.style.display='none';fcC.style.display='none';fcTilingActive=true;$('fcTile').textContent='↩ 返回编辑';fc.querySelectorAll('.dz-bar button').forEach(b=>{if(b.id!=='fcTile')b.disabled=true});
+ const step=now=>{if(token!==fcAnimToken)return;vt+=(now-prev)*(SPEEDS[speedI]||['',1])[1];prev=now;while(next<N&&st[next]<=vt){spawn(next);active.push(next++)}
+  for(let i=active.length-1;i>=0;i--){const k=active[i],p=Math.min(1,(vt-st[k])/dur(k));draw(k,p);if(p>=1){finish(k);active.splice(i,1)}}
+  if(next<N||active.length){const k=Math.max(0,next-1),type=k&&entries[k].motion?entries[k].motion.type:'起始图形';if(next<N)fcMsg.textContent='正在铺设第 '+next+'/'+N+' 块：'+type;requestAnimationFrame(step)}else end()
+ };requestAnimationFrame(step)
 }
 
 // ===== 平移格密铺（正方形/长方形/平行四边形剪切后平移拼接）=====

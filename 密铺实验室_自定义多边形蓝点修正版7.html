@@ -582,7 +582,46 @@ function fcFinishSplit(old,path,pieces){
  fcSay('挖取成功：原图形主体仍保留并形成缺口；挖出的图形已独立生成，可向左、右、上、下拖动，与对应缺口组合。');return true;
 }
 function fcDrawFreeCutGuide(cursor){if(!fcFreeCutTarget)return;if(!fcFreeCutGuide){fcFreeCutGuide=el('g',{'pointer-events':'none'});fcG.appendChild(fcFreeCutGuide)}fcFreeCutGuide.innerHTML='';const pts=fcFreeCutPath.slice();if(cursor&&pts.length)pts.push(cursor);if(pts.length>=2)fcFreeCutGuide.appendChild(el('polyline',{points:pts.map(v=>`${v.x},${v.y}`).join(' '),fill:'none',stroke:'#ff84c5','stroke-width':4,'stroke-linecap':'round','stroke-linejoin':'round',opacity:.96}));if(pts.length)fcFreeCutGuide.appendChild(el('circle',{cx:pts[0].x,cy:pts[0].y,r:5,fill:'#ffc84d',stroke:'#fff','stroke-width':1.5}));}
-function fcFreeCutDown(ev){if(!fcFreeCutMode||ev.button!==undefined&&ev.button!==0)return;const host=ev.target.closest&&ev.target.closest('.fcp'),target=(host&&host.__fcPiece)||fcSel;if(!target||target.locked){fcSay('请先选中一个未锁定的图形，再用任意画切割。',true);return}const p=fcPt(ev),w=fcW(target);if(!fcNearEdge(p,w,26)){fcSay('请从所选图形的边缘开始画切割线，再沿路径拖到另一处边缘。',true);return}ev.preventDefault();ev.stopPropagation();fcSelect(target);fcFreeCutTarget=target;fcFreeCutPath=[p];fcFreeCutDrawing=true;fcDrawFreeCutGuide();let last=p;const move=e=>{if(!fcFreeCutDrawing)return;const q=fcPt(e);if(Math.hypot(q.x-last.x,q.y-last.y)>=2.6){fcFreeCutPath.push(q);last=q;fcDrawFreeCutGuide(q)}};const finish=e=>{if(!fcFreeCutDrawing)return;fcFreeCutDrawing=false;window.removeEventListener('pointermove',move);window.removeEventListener('pointerup',finish);window.removeEventListener('pointercancel',finish);const q=fcPt(e);if(Math.hypot(q.x-last.x,q.y-last.y)>1)fcFreeCutPath.push(q);const targetNow=fcFreeCutTarget,path=fcFreeCutPath.slice(),edgeEnd=targetNow&&fcNearEdge(q,fcW(targetNow),28);if(!targetNow||!edgeEnd||path.length<3){if(fcFreeCutGuide)fcFreeCutGuide.remove();fcFreeCutGuide=null;fcFreeCutTarget=null;fcFreeCutPath=[];fcSay('任意画切割未完成：请从图形边缘起笔，连续画过内部，再在另一处边缘松开。',true);return}const pieces=fcCutPolygon(targetNow,path);if(fcFreeCutGuide)fcFreeCutGuide.remove();fcFreeCutGuide=null;fcFreeCutTarget=null;fcFreeCutPath=[];if(!pieces){fcSay('这条手绘切线没有形成有效的两块图形。请重试一条从边缘到边缘、不自相交的切线。',true);return}fcFinishSplit(targetNow,path,pieces)};window.addEventListener('pointermove',move);window.addEventListener('pointerup',finish);window.addEventListener('pointercancel',finish)}
+function fcNearestBoundaryPoint(p,poly){
+ let best=null;
+ for(let i=0;i<poly.length;i++){
+  const a=poly[i],b=poly[(i+1)%poly.length],dx=b[0]-a[0],dy=b[1]-a[1];
+  const t=Math.max(0,Math.min(1,((p.x-a[0])*dx+(p.y-a[1])*dy)/(dx*dx+dy*dy||1)));
+  const q={x:a[0]+dx*t,y:a[1]+dy*t},d=Math.hypot(p.x-q.x,p.y-q.y);
+  if(!best||d<best.d)best={...q,d,edge:i,t};
+ }
+ return best;
+}
+function fcFreeCutDown(ev){
+ if(!fcFreeCutMode||ev.button!==undefined&&ev.button!==0)return;
+ const host=ev.target.closest&&ev.target.closest('.fcp'),target=(host&&host.__fcPiece)||fcSel;
+ if(!target||target.locked){fcSay('请先选中一个未锁定的图形，再用任意画切割。',true);return}
+ const p=fcPt(ev),w=fcW(target),startPoint=fcNearestBoundaryPoint(p,w);
+ // 统一按“离最近边界的距离”判断，不依赖具体是上、下、左、右哪条边。
+ if(!startPoint||startPoint.d>48){fcSay('请从图形任意一侧的边缘起笔。',true);return}
+ ev.preventDefault();ev.stopPropagation();fcSelect(target);
+ fcFreeCutTarget=target;fcFreeCutPath=[{x:startPoint.x,y:startPoint.y}];fcFreeCutDrawing=true;fcDrawFreeCutGuide();
+ let last=p;
+ const move=e=>{if(!fcFreeCutDrawing)return;const q=fcPt(e);if(Math.hypot(q.x-last.x,q.y-last.y)>=2.6){fcFreeCutPath.push(q);last=q;fcDrawFreeCutGuide(q)}};
+ const finish=e=>{
+  if(!fcFreeCutDrawing)return;fcFreeCutDrawing=false;
+  window.removeEventListener('pointermove',move);window.removeEventListener('pointerup',finish);window.removeEventListener('pointercancel',finish);
+  const q=fcPt(e),targetNow=fcFreeCutTarget,poly=targetNow&&fcW(targetNow),endPoint=poly&&fcNearestBoundaryPoint(q,poly);
+  if(Math.hypot(q.x-last.x,q.y-last.y)>1)fcFreeCutPath.push(q);
+  const path=fcFreeCutPath.slice();
+  if(!targetNow||!endPoint||endPoint.d>48||path.length<3){
+   if(fcFreeCutGuide)fcFreeCutGuide.remove();fcFreeCutGuide=null;fcFreeCutTarget=null;fcFreeCutPath=[];
+   fcSay('任意切割未完成：请从任意一侧边缘起笔，穿过图形内部，并在另一侧边缘松开。',true);return;
+  }
+  // 将终点准确投影到最近的真实边界，避免左/下边缘因鼠标落点偏差而被拒绝。
+  path[path.length-1]={x:endPoint.x,y:endPoint.y};
+  const pieces=fcCutPolygon(targetNow,path);
+  if(fcFreeCutGuide)fcFreeCutGuide.remove();fcFreeCutGuide=null;fcFreeCutTarget=null;fcFreeCutPath=[];
+  if(!pieces){fcSay('切割线没有形成有效的两块图形。请从边缘到另一处边缘画一条不自相交的切线。',true);return}
+  fcFinishSplit(targetNow,path,pieces);
+ };
+ window.addEventListener('pointermove',move);window.addEventListener('pointerup',finish);window.addEventListener('pointercancel',finish);
+}
 function fcCutDown(ev){if(!fcCutMode)return;const p=fcPt(ev);let target=fcCutTarget||fcSel;if(!target||target.locked)return;
  const w=fcW(target),edge=fcNearEdge(p,w,22),inside=fcInside(p,w);if(!fcCutTarget){if(!edge){if(ev.target===fcB||ev.target===fcG)return;return}fcCutTarget=target;fcCutPath=[p];fcDrawCutGuide();fcSay('起点已确定。继续点击图形内部的转折位置；最后点击另一处边缘完成切割。');ev.preventDefault();ev.stopPropagation();return}
  if(target!==fcCutTarget)return;

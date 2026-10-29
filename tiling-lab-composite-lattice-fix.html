@@ -285,7 +285,10 @@ function cover(T,box,nx,ny,deadline=Infinity){for(const q of T)if(!q.bb){let x0=
 function solve(P,deadline,cx=600,cy=400,maxTries=4000){const n=P.length,len=P.map((p,i)=>{const q=P[(i+1)%n];return Math.hypot(q[0]-p[0],q[1]-p[1])}),part=Array(n).fill(null),S=samples(P);let found=null,tries=0;
  const test=()=>{if(performance.now()>deadline)return null;const T=part.map((o,i)=>edgeMap(P,i,o.j,o.r)),N=T.map(t=>P.map(p=>ap(t,p))),NSm=T.map(t=>S.map(p=>ap(t,p)));
   for(let i=0;i<n;i++){if(performance.now()>deadline)return null;if(S.some(p=>inP(N[i],p))||NSm[i].some(p=>inP(P,p)))return null;for(let k=i+1;k<n;k++)if(NSm[i].some(p=>inP(N[k],p))||NSm[k].some(p=>inP(N[i],p)))return null}
-  const c0=[cx,cy],a=bfs(P,T,[cx-220,cy-220,cx+220,cy+220],160,c0,deadline);if(!a||performance.now()>deadline||!cover(a,[cx-100,cy-100,cx+100,cy+100],14,14,deadline))return null;const b=bfs(P,T,[-90,-70,1290,870],700,c0,deadline);return b&&performance.now()<=deadline&&cover(b,[0,0,1200,800],36,24,deadline)?b:null};
+  const c0=[cx,cy],a=bfs(P,T,[cx-220,cy-220,cx+220,cy+220],160,c0,deadline);if(!a||performance.now()>deadline||!cover(a,[cx-100,cy-100,cx+100,cy+100],14,14,deadline))return null;// 先把连通密铺扩展成画布两倍宽高的大矩形区域，再由 SVG 视口裁出可见画布。
+  // 这样边缘不再依赖密铺簇刚好停在当前画布边界。
+  const b=bfs(P,T,[-600,-400,1800,1200],1800,c0,deadline);
+  return b&&performance.now()<=deadline&&cover(b,[0,0,1200,800],36,24,deadline)?b:null};
  const rec=i=>{if(found||performance.now()>deadline||tries>maxTries)return;while(i<n&&part[i])i++;if(i===n){tries++;found=test();return}
   for(const j of Array.from({length:n-i-1},(_,x)=>i+1+x).sort((x,y)=>Math.abs(x-i-n/2)-Math.abs(y-i-n/2))){if(part[j]||Math.abs(len[i]-len[j])>.02*len[i])continue;for(const r of[0,1]){part[i]={j,r};part[j]={j:i,r};rec(i+1);part[i]=part[j]=null;if(found)return}}
   part[i]={j:i,r:0};rec(i+1);part[i]=null};

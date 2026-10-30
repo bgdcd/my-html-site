@@ -269,7 +269,21 @@ function drawVertex(x,y,items,own,numbers,degs){const m=items.length,ar=Math.min
   if(degs){const sp=el('tspan',{class:mine?'lb-d':'lb-o'});sp.textContent=num+'°';t.appendChild(sp)}labels.appendChild(t)})}
 function refresh(){labels.innerHTML='';const ps=[...pieces.children];
  // 用每个角自身的透明扇形作为点击热区，点击哪个图形的角就只选择该图形的该角；不再用共享顶点的“最近点”猜测
- for(const g of ps){const wp=worldPts(g),inn=interior(wp);if(g===selected&&g.dataset.shape==='custom')continue;wp.forEach((p,i)=>{const a=inn[i],rad=Math.min(24,Math.max(14,Math.min(Math.hypot(p[0]-wp[(i+wp.length-1)%wp.length][0],p[1]-wp[(i+wp.length-1)%wp.length][1]),Math.hypot(p[0]-wp[(i+1)%wp.length][0],p[1]-wp[(i+1)%wp.length][1]))*.32)),steps=Math.max(3,Math.ceil(a.ang/12)),pts=[[p[0],p[1]]];for(let j=0;j<=steps;j++){const ang=(a.start+a.ang*j/steps)*R;pts.push([p[0]+rad*Math.cos(ang),p[1]+rad*Math.sin(ang)])}const hit=el('polygon',{points:pts.map(v=>v.join(',')).join(' '),fill:'#fff','fill-opacity':0.001,stroke:'none','pointer-events':'all',cursor:'pointer'});hit.addEventListener('click',e=>{e.stopPropagation();e.preventDefault();chooseCorner(g,i)});labels.appendChild(hit)})}
+ for(const g of ps){const wp=worldPts(g),inn=interior(wp);
+  if(g===selected&&g.dataset.shape==='custom'){
+   // 自定义图形：顶点中心留给红点编辑热区；角内侧环形区域专门用于角度标注。
+   const scale=Math.max(.01,info(g).s||1);
+   wp.forEach((p,i)=>{const o=item(g,wp,inn,i),r0=30/scale,r1=Math.min(o.me*.58,150/scale);if(r1<=r0+3)return;const steps=Math.max(5,Math.ceil(o.a/6)),pts=[];
+    for(let j=0;j<=steps;j++){const a=(o.s+o.a*j/steps)*R;pts.push([p[0]+r1*Math.cos(a),p[1]+r1*Math.sin(a)])}
+    for(let j=steps;j>=0;j--){const a=(o.s+o.a*j/steps)*R;pts.push([p[0]+r0*Math.cos(a),p[1]+r0*Math.sin(a)])}
+    const hit=el('polygon',{points:pts.map(v=>v.join(',')).join(' '),fill:'#fff','fill-opacity':0.001,stroke:'none','pointer-events':'all',cursor:'pointer'});
+    hit.addEventListener('click',e=>{e.stopPropagation();e.preventDefault();if(activeVertexOwner===g){activeVertexOwner=null;activeVertex=null;redraw(g)}chooseCorner(g,i)});
+    labels.appendChild(hit)
+   });
+   continue;
+  }
+  wp.forEach((p,i)=>{const a=inn[i],rad=Math.min(24,Math.max(14,Math.min(Math.hypot(p[0]-wp[(i+wp.length-1)%wp.length][0],p[1]-wp[(i+wp.length-1)%wp.length][1]),Math.hypot(p[0]-wp[(i+1)%wp.length][0],p[1]-wp[(i+1)%wp.length][1]))*.32)),steps=Math.max(3,Math.ceil(a.ang/12)),pts=[[p[0],p[1]]];for(let j=0;j<=steps;j++){const ang=(a.start+a.ang*j/steps)*R;pts.push([p[0]+rad*Math.cos(ang),p[1]+rad*Math.sin(ang)])}const hit=el('polygon',{points:pts.map(v=>v.join(',')).join(' '),fill:'#fff','fill-opacity':0.001,stroke:'none','pointer-events':'all',cursor:'pointer'});hit.addEventListener('click',e=>{e.stopPropagation();e.preventDefault();chooseCorner(g,i)});labels.appendChild(hit)})
+ }
  // 批量标注不设图形数量上限，密铺完成后仍可标注全部顶点
  if(showAngles||showDegrees){for(const k of vgroups())drawVertex(k.x,k.y,k.it,null,showAngles,showDegrees);return}
  // 单角模式只绘制用户选中的这个角，不顺带显示同一顶点周围其他角

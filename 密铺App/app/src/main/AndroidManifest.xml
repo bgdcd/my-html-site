@@ -10,9 +10,9 @@
     <application
         android:allowBackup="false"
         android:hardwareAccelerated="true"
-        android:label="图形密铺互动"
+        android:label="密铺实验室"
         android:icon="@drawable/ic_launcher"
-        android:usesCleartextTraffic="true"
+        android:usesCleartextTraffic="false"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
         <activity
             android:name=".MainActivity"

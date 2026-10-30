@@ -9,11 +9,23 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 
 /**
- * Thin, CPU-architecture-independent Android shell.
- * The HTML application is bundled unchanged in assets/index.html.
+ * Lightweight, CPU-architecture-independent Android shell.
+ * The exact Tiling Lab HTML is bundled as assets/index.html and runs offline.
  */
 class MainActivity : Activity() {
     private lateinit var webView: WebView
+
+    @Suppress("DEPRECATION")
+    private fun applyImmersiveMode() {
+        window.decorView.systemUiVisibility = (
+            View.SYSTEM_UI_FLAG_LAYOUT_STABLE or
+                View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or
+                View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION or
+                View.SYSTEM_UI_FLAG_FULLSCREEN or
+                View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
+                View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+            )
+    }
 
     @Suppress("DEPRECATION")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -21,20 +33,16 @@ class MainActivity : Activity() {
 
         window.statusBarColor = Color.rgb(10, 18, 38)
         window.navigationBarColor = Color.rgb(10, 18, 38)
-        window.decorView.systemUiVisibility = (
-            View.SYSTEM_UI_FLAG_LAYOUT_STABLE or
-                View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or
-                View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-            )
+        applyImmersiveMode()
 
         webView = WebView(this).apply {
             setBackgroundColor(Color.rgb(234, 245, 255))
-            // Use Android's system WebView; no CPU-specific native library is required.
             setLayerType(View.LAYER_TYPE_HARDWARE, null)
 
             settings.apply {
                 javaScriptEnabled = true
                 domStorageEnabled = true
+                databaseEnabled = true
                 allowFileAccess = true
                 allowContentAccess = true
                 useWideViewPort = true
@@ -42,6 +50,7 @@ class MainActivity : Activity() {
                 setSupportZoom(false)
                 builtInZoomControls = false
                 displayZoomControls = false
+                mediaPlaybackRequiresUserGesture = false
             }
 
             webChromeClient = WebChromeClient()
@@ -57,6 +66,12 @@ class MainActivity : Activity() {
                 webView.loadUrl("file:///android_asset/index.html")
             }
         }
+    }
+
+    @Suppress("DEPRECATION")
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) applyImmersiveMode()
     }
 
     override fun onSaveInstanceState(outState: Bundle) {

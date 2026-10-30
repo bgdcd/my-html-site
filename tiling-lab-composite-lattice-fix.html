@@ -1002,16 +1002,21 @@ function fcTryInferredLattice(polys,colors,outline){
  }
  return null;
 }
+function fcTileOverscanPad(polys){
+ const bb=fcBBox(polys.flat()),w=bb[2]-bb[0],h=bb[3]-bb[1];
+ // 画布外保留约一至两块图形的缓冲圈，SVG 视口只负责裁切，不让铺设算法在边缘提前收尾。
+ return Math.max(180,Math.min(360,Math.max(w,h)*1.25));
+}
 function fcTileLattice(polys,colors,a,b){
- const det=a[0]*b[1]-a[1]*b[0],bb=fcBBox(polys.flat());
+ const det=a[0]*b[1]-a[1]*b[0],bb=fcBBox(polys.flat()),pad=fcTileOverscanPad(polys);
  const co=(x,y)=>[(x*b[1]-y*b[0])/det,(a[0]*y-a[1]*x)/det];
  // 需要的平移 t 使外接框与画布 [0,900]×[0,600] 相交
- const cs=[[-bb[2],-bb[3]],[900-bb[0],-bb[3]],[900-bb[0],600-bb[1]],[-bb[2],600-bb[1]]].map(p=>co(p[0],p[1]));
+ const cs=[[-pad-bb[2],-pad-bb[3]],[900+pad-bb[0],-pad-bb[3]],[900+pad-bb[0],600+pad-bb[1]],[-pad-bb[2],600+pad-bb[1]]].map(p=>co(p[0],p[1]));
  const i0=Math.floor(Math.min(...cs.map(q=>q[0]))),i1=Math.ceil(Math.max(...cs.map(q=>q[0]))),j0=Math.floor(Math.min(...cs.map(q=>q[1]))),j1=Math.ceil(Math.max(...cs.map(q=>q[1])));
  const copies=[];let count=0;
  for(let i=i0;i<=i1;i++)for(let j=j0;j<=j1;j++){
   const dx=i*a[0]+j*b[0],dy=i*a[1]+j*b[1];
-  if(bb[2]+dx<-2||bb[0]+dx>902||bb[3]+dy<-2||bb[1]+dy>602)continue;
+  if(bb[2]+dx<-pad-2||bb[0]+dx>900+pad+2||bb[3]+dy<-pad-2||bb[1]+dy>600+pad+2)continue;
   const tone=((i+j)&1)?9:-9;
   copies.push(polys.map((poly,k)=>({pts:poly.map(p=>[p[0]+dx,p[1]+dy]),color:shade(colors[k]||'#71c8f2',tone)})));
   if(++count>5000)return'图形太小，单次密铺块数过多。请先适当放大图形再密铺。';
@@ -1031,16 +1036,16 @@ function fcTryLattice(polys,colors,outline,pieces){
  return null;
 }
 function fcTileParallelogram(polys,colors,outline){
- const p0=outline[0],p1=outline[1],p3=outline[3],u=[p1[0]-p0[0],p1[1]-p0[1]],v=[p3[0]-p0[0],p3[1]-p0[1]],det=u[0]*v[1]-u[1]*v[0];
+ const p0=outline[0],p1=outline[1],p3=outline[3],u=[p1[0]-p0[0],p1[1]-p0[1]],v=[p3[0]-p0[0],p3[1]-p0[1]],det=u[0]*v[1]-u[1]*v[0],pad=fcTileOverscanPad(polys);
  if(Math.abs(det)<1e-5)return '这个图形的平移方向无法确定，请调整图形。';
  // 用画布四角反算平移格的整数坐标范围，保证从左到右、从上到下都被铺满。
  const coeff=pt=>{const x=pt[0]-p0[0],y=pt[1]-p0[1];return [(x*v[1]-y*v[0])/det,(u[0]*y-u[1]*x)/det]};
- const cc=[[0,0],[900,0],[900,600],[0,600]].map(coeff),imin=Math.floor(Math.min(...cc.map(q=>q[0])))-2,imax=Math.ceil(Math.max(...cc.map(q=>q[0])))+2,jmin=Math.floor(Math.min(...cc.map(q=>q[1])))-2,jmax=Math.ceil(Math.max(...cc.map(q=>q[1])))+2;
+ const cc=[[-pad,-pad],[900+pad,-pad],[900+pad,600+pad],[-pad,600+pad]].map(coeff),imin=Math.floor(Math.min(...cc.map(q=>q[0])))-2,imax=Math.ceil(Math.max(...cc.map(q=>q[0])))+2,jmin=Math.floor(Math.min(...cc.map(q=>q[1])))-2,jmax=Math.ceil(Math.max(...cc.map(q=>q[1])))+2;
  const copies=[];let count=0;
  for(let i=imin;i<=imax;i++)for(let j=jmin;j<=jmax;j++){
   const dx=i*u[0]+j*v[0],dy=i*u[1]+j*v[1];
   const tone=((i+j)&1)?9:-9;const outlines=polys.map((poly,k)=>({pts:poly.map(p=>[p[0]+dx,p[1]+dy]),color:shade(colors[k]||'#71c8f2',tone)}));
-  const bb=fcBBox(outlines.flatMap(x=>x.pts));if(bb[2]<-2||bb[0]>902||bb[3]<-2||bb[1]>602)continue;
+  const bb=fcBBox(outlines.flatMap(x=>x.pts));if(bb[2]<-pad-2||bb[0]>900+pad+2||bb[3]<-pad-2||bb[1]>600+pad+2)continue;
   copies.push(outlines);if(++count>5000)return '图形太小，单次密铺块数过多。请先适当放大图形再密铺。';
  }
  if(!copies.length)return '没有生成密铺图形，请把图形移回画布范围内后重试。';
@@ -1049,16 +1054,16 @@ function fcTileParallelogram(polys,colors,outline){
 function fcTileTriangle(polys,colors,outline){
  // 任意三角形都能密铺：将同一三角形绕一条边的中点旋转180°，与原三角形组成平行四边形；
  // 再以该平行四边形的两条邻边为周期向量平移。每一份内部仍绘制用户拼好的原始小图形。
- const A=Math.abs(area(outline)),c=cent(outline),k=Math.sqrt(TILE_T/Math.max(1e-8,A)),P=norm(outline,TILE_T);
+ const A=Math.abs(area(outline)),c=cent(outline),k=Math.sqrt(TILE_T/Math.max(1e-8,A)),P=norm(outline,TILE_T),pad=fcTileOverscanPad(polys);
  const sub=polys.map(w=>w.map(p=>[(p[0]-c[0])*k,(p[1]-c[1])*k]));
  const a=P[0],b=P[1],d=P[2],u=[d[0]-a[0],d[1]-a[1]],v=[b[0]-d[0],b[1]-d[1]],det=u[0]*v[1]-u[1]*v[0];
  if(Math.abs(det)<1e-5)return '三角形的面积过小，暂时无法生成密铺。';
  const coeff=pt=>{const x=pt[0]-450,y=pt[1]-300;return[(x*v[1]-y*v[0])/det,(u[0]*y-u[1]*x)/det]};
- const range=[[0,0],[900,0],[900,600],[0,600]].map(coeff),imin=Math.floor(Math.min(...range.map(q=>q[0])))-2,imax=Math.ceil(Math.max(...range.map(q=>q[0])))+2,jmin=Math.floor(Math.min(...range.map(q=>q[1])))-2,jmax=Math.ceil(Math.max(...range.map(q=>q[1])))+2;
+ const range=[[-pad,-pad],[900+pad,-pad],[900+pad,600+pad],[-pad,600+pad]].map(coeff),imin=Math.floor(Math.min(...range.map(q=>q[0])))-2,imax=Math.ceil(Math.max(...range.map(q=>q[0])))+2,jmin=Math.floor(Math.min(...range.map(q=>q[1])))-2,jmax=Math.ceil(Math.max(...range.map(q=>q[1])))+2;
  const copies=[];let count=0;
  for(let i=imin;i<=imax;i++)for(let j=jmin;j<=jmax;j++){const sx=450+i*u[0]+j*v[0],sy=300+i*u[1]+j*v[1];
   const maps=[p=>[p[0]+sx,p[1]+sy],p=>[a[0]+b[0]-p[0]+sx,a[1]+b[1]-p[1]+sy]];
-  for(const map of maps){const tileOutline=P.map(map),bb=fcBBox(tileOutline);if(bb[2]<-2||bb[0]>902||bb[3]<-2||bb[1]>602)continue;
+  for(const map of maps){const tileOutline=P.map(map),bb=fcBBox(tileOutline);if(bb[2]<-pad-2||bb[0]>900+pad+2||bb[3]<-pad-2||bb[1]>600+pad+2)continue;
    const items=sub.map((sp,jj)=>({pts:sp.map(map),color:shade(colors[jj]||'#71c8f2',((i+j+(map===maps[0]?0:1))&1)?8:-8)}));copies.push(items);if(++count>2500)return '三角形过小，密铺块数超过上限，请先放大图形。';
   }
  }
@@ -1206,7 +1211,7 @@ function fcTileByEdgeGrowth(polys,colors,outline){
   const copies=[];
   let idx=0;
   for(const t of tiles){
-   if(t.bb[2]<-1||t.bb[0]>901||t.bb[3]<-1||t.bb[1]>601)continue;
+   if(t.bb[2]<-margin||t.bb[0]>900+margin||t.bb[3]<-margin||t.bb[1]>600+margin)continue;
    const tone=(idx++&1)?7:-7;
    copies.push(polys.map((poly,k)=>({pts:apply(t.g,poly),color:shade(colors[k]||'#71c8f2',tone)})));
   }
@@ -1223,8 +1228,8 @@ function fcTileGeneral(polys,colors,outline){
  const sol=fcSolveMoreRobust(P,600,400);
  if(!sol)return '已清理共线顶点，并从多个起点与正向/反向顺序搜索边配对；在限定计算时间内仍未通过无缝、无重叠校验。请检查组合轮廓是否存在小缝、重叠或自相交，再重试。';
  const sub=polys.map(w=>w.map(p=>[(p[0]-c[0])*k,(p[1]-c[1])*k]));
- const copies=[];
- let tileIndex=0;for(const q of sol){const bb=fcBBox(q);if(bb[2]<145||bb[0]>1055||bb[3]<95||bb[1]>705)continue;const tone=(tileIndex++&1)?9:-9;const items=sub.map((sp,j)=>({pts:sp.map(p=>{const r=ap(q.g,p);return [r[0]-150,r[1]-100]}),color:shade(colors[j]||'#71c8f2',tone)}));copies.push(items);}
+ const copies=[],pad=fcTileOverscanPad(polys);
+ let tileIndex=0;for(const q of sol){const bb=fcBBox(q);if(bb[2]<150-pad||bb[0]>1050+pad||bb[3]<100-pad||bb[1]>700+pad)continue;const tone=(tileIndex++&1)?9:-9;const items=sub.map((sp,j)=>({pts:sp.map(p=>{const r=ap(q.g,p);return [r[0]-150,r[1]-100]}),color:shade(colors[j]||'#71c8f2',tone)}));copies.push(items);}
  if(!copies.length)return '密铺方案未覆盖当前画布区域，请重试。';fcRenderTilePolys(copies);return `找到密铺方案，已在自由创作画布显示 ${copies.length} 个图案。点击“返回编辑”继续创作。`;
 }
 $('fcTile').onclick=()=>{

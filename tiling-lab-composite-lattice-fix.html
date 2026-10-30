@@ -199,8 +199,8 @@ function redraw(g){const t=info(g);g.setAttribute('transform',`translate(${t.x} 
   /* 蓝点在图形外面（正下方），最后加入，永远在最上层 */
   const sa=scaleAnchor(g),SL=toLocal(g,sa.x,sa.y),sh=el('g',{transform:`translate(${SL[0]} ${SL[1]}) rotate(${-t.r}) scale(${k})`});
   sh.appendChild(el('line',{x1:0,y1:-12,x2:0,y2:sa.ey-sa.y,stroke:'#1678ed','stroke-width':2,'stroke-dasharray':'6 4',opacity:.8,'pointer-events':'none'}));
-  const sc=el('circle',{cx:0,cy:0,r:12,fill:'#1678ed',stroke:'#ffffff','stroke-width':2.4,class:'handle',cursor:'nwse-resize'});sc.addEventListener('pointerdown',startScale);sh.appendChild(sc);c.appendChild(sh)
- }else{const sh=el('g',{transform:`translate(${right[0]} ${right[1]}) scale(${k})`});const sc=el('circle',{cx:8,cy:8,r:7,fill:'#1678ed',class:'handle'});sc.addEventListener('pointerdown',startScale);sh.appendChild(sc);c.appendChild(sh)}
+  const hit=el('circle',{cx:0,cy:0,r:27,fill:'#fff','fill-opacity':0.001,stroke:'none',cursor:'nwse-resize'});hit.addEventListener('pointerdown',startScale);sh.appendChild(hit);const sc=el('circle',{cx:0,cy:0,r:16,fill:'#1678ed',stroke:'#ffffff','stroke-width':2.8,class:'handle','pointer-events':'none'});sh.appendChild(sc);c.appendChild(sh)
+ }else{const sh=el('g',{transform:`translate(${right[0]} ${right[1]}) scale(${k})`});const hit=el('circle',{cx:8,cy:8,r:24,fill:'#fff','fill-opacity':0.001,stroke:'none',cursor:'nwse-resize'});hit.addEventListener('pointerdown',startScale);sh.appendChild(hit);const sc=el('circle',{cx:8,cy:8,r:11,fill:'#1678ed',stroke:'#ffffff','stroke-width':2.6,class:'handle','pointer-events':'none'});sh.appendChild(sc);c.appendChild(sh)}
  g.appendChild(c)}
 function onVertexHandleDown(ev,g,i){ev.stopPropagation();ev.preventDefault();if(selected!==g)select(g);if(activeVertexOwner===g&&activeVertex===i){startVertex(ev,g,i);return}activeVertexOwner=g;activeVertex=i;redraw(g);$('hint').textContent='红色顶点已选中：再次按住红点拖动可以改变图形形状；蓝色点始终用于等比例放大或缩小。'}
 function startVertex(ev,g,i){ev.stopPropagation();ev.preventDefault();if(selected!==g)select(g);activeVertexOwner=g;activeVertex=i;redraw(g);save();const startId=ev.pointerId;let dragging=true;const mv=m=>{if(!dragging)return;if(m.pointerId!==undefined&&startId!==undefined&&m.pointerId!==startId)return;const ctm=g.getScreenCTM();if(!ctm)return;const pt=board.createSVGPoint();pt.x=m.clientX;pt.y=m.clientY;/* Convert screen point back into this polygon's own local coordinates. */const q=pt.matrixTransform(ctm.inverse());const arr=pointsFor(g).map(a=>[Number(a[0]),Number(a[1])]);arr[i]=[Math.round(q.x),Math.round(q.y)];g.dataset.customPts=JSON.stringify(arr);g.querySelector('polygon').setAttribute('points',arr.map(a=>a.join(',')).join(' '));redraw(g);/* Keep the source template, preview, edge-count control, and future drag-outs in sync on every pointer move. */syncCustomPreview(g);refresh()};const up=m=>{if(m.pointerId!==undefined&&startId!==undefined&&m.pointerId!==startId)return;dragging=false;window.removeEventListener('pointermove',mv);window.removeEventListener('pointerup',up);window.removeEventListener('pointercancel',up);syncCustomPreview(g);refresh()};window.addEventListener('pointermove',mv);window.addEventListener('pointerup',up);window.addEventListener('pointercancel',up)}
@@ -562,7 +562,7 @@ function fcSnap(o, anchorX=null, deltaY=0, dragStartY=null, isDrop=false){
  }
  if(others.length){snapCore({w:()=>fcW(o),rotBy:d=>{if(!isJoined)o.r+=d},shift:(dx,dy)=>{o.x+=dx;o.y+=dy}},others,E,isJoined?34*u:24*u,isJoined?3:5);if(isDrop)fcSnapExactEdges(o,others,E);}
 }
-function fcAdd(k,x,y){fcSave();const o={id:fcId++,k,pts:fcShapes[k].pts.map(p=>[p[0]*1.35,p[1]*1.35]),x:Math.max(40,Math.min(860,x)),y:Math.max(40,Math.min(560,y)),r:0,m:1,color:fcShapes[k].color};fcP.push(o);fcMake(o);fcSnap(o);fcSelect(o);fcSay('已放入'+fcShapes[k].name+'。共 '+fcP.length+' 个图形；拖动让边贴合，满意后点“自动密铺”。')}
+function fcAdd(k,x,y){fcSave();const o={id:fcId++,k,pts:fcShapes[k].pts.map(p=>[p[0]*1.8,p[1]*1.8]),x:Math.max(40,Math.min(860,x)),y:Math.max(40,Math.min(560,y)),r:0,m:1,color:fcShapes[k].color};fcP.push(o);fcMake(o);fcSnap(o);fcSelect(o);fcSay('已放入'+fcShapes[k].name+'。共 '+fcP.length+' 个图形；拖动让边贴合，满意后点“自动密铺”。')}
 function fcStartMove(ev,o){if(ev.button!==undefined&&ev.button!==0)return;ev.stopPropagation();if(ev.shiftKey||fcMultiMode){ev.preventDefault();fcSelectMulti(o);return;}if(o.locked){fcSelect(o);fcSay('该图形已锁定，请先解锁再移动');return;}ev.preventDefault();fcSelect(o);const p0=fcPt(ev),x0=o.x,y0=o.y,r0=o.r,cx=ev.clientX,cy=ev.clientY;let moved=false,fin=false;
  const verticalOnly=false;const mv=raf1(e=>{const q=fcPt(e),dy=q.y-p0.y;o.r=r0;if(verticalOnly){o.x=x0;o.y=y0+dy;}else{o.x=x0+q.x-p0.x;o.y=y0+dy;}/* 切割块/克隆块只沿竖直轴移动；吸附按真实几何目标自动校准 */fcSnap(o,verticalOnly?x0:null,q.y-p0.y,y0);fcTransform(o);fcCtl()});
  const onmv=e=>{if(!moved){if(Math.hypot(e.clientX-cx,e.clientY-cy)<2.8)return;moved=true;fcSnapCache={moving:o,peers:fcP.filter(x=>x!==o).map(obj=>{const world=fcW(obj);return{obj,world,box:bbox(world)}})};fcHist.push(JSON.stringify(fcP.map(a=>({id:a.id,k:a.k,pts:a.pts?a.pts.map(p=>p.slice()):null,x:a.id===o.id?x0:a.x,y:a.id===o.id?y0:a.y,r:a.id===o.id?r0:a.r,m:a.m,color:a.color,drawings:(a.drawings||[]).map(d=>({...d})),locked:!!a.locked,joined:!!a.joined,cutGroup:a.cutGroup,cutBaseX:a.cutBaseX,cutBaseY:a.cutBaseY,cutPiece:a.cutPiece,cutOriginTop:a.cutOriginTop,cutOriginBottom:a.cutOriginBottom,cutOriginHeight:a.cutOriginHeight,cutOriginWidth:a.cutOriginWidth,cutSnapY:a.cutSnapY,cutHasBottomEdge:a.cutHasBottomEdge,cutUpSnapY:a.cutUpSnapY,tileStepY:a.tileStepY,lat:a.lat,fam:a.fam,fr:a.fr,cloneOf:a.cloneOf}))));}mv(e)};
@@ -845,7 +845,7 @@ $('fcBg').addEventListener('pointerdown',()=>fcSelect(null));
 // 左侧图形库：点击放到画布，也可拖到画布指定位置
 const fcPal=$('fcPal');Object.entries(fcShapes).forEach(([k,d])=>{const c=document.createElement('div');c.className='fci';c.innerHTML=`<svg viewBox="0 0 100 70">${svgPoly(d.pts,d.color)}</svg>${d.name}`;fcPal.appendChild(c);
  c.addEventListener('pointerdown',e=>{if(e.button!==undefined&&e.button>0)return;e.preventDefault();const sx=e.clientX,sy=e.clientY;let ghost=null;
-  const mv=ev=>{if(!ghost&&Math.hypot(ev.clientX-sx,ev.clientY-sy)>5){const kk=(fcB.getScreenCTM()||{a:1}).a;ghost=document.createElement('div');ghost.style.cssText='position:fixed;z-index:99;pointer-events:none;transform:translate(-50%,-50%)';ghost.innerHTML=`<svg width="1" height="1" style="overflow:visible"><polygon points="${d.pts.map(p=>(p[0]*kk*1.35).toFixed(1)+','+(p[1]*kk*1.35).toFixed(1)).join(' ')}" fill="${d.color}" fill-opacity=".85" stroke="${shade(d.color)}" stroke-width="2"/></svg>`;document.body.appendChild(ghost)}if(ghost){ghost.style.left=ev.clientX+'px';ghost.style.top=ev.clientY+'px'}};
+  const mv=ev=>{if(!ghost&&Math.hypot(ev.clientX-sx,ev.clientY-sy)>5){const kk=(fcB.getScreenCTM()||{a:1}).a;ghost=document.createElement('div');ghost.style.cssText='position:fixed;z-index:99;pointer-events:none;transform:translate(-50%,-50%)';ghost.innerHTML=`<svg width="1" height="1" style="overflow:visible"><polygon points="${d.pts.map(p=>(p[0]*kk*1.8).toFixed(1)+','+(p[1]*kk*1.8).toFixed(1)).join(' ')}" fill="${d.color}" fill-opacity=".85" stroke="${shade(d.color)}" stroke-width="2"/></svg>`;document.body.appendChild(ghost)}if(ghost){ghost.style.left=ev.clientX+'px';ghost.style.top=ev.clientY+'px'}};
   const up=ev=>{window.removeEventListener('pointermove',mv);const b=fcB.getBoundingClientRect();if(ghost){ghost.remove();if(ev.clientX>=b.left&&ev.clientX<=b.right&&ev.clientY>=b.top&&ev.clientY<=b.bottom){const p=fcPt(ev);fcAdd(k,p.x,p.y)}}
    else{const l=fcP[fcP.length-1];fcAdd(k,l?l.x+130:450,l?l.y:300)}};
   window.addEventListener('pointermove',mv);window.addEventListener('pointerup',up,{once:true})})});
@@ -1122,15 +1122,29 @@ function fcGrowthOverlap(A,B,ba,bb){
 function fcGrowthEdgeCovered(Q,edge,others,self){
  const a=Q[edge],b=Q[(edge+1)%Q.length],dx=b[0]-a[0],dy=b[1]-a[1],L=Math.hypot(dx,dy);
  if(L<1e-5)return true;
- for(const O of others){if(O===self)continue;for(let j=0;j<O.out.length;j++){
-  const c=O.out[j],d=O.out[(j+1)%O.out.length],ex=d[0]-c[0],ey=d[1]-c[1],M=Math.hypot(ex,ey);
-  if(M<1e-5)continue;if(Math.abs(dx*ey-dy*ex)/(L*M)>.002)continue;
-  const distC=Math.abs(dx*(c[1]-a[1])-dy*(c[0]-a[0]))/L,distD=Math.abs(dx*(d[1]-a[1])-dy*(d[0]-a[0]))/L;
-  if(distC>1||distD>1)continue;
-  const ux=dx/L,uy=dy/L,t0=(c[0]-a[0])*ux+(c[1]-a[1])*uy,t1=(d[0]-a[0])*ux+(d[1]-a[1])*uy;
-  const ov=Math.min(L,Math.max(t0,t1))-Math.max(0,Math.min(t0,t1));
-  if(ov>=L-1.1)return true;
- }}
+ const ux=dx/L,uy=dy/L,edgeBox=[Math.min(a[0],b[0])-1.2,Math.min(a[1],b[1])-1.2,Math.max(a[0],b[0])+1.2,Math.max(a[1],b[1])+1.2],intervals=[];
+ for(const O of others){
+  if(O===self)continue;
+  const ob=O.bb||fcBBox(O.out);
+  if(ob[2]<edgeBox[0]||ob[0]>edgeBox[2]||ob[3]<edgeBox[1]||ob[1]>edgeBox[3])continue;
+  for(let j=0;j<O.out.length;j++){
+   const c=O.out[j],d=O.out[(j+1)%O.out.length],ex=d[0]-c[0],ey=d[1]-c[1],M=Math.hypot(ex,ey);
+   if(M<1e-5||Math.abs(dx*ey-dy*ex)/(L*M)>.002)continue;
+   const distC=Math.abs(dx*(c[1]-a[1])-dy*(c[0]-a[0]))/L,distD=Math.abs(dx*(d[1]-a[1])-dy*(d[0]-a[0]))/L;
+   if(distC>1.2||distD>1.2)continue;
+   const t0=(c[0]-a[0])*ux+(c[1]-a[1])*uy,t1=(d[0]-a[0])*ux+(d[1]-a[1])*uy;
+   const lo=Math.max(0,Math.min(t0,t1)),hi=Math.min(L,Math.max(t0,t1));
+   if(hi-lo>.15)intervals.push([lo,hi]);
+  }
+ }
+ if(!intervals.length)return false;
+ intervals.sort((x,y)=>x[0]-y[0]||y[1]-x[1]);
+ let covered=0;
+ for(const [lo,hi] of intervals){
+  if(lo>covered+1.15)break;
+  if(hi>covered)covered=hi;
+  if(covered>=L-1.15)return true;
+ }
  return false;
 }
 function fcGrowthSegmentHitsViewport(a,b){
@@ -1143,8 +1157,10 @@ function fcGrowthSegmentHitsViewport(a,b){
 function fcTileByEdgeGrowth(polys,colors,outline){
  if(outline.length<3||!isSimple(outline))return null;
  const run=preferReflect=>{
-  const deadline=performance.now()+1900,P=outline.map(p=>[p[0],p[1]]),n=P.length;
+  const deadline=performance.now()+3600,P=outline.map(p=>[p[0],p[1]]),n=P.length;
   const lengths=P.map((p,i)=>Math.hypot(P[(i+1)%n][0]-p[0],P[(i+1)%n][1]-p[1]));
+  const edgeMatches=lengths.map((target,e)=>Array.from({length:n},(_,j)=>j).filter(j=>Math.abs(lengths[j]-target)<=.75).sort((j,k)=>(j===e?-1:k===e?1:0)||Math.abs(lengths[j]-target)-Math.abs(lengths[k]-target)||j-k));
+  const modes=preferReflect?[true,false]:[false,true];
   const c=cent(P),rootG=[1,0,0,1,450-c[0],300-c[1]];
   const tx=(g,p)=>fcApplyRigid(g,p),apply=(g,poly)=>poly.map(p=>tx(g,p));
   const rootOut=apply(rootG,P),rootBox=fcBBox(rootOut),maxDim=Math.max(rootBox[2]-rootBox[0],rootBox[3]-rootBox[1]);
@@ -1152,14 +1168,12 @@ function fcTileByEdgeGrowth(polys,colors,outline){
   const hit=bb=>bb[2]>=view[0]&&bb[0]<=view[2]&&bb[3]>=view[1]&&bb[1]<=view[3];
   const tiles=[{g:rootG,out:rootOut,bb:fcBBox(rootOut)}];
   let head=0,attempts=0;
-  while(head<tiles.length&&tiles.length<720&&attempts<52000&&performance.now()<deadline){
+  while(head<tiles.length&&tiles.length<1200&&attempts<110000&&performance.now()<deadline){
    const current=tiles[head++],Q=current.out;
-   for(let e=0;e<n&&tiles.length<720&&attempts<52000&&performance.now()<deadline;e++){
+   for(let e=0;e<n&&tiles.length<1200&&attempts<110000&&performance.now()<deadline;e++){
     if(fcGrowthEdgeCovered(Q,e,tiles,current))continue;
     const a=Q[e],b=Q[(e+1)%n],targetLen=Math.hypot(b[0]-a[0],b[1]-a[1]);
-    const js=Array.from({length:n},(_,j)=>j).filter(j=>Math.abs(lengths[j]-targetLen)<=.75)
-      .sort((j,k)=>(j===e?-1:k===e?1:0)||Math.abs(lengths[j]-targetLen)-Math.abs(lengths[k]-targetLen)||j-k);
-    const modes=preferReflect?[true,false]:[false,true];
+    const js=edgeMatches[e];
     let connected=false;
     outer:for(const j of js)for(const refl of modes){
      attempts++;const g=fcGrowthTransform(P[j],P[(j+1)%n],a,b,refl);if(!g)continue;
@@ -1188,7 +1202,7 @@ function fcTileByEdgeGrowth(polys,colors,outline){
    const a=t.out[e],b=t.out[(e+1)%t.out.length];
    if(fcGrowthSegmentHitsViewport(a,b)&&!fcGrowthEdgeCovered(t.out,e,tiles,t))return null;
   }
-  if(!cover(outlines,[0,0,900,600],90,60,performance.now()+1500))return null;
+  if(!cover(outlines,[0,0,900,600],90,60,performance.now()+2600))return null;
   const copies=[];
   let idx=0;
   for(const t of tiles){

@@ -929,19 +929,36 @@ function fcFitRigid(src,dst){
 function fcApplyRigid(g,p){return[g[0]*p[0]+g[2]*p[1]+g[4],g[1]*p[0]+g[3]*p[1]+g[5]]}
 function fcSameTransform(a,b,g){if(a.length!==b.length)return false;for(let j=0;j<a.length;j++){if(a[j].pts.length!==b[j].pts.length)return false;for(let k=0;k<a[j].pts.length;k++){const p=fcApplyRigid(g,a[j].pts[k]),q=b[j].pts[k];if(Math.hypot(p[0]-q[0],p[1]-q[1])>1.8)return false}}return true}
 function fcRenderTilePolys(copies){
- // 稳定显示：取消逐块闪动/移动动画，计算完成后一次性正常显示全部图形。
- fcAnimToken++;fcAnimSkip=null;fcTileLayer.innerHTML='';
- const fragment=document.createDocumentFragment();
- for(const cp of copies){
-  const g=el('g',{class:'fc-tile-static'});
-  for(const item of cp)g.appendChild(el('polygon',{points:item.pts.map(p=>p.map(v=>+v.toFixed(3)).join(',')).join(' '),fill:item.color,stroke:shade(item.color,-52),'stroke-width':1.55,'stroke-linejoin':'round','vector-effect':'non-scaling-stroke'}));
-  fragment.appendChild(g);
- }
- fcTileLayer.appendChild(fragment);fcTileLayer.setAttribute('display','');
- fcG.style.display='none';fcC.style.display='none';fcTilingActive=true;
- $('fcTile').textContent='↩ 返回编辑';
- fc.querySelectorAll('.dz-bar button').forEach(b=>{if(b.id!=='fcTile')b.disabled=true});
+ fcAnimToken++;const token=fcAnimToken;fcAnimSkip=null;fcTileLayer.innerHTML='';
+ // Reuse the original canvas' rigid-motion model: every new tile moves from a placed tile by translation, rotation, or axial reflection.
+ const entries=copies.map((cp,index)=>({cp,index,center:fcCopyCenter(cp),group:null,parent:-1,g:null,motion:null}));
+ if(!entries.length)return;
+ const root=entries.reduce((best,e)=>Math.hypot(e.center[0]-450,e.center[1]-300)<Math.hypot(best.center[0]-450,best.center[1]-300)?e:best,entries[0]);
+ entries.splice(entries.indexOf(root),1);entries.sort((a,b)=>Math.hypot(a.center[0]-root.center[0],a.center[1]-root.center[1])-Math.hypot(b.center[0]-root.center[0],b.center[1]-root.center[1]));entries.unshift(root);
+ const placed=[];
+ entries.forEach((e,i)=>{if(i===0){placed.push(e);return}
+  const candidates=placed.map(p=>({p,d:Math.hypot(p.center[0]-e.center[0],p.center[1]-e.center[1])})).sort((a,b)=>a.d-b.d).slice(0,24);
+  for(const c of candidates){if(!c.p.cp[0]||!e.cp[0])continue;const fit=fcFitRigid(c.p.cp[0].pts,e.cp[0].pts);if(!fit||!fcSameTransform(c.p.cp,e.cp,fit.g))continue;e.parent=entries.indexOf(c.p);e.g=fit.g;e.motion=decomp({g:[1,0,0,1,0,0]},{g:fit.g});break}
+  if(e.parent<0){const p=placed[placed.length-1];e.parent=entries.indexOf(p);e.g=[1,0,0,1,e.center[0]-p.center[0],e.center[1]-p.center[1]];e.motion=decomp({g:[1,0,0,1,0,0]},{g:e.g})}
+  placed.push(e)
+ });
+ const N=entries.length,st=entries.map((_,k)=>k<8?k*650:5200+(k-8)*110),dur=k=>k<8?600:420,els=[],ease=x=>x<.5?2*x*x:1-Math.pow(-2*x+2,2)/2;
+ let next=0,active=[],prev=performance.now(),vt=0;const counts={平移:0,旋转:0,轴对称:0};entries.forEach((e,k)=>{if(k&&e.motion)counts[e.motion.type]++});
+ const spawn=k=>{const e=entries[k],g=el('g',{class:'fc-moving-tile'});e.cp.forEach((item,j)=>{const start=k&&entries[e.parent]&&entries[e.parent].cp[j]?entries[e.parent].cp[j].pts:item.pts;g.appendChild(el('polygon',{points:start.map(p=>p.map(v=>+v.toFixed(3)).join(',')).join(' '),fill:item.color,stroke:shade(item.color,-52),'stroke-width':1.55,'stroke-linejoin':'round','vector-effect':'non-scaling-stroke'}))});if(k===0)g.setAttribute('opacity','0');e.group=g;els[k]=g;fcTileLayer.appendChild(g)};
+ const finish=k=>{const e=entries[k],g=e.group;if(!g)return;e.cp.forEach((item,j)=>{g.children[j].setAttribute('points',item.pts.map(p=>p.map(v=>+v.toFixed(3)).join(',')).join(' '));g.children[j].removeAttribute('opacity')});g.removeAttribute('opacity')};
+ const draw=(k,progress)=>{const e=entries[k],g=e.group;if(!g)return;if(k===0){g.setAttribute('opacity',progress);return}const parent=entries[e.parent],d=e.motion;e.cp.forEach((item,j)=>{const pts=pose(parent.cp[j].pts,d,ease(progress));g.children[j].setAttribute('points',pts.map(p=>p.map(v=>+v.toFixed(2)).join(',')).join(' '))})};
+ const end=()=>{if(token!==fcAnimToken)return;fcAnimSkip=null;entries.forEach((_,k)=>finish(k));fcSay('铺设完成：共 '+N+' 块。运动方式：平移 '+counts.平移+' 次、旋转 '+counts.旋转+' 次、轴对称 '+counts.轴对称+' 次。')};
+ fcAnimSkip=()=>{if(token!==fcAnimToken)return;for(;next<N;next++){if(!entries[next].group)spawn(next);finish(next)}active.forEach(finish);active=[];end()};
+ fcTileLayer.setAttribute('display','');fcG.style.display='none';fcC.style.display='none';fcTilingActive=true;$('fcTile').textContent='↩ 返回编辑';fc.querySelectorAll('.dz-bar button').forEach(b=>{if(b.id!=='fcTile')b.disabled=true});
+ const step=now=>{if(token!==fcAnimToken)return;vt+=(now-prev)*(SPEEDS[speedI]||['',1])[1];prev=now;while(next<N&&st[next]<=vt){spawn(next);active.push(next++)}
+  for(let i=active.length-1;i>=0;i--){const k=active[i],p=Math.min(1,(vt-st[k])/dur(k));draw(k,p);if(p>=1){finish(k);active.splice(i,1)}}
+  if(next<N||active.length){const k=Math.max(0,next-1),type=k&&entries[k].motion?entries[k].motion.type:'起始图形';requestAnimationFrame(step)}else end()
+ };requestAnimationFrame(step)
 }
+
+// ===== 平移格密铺（正方形/长方形/平行四边形剪切后平移拼接）=====
+// 数学依据：把平行四边形剪成几块，每块平移“整数个邻边向量”后重新拼好，得到的图形仍是同一个平移格的基本单元，
+// 所以一定能用这两个邻边向量平移铺满平面。这里直接用平移格铺，不再靠边配对搜索。
 function fcWorldLat(o){
  if(!o||!o.lat)return null;const c=Math.cos(o.r*R),s=Math.sin(o.r*R);
  return o.lat.map(v=>{const x=v[0]*o.m,y=v[1];return[x*c-y*s,x*s+y*c]});

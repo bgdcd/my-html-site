@@ -257,16 +257,34 @@ function item(g,w,inn,i){const n=w.length,p=w[i],pv=w[(i+n-1)%n],nx=w[(i+1)%n];r
 function closed(k){if(k.it.length<2||new Set(k.it.map(o=>o.g)).size<k.it.length)return false;if(Math.abs(k.it.reduce((t,o)=>t+o.a,0)-360)>2)return false;const it=[...k.it].sort((a,b)=>mod(a.s)-mod(b.s));return it.every((o,i)=>{const nx=it[(i+1)%it.length];return Math.abs(((mod(nx.s)-mod(o.s)-o.a)+540)%360-180)<4})}
 const gcols=['#d4ad64','#d18f83','#8eae94','#82b4d0','#a78fbd','#b3aa83','#bd9a72','#c78491'];
 // 画一个顶点：同一顶点处所有图形的小圆弧用同一半径、首尾相接（凑够 360° 就是一个整圆），角度文字各放在自己的角里，彼此错开
-function drawVertex(x,y,items,own,numbers,degs){const m=items.length,ar=Math.min(13,.32*Math.min(...items.map(o=>o.me))),so=[...items].sort((p,q)=>mod(p.s)-mod(q.s));let d=ar+9;
- if(m>1)for(let k=0;k<m;k++){const p=so[k],q=so[(k+1)%m];let sp=mod((q.s+q.a/2)-(p.s+p.a/2));if(!sp)sp=360;d=Math.max(d,Math.min(46,15/Math.sin(Math.min(sp,170)*R/2)))}
- so.forEach((o,k)=>{const mine=!own||o.g===own,mid=(o.s+o.a/2)*R,num=String(Math.round(o.a)),tw=(numbers?9:0)+(degs?(num.length+1)*18:0),key=o.g.dataset.id+':'+o.i;
-  if(degs&&o.a<359){const s0=o.s*R,e=(o.s+o.a)*R,arc=el('path',{d:`M ${x+ar*Math.cos(s0)} ${y+ar*Math.sin(s0)} A ${ar} ${ar} 0 ${o.a>180?1:0} 1 ${x+ar*Math.cos(e)} ${y+ar*Math.sin(e)}`,class:'arc','data-corner-key':key,style:`stroke:${gcols[k%8]};stroke-width:${mine&&own?2.6:1.7};pointer-events:stroke;cursor:pointer`});arc.addEventListener('click',ev=>{ev.stopPropagation();ev.preventDefault();chooseCorner(o.g,o.i)});labels.appendChild(arc)}
-  else if(degs){const arc=el('circle',{cx:x,cy:y,r:ar,class:'arc','data-corner-key':key,style:'stroke:'+gcols[0]+';pointer-events:stroke;cursor:pointer'});arc.addEventListener('click',ev=>{ev.stopPropagation();ev.preventDefault();chooseCorner(o.g,o.i)});labels.appendChild(arc)}
-  // 只标序号时，把序号放在该角自己的内角平分线上且靠近顶点，避免共享顶点处被统一推远、看起来对应错角
-  const di=numbers&&!degs?Math.min(Math.max(10,ar+4),Math.max(8,o.me*.34)):Math.min(Math.max(d,(tw/2+3)/Math.sin(Math.max(15,Math.min(o.a,170))*R/2)),Math.max(ar+8,o.me*.70)),t=el('text',{x:x+Math.cos(mid)*di,y:y+Math.sin(mid)*di+(degs?10.5:3.5),'text-anchor':'middle',class:'lbl','data-corner-key':key,style:'pointer-events:all;cursor:pointer'});
+function drawVertex(x,y,items,own,numbers,degs){
+ const ar=Math.min(13,.32*Math.min(...items.map(o=>o.me))),so=[...items].sort((p,q)=>mod(p.s)-mod(q.s));
+ so.forEach((o,k)=>{
+  const mine=!own||o.g===own,mid=(o.s+o.a/2)*R,num=String(Math.round(o.a)),key=o.g.dataset.id+':'+o.i;
+  if(degs&&o.a<359){
+   const s0=o.s*R,e=(o.s+o.a)*R;
+   const arc=el('path',{d:`M ${x+ar*Math.cos(s0)} ${y+ar*Math.sin(s0)} A ${ar} ${ar} 0 ${o.a>180?1:0} 1 ${x+ar*Math.cos(e)} ${y+ar*Math.sin(e)}`,class:'arc','data-corner-key':key,style:`stroke:${gcols[k%8]};stroke-width:${mine&&own?2.6:1.7};pointer-events:stroke;cursor:pointer`});
+   arc.addEventListener('click',ev=>{ev.stopPropagation();ev.preventDefault();chooseCorner(o.g,o.i)});labels.appendChild(arc)
+  }else if(degs){
+   const arc=el('circle',{cx:x,cy:y,r:ar,class:'arc','data-corner-key':key,style:'stroke:'+gcols[0]+';pointer-events:stroke;cursor:pointer'});
+   arc.addEventListener('click',ev=>{ev.stopPropagation();ev.preventDefault();chooseCorner(o.g,o.i)});labels.appendChild(arc)
+  }
+  // 每个角独立定位：只沿自身内角平分线放置，不使用共享顶点的统一推远距离。
+  const half=Math.max(.12,Math.sin(Math.min(179,Math.max(1,o.a/2))*R));
+  const maxRadius=Math.max(10,o.me*.48),minRadius=Math.min(maxRadius,ar+5);
+  const estimatedWidth=degs?(num.length+1)*18:(numbers?9:0);
+  const wantedRadius=(estimatedWidth/2+3)/half;
+  const di=numbers&&!degs?Math.min(Math.max(10,ar+4),Math.max(8,o.me*.34)):Math.max(minRadius,Math.min(maxRadius,wantedRadius));
+  // 窄角或短边自动缩小字号，避免为塞下文字而把标注挤出所属角。
+  const availableWidth=Math.max(8,2*di*half-6);
+  const labelFont=degs?Math.max(8,Math.min(32,availableWidth/((num.length+1)*.56))):10;
+  const t=el('text',{x:x+Math.cos(mid)*di,y:y+Math.sin(mid)*di,'text-anchor':'middle','dominant-baseline':'middle',class:'lbl','data-corner-key':key,style:'pointer-events:all;cursor:pointer'});
   t.addEventListener('click',ev=>{ev.stopPropagation();ev.preventDefault();chooseCorner(o.g,o.i)});
   if(numbers){const sp=el('tspan',{class:'lb-n'});sp.textContent=circled(o.i);t.appendChild(sp)}
-  if(degs){const sp=el('tspan',{class:mine?'lb-d':'lb-o'});sp.textContent=num+'°';t.appendChild(sp)}labels.appendChild(t)})}
+  if(degs){const sp=el('tspan',{class:mine?'lb-d':'lb-o',style:`font-size:${labelFont}px;font-weight:900`});sp.textContent=num+'°';t.appendChild(sp)}
+  labels.appendChild(t)
+ })
+}
 function refresh(){labels.innerHTML='';const ps=[...pieces.children];
  // 用每个角自身的透明扇形作为点击热区，点击哪个图形的角就只选择该图形的该角；不再用共享顶点的“最近点”猜测
  for(const g of ps){const wp=worldPts(g),inn=interior(wp);

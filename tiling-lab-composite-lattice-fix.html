@@ -844,11 +844,24 @@ function fcRestore(js){fcG.innerHTML='';const defs=$('fcBrushDefs');if(defs)defs
 $('fcBg').addEventListener('pointerdown',()=>fcSelect(null));
 // 左侧图形库：点击放到画布，也可拖到画布指定位置
 const fcPal=$('fcPal');Object.entries(fcShapes).forEach(([k,d])=>{const c=document.createElement('div');c.className='fci';c.innerHTML=`<svg viewBox="0 0 100 70">${svgPoly(d.pts,d.color)}</svg>${d.name}`;fcPal.appendChild(c);
- c.addEventListener('pointerdown',e=>{if(e.button!==undefined&&e.button>0)return;e.preventDefault();const sx=e.clientX,sy=e.clientY;let ghost=null;
-  const mv=ev=>{if(!ghost&&Math.hypot(ev.clientX-sx,ev.clientY-sy)>5){const kk=(fcB.getScreenCTM()||{a:1}).a;ghost=document.createElement('div');ghost.style.cssText='position:fixed;z-index:99;pointer-events:none;transform:translate(-50%,-50%)';ghost.innerHTML=`<svg width="1" height="1" style="overflow:visible"><polygon points="${d.pts.map(p=>(p[0]*kk*1.8).toFixed(1)+','+(p[1]*kk*1.8).toFixed(1)).join(' ')}" fill="${d.color}" fill-opacity=".85" stroke="${shade(d.color)}" stroke-width="2"/></svg>`;document.body.appendChild(ghost)}if(ghost){ghost.style.left=ev.clientX+'px';ghost.style.top=ev.clientY+'px'}};
-  const up=ev=>{window.removeEventListener('pointermove',mv);const b=fcB.getBoundingClientRect();if(ghost){ghost.remove();if(ev.clientX>=b.left&&ev.clientX<=b.right&&ev.clientY>=b.top&&ev.clientY<=b.bottom){const p=fcPt(ev);fcAdd(k,p.x,p.y)}}
-   else{const l=fcP[fcP.length-1];fcAdd(k,l?l.x+130:450,l?l.y:300)}};
-  window.addEventListener('pointermove',mv);window.addEventListener('pointerup',up,{once:true})})});
+ c.addEventListener('pointerdown',e=>{if(e.button!==undefined&&e.button>0)return;e.preventDefault();const sx=e.clientX,sy=e.clientY;let ghost=null,ended=false;
+  const makeGhost=ev=>{
+   const m=fcB.getScreenCTM(),scale=m?Math.max(.15,Math.min(8,Math.hypot(m.a,m.b))):1;
+   const pts=d.pts.map(p=>[p[0]*scale*1.8,p[1]*scale*1.8]);
+   const xs=pts.map(p=>p[0]),ys=pts.map(p=>p[1]),pad=8;
+   const x0=Math.min(...xs)-pad,y0=Math.min(...ys)-pad;
+   const w=Math.max(24,Math.max(...xs)-Math.min(...xs)+pad*2),h=Math.max(24,Math.max(...ys)-Math.min(...ys)+pad*2);
+   ghost=document.createElement('div');
+   ghost.style.cssText='position:fixed;left:0;top:0;z-index:99;pointer-events:none;contain:layout paint style;will-change:transform;transform:translate3d('+ev.clientX+'px,'+ev.clientY+'px,0) translate(-50%,-50%)';
+   const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('width',w);svg.setAttribute('height',h);svg.setAttribute('viewBox',[x0,y0,w,h].join(' '));svg.setAttribute('preserveAspectRatio','xMidYMid meet');svg.style.cssText='display:block;overflow:visible';
+   const poly=document.createElementNS('http://www.w3.org/2000/svg','polygon');poly.setAttribute('points',pts.map(p=>p.map(v=>v.toFixed(2)).join(',')).join(' '));poly.setAttribute('fill',d.color);poly.setAttribute('fill-opacity','.92');poly.setAttribute('stroke',shade(d.color));poly.setAttribute('stroke-width','2');poly.setAttribute('stroke-linejoin','round');svg.appendChild(poly);ghost.appendChild(svg);document.body.appendChild(ghost);
+  };
+  const mv=ev=>{if(!ghost&&Math.hypot(ev.clientX-sx,ev.clientY-sy)>5)makeGhost(ev);if(ghost)ghost.style.transform='translate3d('+ev.clientX+'px,'+ev.clientY+'px,0) translate(-50%,-50%)'};
+  const clean=()=>{if(ended)return;ended=true;window.removeEventListener('pointermove',mv);window.removeEventListener('pointerup',up);window.removeEventListener('pointercancel',cancel);if(ghost){ghost.remove();ghost=null}};
+  const up=ev=>{const hadGhost=!!ghost;clean();if(hadGhost){const boardRect=fcB.getBoundingClientRect();if(ev.clientX>=boardRect.left&&ev.clientX<=boardRect.right&&ev.clientY>=boardRect.top&&ev.clientY<=boardRect.bottom){const pt=fcPt(ev);fcAdd(k,pt.x,pt.y)}}else{const last=fcP[fcP.length-1];fcAdd(k,last?last.x+130:450,last?last.y:300)}};
+  const cancel=()=>clean();
+  window.addEventListener('pointermove',mv);window.addEventListener('pointerup',up);window.addEventListener('pointercancel',cancel);});
+});
 const fcCols=$('fcColors');['#F5B3BE','#ADDFF3','#B9E3BF','#F8E7A0','#D3C1EE','#F8C49A'].forEach((c,i)=>{const b=document.createElement('button');b.type='button';b.className='fcsw'+(i===0?' active':'');b.style.background=c;b.dataset.color=c;b.title=c+'（画笔模式开启时作为笔色，否则作为图形色）';b.setAttribute('aria-label','颜色 '+c);b.onclick=()=>{fcBrushColor=c;fcCols.querySelectorAll('.fcsw').forEach(x=>x.classList.toggle('active',x===b));if(fcBrushMode){fcSay('画笔颜色已设为 '+c+'。在选中的图形上按住拖动即可画画。');return}const targets=fcMulti.size?[...fcMulti]:fcSel?[fcSel]:[];if(!targets.length){fcSay('已选中颜色 '+c+'；先选图形再点击色块即可换色。');return}fcSave();targets.forEach(o=>{o.color=c;fcPaint(o)});fcSay(`已将 ${targets.length} 个选中图形改为 ${c}`)};fcCols.appendChild(b)});
 $('fcBrush').onclick=()=>{fcBrushMode=!fcBrushMode;$('fcBrush').classList.toggle('primary',fcBrushMode);fcCols.querySelectorAll('.fcsw').forEach(b=>b.classList.toggle('active',b.dataset.color===fcBrushColor));fcSetMode('move');fcSay(fcBrushMode?'画笔模式已开启：点击清空按钮旁的六种颜色选择笔色，再在图形内部拖动画画。':'已退出画笔模式；点击六色可给选中的图形换色。')};
 function fcStartBrush(ev,o){
@@ -916,36 +929,19 @@ function fcFitRigid(src,dst){
 function fcApplyRigid(g,p){return[g[0]*p[0]+g[2]*p[1]+g[4],g[1]*p[0]+g[3]*p[1]+g[5]]}
 function fcSameTransform(a,b,g){if(a.length!==b.length)return false;for(let j=0;j<a.length;j++){if(a[j].pts.length!==b[j].pts.length)return false;for(let k=0;k<a[j].pts.length;k++){const p=fcApplyRigid(g,a[j].pts[k]),q=b[j].pts[k];if(Math.hypot(p[0]-q[0],p[1]-q[1])>1.8)return false}}return true}
 function fcRenderTilePolys(copies){
- fcAnimToken++;const token=fcAnimToken;fcAnimSkip=null;fcTileLayer.innerHTML='';
- // Reuse the original canvas' rigid-motion model: every new tile moves from a placed tile by translation, rotation, or axial reflection.
- const entries=copies.map((cp,index)=>({cp,index,center:fcCopyCenter(cp),group:null,parent:-1,g:null,motion:null}));
- if(!entries.length)return;
- const root=entries.reduce((best,e)=>Math.hypot(e.center[0]-450,e.center[1]-300)<Math.hypot(best.center[0]-450,best.center[1]-300)?e:best,entries[0]);
- entries.splice(entries.indexOf(root),1);entries.sort((a,b)=>Math.hypot(a.center[0]-root.center[0],a.center[1]-root.center[1])-Math.hypot(b.center[0]-root.center[0],b.center[1]-root.center[1]));entries.unshift(root);
- const placed=[];
- entries.forEach((e,i)=>{if(i===0){placed.push(e);return}
-  const candidates=placed.map(p=>({p,d:Math.hypot(p.center[0]-e.center[0],p.center[1]-e.center[1])})).sort((a,b)=>a.d-b.d).slice(0,24);
-  for(const c of candidates){if(!c.p.cp[0]||!e.cp[0])continue;const fit=fcFitRigid(c.p.cp[0].pts,e.cp[0].pts);if(!fit||!fcSameTransform(c.p.cp,e.cp,fit.g))continue;e.parent=entries.indexOf(c.p);e.g=fit.g;e.motion=decomp({g:[1,0,0,1,0,0]},{g:fit.g});break}
-  if(e.parent<0){const p=placed[placed.length-1];e.parent=entries.indexOf(p);e.g=[1,0,0,1,e.center[0]-p.center[0],e.center[1]-p.center[1]];e.motion=decomp({g:[1,0,0,1,0,0]},{g:e.g})}
-  placed.push(e)
- });
- const N=entries.length,st=entries.map((_,k)=>k<8?k*650:5200+(k-8)*110),dur=k=>k<8?600:420,els=[],ease=x=>x<.5?2*x*x:1-Math.pow(-2*x+2,2)/2;
- let next=0,active=[],prev=performance.now(),vt=0;const counts={平移:0,旋转:0,轴对称:0};entries.forEach((e,k)=>{if(k&&e.motion)counts[e.motion.type]++});
- const spawn=k=>{const e=entries[k],g=el('g',{class:'fc-moving-tile'});e.cp.forEach((item,j)=>{const start=k&&entries[e.parent]&&entries[e.parent].cp[j]?entries[e.parent].cp[j].pts:item.pts;g.appendChild(el('polygon',{points:start.map(p=>p.map(v=>+v.toFixed(3)).join(',')).join(' '),fill:item.color,stroke:shade(item.color,-52),'stroke-width':1.55,'stroke-linejoin':'round','vector-effect':'non-scaling-stroke'}))});if(k===0)g.setAttribute('opacity','0');e.group=g;els[k]=g;fcTileLayer.appendChild(g)};
- const finish=k=>{const e=entries[k],g=e.group;if(!g)return;e.cp.forEach((item,j)=>{g.children[j].setAttribute('points',item.pts.map(p=>p.map(v=>+v.toFixed(3)).join(',')).join(' '));g.children[j].removeAttribute('opacity')});g.removeAttribute('opacity')};
- const draw=(k,progress)=>{const e=entries[k],g=e.group;if(!g)return;if(k===0){g.setAttribute('opacity',progress);return}const parent=entries[e.parent],d=e.motion;e.cp.forEach((item,j)=>{const pts=pose(parent.cp[j].pts,d,ease(progress));g.children[j].setAttribute('points',pts.map(p=>p.map(v=>+v.toFixed(2)).join(',')).join(' '))})};
- const end=()=>{if(token!==fcAnimToken)return;fcAnimSkip=null;entries.forEach((_,k)=>finish(k));fcSay('铺设完成：共 '+N+' 块。运动方式：平移 '+counts.平移+' 次、旋转 '+counts.旋转+' 次、轴对称 '+counts.轴对称+' 次。')};
- fcAnimSkip=()=>{if(token!==fcAnimToken)return;for(;next<N;next++){if(!entries[next].group)spawn(next);finish(next)}active.forEach(finish);active=[];end()};
- fcTileLayer.setAttribute('display','');fcG.style.display='none';fcC.style.display='none';fcTilingActive=true;$('fcTile').textContent='↩ 返回编辑';fc.querySelectorAll('.dz-bar button').forEach(b=>{if(b.id!=='fcTile')b.disabled=true});
- const step=now=>{if(token!==fcAnimToken)return;vt+=(now-prev)*(SPEEDS[speedI]||['',1])[1];prev=now;while(next<N&&st[next]<=vt){spawn(next);active.push(next++)}
-  for(let i=active.length-1;i>=0;i--){const k=active[i],p=Math.min(1,(vt-st[k])/dur(k));draw(k,p);if(p>=1){finish(k);active.splice(i,1)}}
-  if(next<N||active.length){const k=Math.max(0,next-1),type=k&&entries[k].motion?entries[k].motion.type:'起始图形';requestAnimationFrame(step)}else end()
- };requestAnimationFrame(step)
+ // 稳定显示：取消逐块闪动/移动动画，计算完成后一次性正常显示全部图形。
+ fcAnimToken++;fcAnimSkip=null;fcTileLayer.innerHTML='';
+ const fragment=document.createDocumentFragment();
+ for(const cp of copies){
+  const g=el('g',{class:'fc-tile-static'});
+  for(const item of cp)g.appendChild(el('polygon',{points:item.pts.map(p=>p.map(v=>+v.toFixed(3)).join(',')).join(' '),fill:item.color,stroke:shade(item.color,-52),'stroke-width':1.55,'stroke-linejoin':'round','vector-effect':'non-scaling-stroke'}));
+  fragment.appendChild(g);
+ }
+ fcTileLayer.appendChild(fragment);fcTileLayer.setAttribute('display','');
+ fcG.style.display='none';fcC.style.display='none';fcTilingActive=true;
+ $('fcTile').textContent='↩ 返回编辑';
+ fc.querySelectorAll('.dz-bar button').forEach(b=>{if(b.id!=='fcTile')b.disabled=true});
 }
-
-// ===== 平移格密铺（正方形/长方形/平行四边形剪切后平移拼接）=====
-// 数学依据：把平行四边形剪成几块，每块平移“整数个邻边向量”后重新拼好，得到的图形仍是同一个平移格的基本单元，
-// 所以一定能用这两个邻边向量平移铺满平面。这里直接用平移格铺，不再靠边配对搜索。
 function fcWorldLat(o){
  if(!o||!o.lat)return null;const c=Math.cos(o.r*R),s=Math.sin(o.r*R);
  return o.lat.map(v=>{const x=v[0]*o.m,y=v[1];return[x*c-y*s,x*s+y*c]});
@@ -1005,7 +1001,7 @@ function fcTryInferredLattice(polys,colors,outline){
 function fcTileOverscanPad(polys){
  const bb=fcBBox(polys.flat()),w=bb[2]-bb[0],h=bb[3]-bb[1];
  // 画布外保留约一至两块图形的缓冲圈，SVG 视口只负责裁切，不让铺设算法在边缘提前收尾。
- return Math.max(180,Math.min(360,Math.max(w,h)*1.25));
+ return Math.max(420,Math.min(720,Math.max(w,h)*2.1));
 }
 function fcTileLattice(polys,colors,a,b){
  const det=a[0]*b[1]-a[1]*b[0],bb=fcBBox(polys.flat()),pad=fcTileOverscanPad(polys);
@@ -1162,20 +1158,20 @@ function fcGrowthSegmentHitsViewport(a,b){
 function fcTileByEdgeGrowth(polys,colors,outline){
  if(outline.length<3||!isSimple(outline))return null;
  const run=preferReflect=>{
-  const deadline=performance.now()+3600,P=outline.map(p=>[p[0],p[1]]),n=P.length;
+  const deadline=performance.now()+5000,P=outline.map(p=>[p[0],p[1]]),n=P.length;
   const lengths=P.map((p,i)=>Math.hypot(P[(i+1)%n][0]-p[0],P[(i+1)%n][1]-p[1]));
   const edgeMatches=lengths.map((target,e)=>Array.from({length:n},(_,j)=>j).filter(j=>Math.abs(lengths[j]-target)<=.75).sort((j,k)=>(j===e?-1:k===e?1:0)||Math.abs(lengths[j]-target)-Math.abs(lengths[k]-target)||j-k));
   const modes=preferReflect?[true,false]:[false,true];
   const c=cent(P),rootG=[1,0,0,1,450-c[0],300-c[1]];
   const tx=(g,p)=>fcApplyRigid(g,p),apply=(g,poly)=>poly.map(p=>tx(g,p));
   const rootOut=apply(rootG,P),rootBox=fcBBox(rootOut),maxDim=Math.max(rootBox[2]-rootBox[0],rootBox[3]-rootBox[1]);
-  const margin=Math.max(90,Math.min(320,maxDim*1.45)),view=[-margin,-margin,900+margin,600+margin];
+  const margin=Math.max(420,Math.min(720,maxDim*2.1)),view=[-margin,-margin,900+margin,600+margin];
   const hit=bb=>bb[2]>=view[0]&&bb[0]<=view[2]&&bb[3]>=view[1]&&bb[1]<=view[3];
   const tiles=[{g:rootG,out:rootOut,bb:fcBBox(rootOut)}];
   let head=0,attempts=0;
-  while(head<tiles.length&&tiles.length<1200&&attempts<110000&&performance.now()<deadline){
+  while(head<tiles.length&&tiles.length<1800&&attempts<150000&&performance.now()<deadline){
    const current=tiles[head++],Q=current.out;
-   for(let e=0;e<n&&tiles.length<1200&&attempts<110000&&performance.now()<deadline;e++){
+   for(let e=0;e<n&&tiles.length<1800&&attempts<150000&&performance.now()<deadline;e++){
     if(fcGrowthEdgeCovered(Q,e,tiles,current))continue;
     const a=Q[e],b=Q[(e+1)%n],targetLen=Math.hypot(b[0]-a[0],b[1]-a[1]);
     const js=edgeMatches[e];

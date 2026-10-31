@@ -104,7 +104,11 @@ h1{font-size:clamp(21px,3vw,30px);line-height:1.45;margin:0 0 9px;font-weight:70
       try{
         await loadScript('https://cdn.jsdelivr.net/npm/mammoth@1.9.0/mammoth.browser.min.js');
       }catch(e){
-        await loadScript('https://unpkg.com/mammoth@1.9.0/mammoth.browser.min.js');
+        try{
+          await loadScript('https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.9.0/mammoth.browser.min.js');
+        }catch(e2){
+          await loadScript('https://unpkg.com/mammoth@1.9.0/mammoth.browser.min.js');
+        }
       }
       const response=await fetch(fileUrl,{cache:'no-store'});
       if(!response.ok) throw new Error('原始文档读取失败（HTTP '+response.status+'）');

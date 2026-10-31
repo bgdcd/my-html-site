@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#173b62">
+<title>活页在线预览｜数智赋能小学跨学科主题课程</title>
+<style>
+:root{--navy:#173b62;--blue:#2765a7;--ink:#233247;--muted:#6d7b8c;--line:#dce4ed;--paper:#fff;--bg:#f2f5f9}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Microsoft YaHei","PingFang SC","Noto Sans CJK SC",Arial,sans-serif}
+.top{background:linear-gradient(120deg,#173b62,#285f91);color:#fff;padding:30px 20px 25px}
+.top-inner{max-width:1080px;margin:auto}
+.eyebrow{font-size:12px;letter-spacing:.16em;opacity:.82;margin-bottom:10px}
+h1{font-size:clamp(21px,3vw,30px);line-height:1.45;margin:0 0 9px;font-weight:700}
+.subtitle{font-size:14px;opacity:.86}
+.wrap{max-width:1080px;margin:22px auto 48px;padding:0 18px}
+.toolbar{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;background:#fff;border:1px solid var(--line);border-radius:14px;padding:15px 18px;box-shadow:0 5px 18px rgba(24,53,82,.05)}
+.fileinfo{display:flex;align-items:center;gap:12px;min-width:220px;flex:1}
+.word-icon{width:43px;height:48px;border-radius:8px;background:#eaf2fc;color:#2464a5;display:grid;place-items:center;font-weight:800;font-size:18px}
+.filename{font-size:14px;font-weight:700;line-height:1.5;overflow-wrap:anywhere}
+.meta{font-size:12px;color:var(--muted);margin-top:3px}
+.actions{display:flex;gap:9px;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:10px 15px;border-radius:9px;text-decoration:none;font-size:14px;font-weight:700;border:1px solid var(--blue);background:var(--blue);color:white;cursor:pointer}
+.btn.secondary{background:#fff;color:var(--blue);border-color:#c7d7e8}
+.btn:hover{filter:brightness(.96)}
+.note{font-size:12px;color:var(--muted);line-height:1.7;margin:12px 3px 17px}
+.paper{background:var(--paper);border:1px solid var(--line);border-radius:14px;box-shadow:0 8px 24px rgba(24,53,82,.06);padding:clamp(20px,4vw,48px);min-height:420px}
+.paper-head{border-bottom:1px solid #e7edf3;padding-bottom:15px;margin-bottom:22px;display:flex;justify-content:space-between;gap:12px;align-items:center}
+.paper-head strong{font-size:15px}
+.status{font-size:12px;color:var(--muted)}
+#preview{font-size:15px;line-height:1.95;overflow-wrap:anywhere}
+#preview h1,#preview h2,#preview h3{color:#172f49;line-height:1.55;margin:1.4em 0 .65em}
+#preview h1{font-size:25px;text-align:center}
+#preview h2{font-size:20px}
+#preview h3{font-size:17px}
+#preview p{margin:.65em 0;text-indent:2em}
+#preview table{width:100%;border-collapse:collapse;margin:18px 0;font-size:14px;display:block;overflow-x:auto}
+#preview td,#preview th{border:1px solid #aebbc9;padding:8px 10px;vertical-align:top;min-width:70px}
+#preview th{background:#f0f4f8;font-weight:700}
+#preview img{max-width:100%;height:auto}
+#preview ul,#preview ol{padding-left:2em}
+#preview blockquote{border-left:3px solid #9bb6d2;margin:1em 0;padding:.2em 1em;color:#526579;background:#f7f9fb}
+.loading{display:flex;align-items:center;gap:11px;color:var(--muted);padding:35px 0}
+.spinner{width:18px;height:18px;border:2px solid #d8e2ed;border-top-color:var(--blue);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.error{background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;border-radius:10px;padding:15px;line-height:1.8}
+.footer{text-align:center;font-size:12px;color:#8491a0;margin-top:18px;line-height:1.8}
+@media(max-width:620px){.top{padding:24px 17px}.wrap{padding:0 12px;margin-top:14px}.toolbar{padding:13px}.actions{width:100%}.actions .btn{flex:1}.paper{padding:19px 15px}}
+@media print{body{background:white}.top,.toolbar,.note,.paper-head,.footer{display:none!important}.wrap{margin:0;padding:0}.paper{border:0;box-shadow:none;padding:0}}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="top-inner">
+    <div class="eyebrow">DOCUMENT PREVIEW · PUBLIC ACCESS</div>
+    <h1>数智赋能小学跨学科主题课程的实践模型建构与验证研究</h1>
+    <div class="subtitle">“吾同·共创”课程研究活页 · 在线预览与免费下载</div>
+  </div>
+</header>
+<main class="wrap">
+  <section class="toolbar" aria-label="文档操作">
+    <div class="fileinfo">
+      <div class="word-icon">W</div>
+      <div>
+        <div class="filename">活页：数智赋能小学跨学科主题课程的实践模型建构与验证研究——以“吾同·共创”课程为例.docx</div>
+        <div class="meta">Microsoft Word 文档 · 原始文件 · 约 22 KB</div>
+      </div>
+    </div>
+    <div class="actions">
+      <a class="btn" id="downloadLink" href="#" download>↓ 下载 Word 原文件</a>
+      <a class="btn secondary" id="officeLink" href="#" target="_blank" rel="noopener">在 Office 中预览 ↗</a>
+    </div>
+  </section>
+  <p class="note">无需注册、无需手机号、无需登录。页面下方可直接阅读文档；“下载 Word 原文件”会下载你上传的原始 .docx。网页预览会尽量保留正文、标题、表格和图片，正式排版请以下载的 Word 原件为准。</p>
+  <section class="paper">
+    <div class="paper-head">
+      <strong>文档正文预览</strong>
+      <span class="status" id="status">正在载入文档…</span>
+    </div>
+    <div id="preview"><div class="loading"><span class="spinner"></span>正在读取并生成在线预览，请稍候…</div></div>
+  </section>
+  <div class="footer">公开阅读与下载页面 · 不收集访问者手机号或个人信息</div>
+</main>
+<script>
+(function(){
+  const fileName = '活页：数智赋能小学跨学科主题课程的实践模型建构与验证研究——以“吾同·共创”课程为例.docx';
+  const fileUrl = './' + encodeURIComponent(fileName);
+  const preview = document.getElementById('preview');
+  const status = document.getElementById('status');
+  document.getElementById('downloadLink').href = fileUrl;
+  document.getElementById('officeLink').href =
+    'https://view.officeapps.live.com/op/view.aspx?src=' + encodeURIComponent(new URL(fileUrl, window.location.href).href);
+
+  function loadScript(url){
+    return new Promise((resolve,reject)=>{
+      const script=document.createElement('script');
+      script.src=url; script.onload=resolve; script.onerror=()=>reject(new Error('预览组件加载失败'));
+      document.head.appendChild(script);
+    });
+  }
+  async function start(){
+    try{
+      try{
+        await loadScript('https://cdn.jsdelivr.net/npm/mammoth@1.9.0/mammoth.browser.min.js');
+      }catch(e){
+        await loadScript('https://unpkg.com/mammoth@1.9.0/mammoth.browser.min.js');
+      }
+      const response=await fetch(fileUrl,{cache:'no-store'});
+      if(!response.ok) throw new Error('原始文档读取失败（HTTP '+response.status+'）');
+      const arrayBuffer=await response.arrayBuffer();
+      const result=await mammoth.convertToHtml({arrayBuffer:arrayBuffer});
+      preview.innerHTML=result.value || '<p>文档内容为空，请下载 Word 原文件查看。</p>';
+      status.textContent='预览已生成';
+      if(result.messages && result.messages.length){
+        const hint=document.createElement('p');
+        hint.className='note';
+        hint.textContent='提示：部分复杂排版可能与 Word 原件略有差异。';
+        preview.appendChild(hint);
+      }
+    }catch(err){
+      status.textContent='在线预览暂不可用';
+      preview.innerHTML='<div class="error"><strong>暂时无法生成在线预览。</strong><br>可能是当前网络无法加载预览组件，或文档服务器暂时无法连接。你仍可点击页面上方的“下载 Word 原文件”直接下载；也可尝试“在 Office 中预览”。<br><small>'+String(err.message||err)+'</small></div>';
+    }
+  }
+  start();
+})();
+</script>
+</body>
+</html>

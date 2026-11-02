@@ -14,6 +14,9 @@ from typing import Optional
 import fitz
 import httpx
 from docx import Document
+from docx.shared import Cm, Pt
+from docx.oxml import OxmlElement
+from docx.oxml.ns import qn
 from fastapi import FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -773,16 +776,18 @@ def export_review_project_docx(project_id: int, style: str = Query("gb", pattern
 
     document = Document()
     section = document.sections[0]
-    section.top_margin = section.bottom_margin =  section.left_margin = section.right_margin = __import__("docx").shared.Cm(2.54)
+    section.top_margin = section.bottom_margin =  section.left_margin = section.right_margin = Cm(2.54)
 
     def set_run_font(run, size=12, bold=False):
         run.font.name = "宋体"
-        run.font.size = __import__("docx").shared.Pt(size)
+        run.font.size = Pt(size)
         run.bold = bold
         rpr = run._element.get_or_add_rPr()
         rfonts = rpr.rFonts
-        if rfonts is not None:
-            rfonts.set("{http://schemas.openxmlformats.org/wordprocessingml/2006/main}eastAsia", "宋体")
+        if rfonts is None:
+            rfonts = OxmlElement("w:rFonts")
+            rpr.insert(0, rfonts)
+        rfonts.set(qn("w:eastAsia"), "宋体")
 
     title = document.add_heading(data["title"] or "文献综述", 0)
     title.alignment = 1
@@ -820,7 +825,7 @@ def export_review_project_docx(project_id: int, style: str = Query("gb", pattern
         else:
             body_text = paragraph["content"]
         p = document.add_paragraph()
-        p.paragraph_format.first_line_indent = __import__("docx").shared.Cm(0.74)
+        p.paragraph_format.first_line_indent = Cm(0.74)
         p.paragraph_format.line_spacing = 1.5
         set_run_font(p.add_run(body_text), 12)
 
@@ -839,7 +844,7 @@ def export_review_project_docx(project_id: int, style: str = Query("gb", pattern
             reference = authors + "（" + year + "）. " + paper_title + ". " + (journal or "出版来源待核验") + (". DOI: " + doi if doi else "") + "."
         p = document.add_paragraph(reference)
         p.paragraph_format.left_indent = __import__("docx").shared.Cm(0.74)
-        p.paragraph_format.first_line_indent = __import__("docx").shared.Cm(-0.74)
+        p.paragraph_format.first_line_indent = Cm(-0.74)
         for run in p.runs:
             set_run_font(run, 10)
 

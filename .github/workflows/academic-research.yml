@@ -80,6 +80,7 @@ jobs:
           assert extract_doi("DOI: 10.1234/example.2024") == "10.1234/example.2024"
           assert guess_title("页眉\n一个足够明确的论文题名\n正文", "paper.pdf") == "一个足够明确的论文题名"
           print("应用导入、分类、证据卡片、综述项目、Word导出接口、DOI和题名识别检查通过")
+          PY
 
       - name: Docker镜像构建与容器健康检查
         run: |
@@ -98,4 +99,3 @@ jobs:
           done
           echo "容器未能在限定时间内通过健康检查"
           exit 1
-          PY

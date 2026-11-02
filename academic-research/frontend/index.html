@@ -7,7 +7,7 @@
 :root{font-family:"Microsoft YaHei",system-ui,sans-serif;color:#172033;background:#f4f6fb}*{box-sizing:border-box}body{margin:0}.top{background:#152544;color:white;padding:22px max(22px,calc((100% - 1180px)/2))}.top h1{margin:0;font-size:25px}.top p{margin:7px 0 0;color:#c9d5eb}.wrap{max-width:1180px;margin:24px auto;padding:0 18px}.grid{display:grid;grid-template-columns:220px 1fr;gap:18px}.panel,.card{background:white;border:1px solid #e3e8f1;border-radius:14px;padding:18px;box-shadow:0 5px 18px #1c31500a}.nav button{display:block;width:100%;text-align:left;border:0;background:transparent;padding:12px;border-radius:9px;color:#35425a;cursor:pointer;font-size:15px}.nav button.active,.nav button:hover{background:#eaf0fb;color:#1d4d91}.main h2{margin:0 0 15px;font-size:20px}.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}.stat strong{font-size:27px;display:block;color:#1e4f91}.stat span,.muted{color:#748097;font-size:13px}.row{display:flex;gap:9px;flex-wrap:wrap;align-items:center;margin:12px 0}input,select{padding:10px 12px;border:1px solid #d7deea;border-radius:8px;font:inherit;min-width:0}input[type=text]{flex:1}button.primary{background:#2459a6;color:white;border:0;border-radius:8px;padding:10px 15px;cursor:pointer}button.secondary{background:#edf2fa;color:#244b80;border:0;border-radius:8px;padding:10px 15px;cursor:pointer}.paper{padding:13px 0;border-bottom:1px solid #edf0f5}.paper:last-child{border:0}.paper b{display:block;margin-bottom:5px}.tag{display:inline-block;background:#eef3fb;color:#315987;border-radius:20px;padding:3px 8px;font-size:12px;margin:4px 4px 0 0}.hidden{display:none}.notice{background:#fff8e9;border:1px solid #f1dfb8;padding:12px;border-radius:9px;color:#75551a;font-size:13px;margin:12px 0}pre{white-space:pre-wrap;word-break:break-word;background:#f7f8fb;padding:12px;border-radius:8px;max-height:360px;overflow:auto}.detail-head{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center}.detail-meta{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin:14px 0}.detail-meta div{background:#f7f8fb;padding:10px;border-radius:8px}.detail-body{white-space:pre-wrap;line-height:1.8;max-height:none;overflow:visible}.snippet{background:#f7f8fb;border-left:3px solid #6b91c7;padding:12px;margin:10px 0;white-space:pre-wrap;line-height:1.7}@media(max-width:700px){.grid{grid-template-columns:1fr}.nav{display:flex;overflow:auto}.nav button{white-space:nowrap;width:auto}.stats{grid-template-columns:repeat(3,1fr)}}
 </style></head>
 <body>
-<header class="top"><h1>学术智库</h1><p>真实文献管理 · 学术资料检索 · 研究知识积累</p><div class="row"><input id="accessToken" type="password" placeholder="服务器访问口令（仅保存在当前浏览器会话）" style="max-width:420px;background:#fff"><button class="secondary" onclick="saveAccessToken()">保存访问口令</button><span id="securityNotice" style="color:#e7edf8;font-size:13px">正在检查访问保护…</span></div></header>
+<header class="top"><h1>学术智库</h1><p>真实文献管理 · 学术资料检索 · 研究知识积累</p><div class="row"><input id="accountName" type="text" placeholder="账号名称" autocomplete="username" style="max-width:170px;background:#fff"><input id="accountPassword" type="password" placeholder="密码（至少10位）" autocomplete="current-password" style="max-width:210px;background:#fff"><input id="registrationCode" type="password" placeholder="管理员初始化口令 / 注册邀请码" style="max-width:250px;background:#fff"><button class="secondary" onclick="loginAccount()">登录</button><button class="secondary" onclick="registerAccount()">创建账号</button><button class="secondary" onclick="logoutAccount()">退出登录</button><span id="accountNotice" style="color:#e7edf8;font-size:13px">正在检查账号状态…</span></div><div class="row"><input id="accessToken" type="password" placeholder="旧版服务器共享访问口令（过渡使用）" style="max-width:420px;background:#fff"><button class="secondary" onclick="saveAccessToken()">保存共享口令</button><span id="securityNotice" style="color:#e7edf8;font-size:13px">正在检查访问保护…</span></div></header>
 <div class="wrap"><div class="grid">
 <aside class="panel nav">
 <button class="active" data-tab="overview">总览</button><button data-tab="writing">文献综述工作台</button><button data-tab="library">我的文献库</button><button data-tab="external">外部文献检索</button><button data-tab="review">证据综合分析</button><button data-tab="graph">文献知识图谱</button><button data-tab="themes">研究主题归纳</button><button data-tab="analysis">结论对照与研究空白</button><button data-tab="upload">上传论文</button><button data-tab="areas">研究领域管理</button>
@@ -33,19 +33,61 @@ function saveAccessToken(){
  loadSecurityStatus();
  refresh();loadPapers();loadReviewChoices();loadReviewProjects();
 }
+async function loginAccount(){
+ try{
+  const d=await api('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:$('accountName').value.trim(),password:$('accountPassword').value})});
+  sessionStorage.setItem('academic_account_token',d.access_token);
+  sessionStorage.removeItem('academic_access_token');
+  $('accountPassword').value='';$('registrationCode').value='';
+  await afterAccountChange();
+ }catch(e){$('accountNotice').textContent=e.message}
+}
+async function registerAccount(){
+ try{
+  const d=await api('/api/auth/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:$('accountName').value.trim(),password:$('accountPassword').value,registration_code:$('registrationCode').value})});
+  sessionStorage.setItem('academic_account_token',d.access_token);
+  sessionStorage.removeItem('academic_access_token');
+  $('accountPassword').value='';$('registrationCode').value='';
+  await afterAccountChange();
+ }catch(e){$('accountNotice').textContent=e.message}
+}
+async function logoutAccount(){
+ try{await api('/api/auth/logout',{method:'POST'})}catch(e){}
+ sessionStorage.removeItem('academic_account_token');
+ $('accountNotice').textContent='已退出登录';
+ await loadAccountStatus();
+}
+async function afterAccountChange(){
+ await loadAccountStatus();loadSecurityStatus();
+ await Promise.all([refresh(),loadPapers(),loadReviewChoices(),loadReviewProjects()]);
+}
+async function loadAccountStatus(){
+ try{
+  const status=await api('/api/auth/status');
+  const token=sessionStorage.getItem('academic_account_token')||'';
+  if(token){
+   try{const me=await api('/api/auth/me');$('accountNotice').textContent='已登录：'+me.username+'（'+(me.role==='admin'?'管理员':'成员')+'）';}
+   catch(e){sessionStorage.removeItem('academic_account_token');$('accountNotice').textContent='登录已失效，请重新登录';}
+  }else if(status.first_account_setup){
+   $('accountNotice').textContent='首次使用：请用管理员初始化口令创建账号';
+  }else{
+   $('accountNotice').textContent='尚未登录，请输入账号和密码';
+  }
+ }catch(e){$('accountNotice').textContent='账号服务暂不可用：'+e.message}
+}
 async function loadSecurityStatus(){
  try{
   const d=await api('/api/security/status');
-  $('securityNotice').textContent=d.access_control_enabled?'访问口令保护已启用（共享口令）':'未启用访问口令保护';
-  $('securityNotice').style.color=d.access_control_enabled?'#c7f3d2':'#ffd7a1';
+  $('securityNotice').textContent=d.mode+'；'+d.notice;
+  $('securityNotice').style.color=d.accounts_enabled?'#c7f3d2':(d.access_control_enabled?'#c7f3d2':'#ffd7a1');
  }catch(e){$('securityNotice').textContent='无法读取安全状态'}
 }
 async function api(url,opts={}){
  const headers=new Headers(opts.headers||{});
- const token=sessionStorage.getItem('academic_access_token')||'';
+ const token=sessionStorage.getItem('academic_account_token')||sessionStorage.getItem('academic_access_token')||'';
  if(token)headers.set('Authorization','Bearer '+token);
  const r=await fetch(url,{...opts,headers});
- const d=await r.json();
+ let d={};try{d=await r.json()}catch(e){}
  if(!r.ok)throw Error(d.detail||'请求失败');
  return d
 }
@@ -343,5 +385,5 @@ async function moveArea(id){const parent=$('parent-'+id).value;try{await api('/a
 async function mergeArea(id){const a=await api('/api/areas');const choices=a.filter(x=>x.id!==id);const target=prompt('请输入要合并到的目标分类编号：\\n'+choices.map(x=>x.id+'：'+x.name).join('\\n'));if(!target)return;try{const d=await api('/api/areas/'+id+'/merge',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({target_area_id:Number(target)})});alert('合并完成，迁移文献 '+d.moved_papers+' 篇');refresh()}catch(e){alert(e.message)}}
 async function deleteArea(id){if(!confirm('确定删除该分类？有关联文献或下级分类时系统会阻止删除。'))return;try{await api('/api/areas/'+id,{method:'DELETE'});refresh()}catch(e){alert(e.message)}}
 async function addArea(){const n=$('areaName').value.trim();if(!n)return;try{await api('/api/areas',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:n})});$('areaName').value='';refresh()}catch(e){alert(e.message)}}
-loadSecurityStatus();refresh();loadPapers();loadReviewChoices();loadReviewProjects();
+loadAccountStatus();loadSecurityStatus();refresh();loadPapers();loadReviewChoices();loadReviewProjects();
 </script></body></html>

@@ -9,7 +9,8 @@ import secrets
 import zipfile
 from io import BytesIO
 from urllib.parse import quote
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
+from contextvars import ContextVar
 from pathlib import Path
 from typing import Optional
 
@@ -23,8 +24,8 @@ from fastapi import FastAPI, File, HTTPException, Query, UploadFile, Request
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, create_engine, select, or_, inspect, text as sql_text
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, sessionmaker
+from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, create_engine, select, or_, inspect, text as sql_text, event
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, sessionmaker, Session as SQLAlchemySession, with_loader_criteria
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = ROOT / "data"
@@ -38,9 +39,28 @@ SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 class Base(DeclarativeBase):
     pass
 
+current_user_id: ContextVar[Optional[int]] = ContextVar("academic_current_user_id", default=None)
+
+class User(Base):
+    __tablename__ = "users"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    username: Mapped[str] = mapped_column(String(80), nullable=False, unique=True, index=True)
+    password_hash: Mapped[str] = mapped_column(String(300), nullable=False)
+    role: Mapped[str] = mapped_column(String(20), default="member")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+class LoginSession(Base):
+    __tablename__ = "login_sessions"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    token_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True, index=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+
 class ResearchArea(Base):
     __tablename__ = "research_areas"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    owner_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     parent_id: Mapped[Optional[int]] = mapped_column(ForeignKey("research_areas.id"), nullable=True)
     is_placeholder: Mapped[bool] = mapped_column(default=False)
@@ -49,6 +69,7 @@ class ResearchArea(Base):
 class Paper(Base):
     __tablename__ = "papers"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    owner_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
     title: Mapped[str] = mapped_column(String(1000), default="未识别标题")
     authors: Mapped[str] = mapped_column(Text, default="")
     journal: Mapped[str] = mapped_column(String(500), default="")
@@ -72,6 +93,7 @@ class Paper(Base):
 class EvidenceCard(Base):
     __tablename__ = "evidence_cards"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    owner_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
     paper_id: Mapped[int] = mapped_column(ForeignKey("papers.id"), nullable=False, index=True)
     evidence_type: Mapped[str] = mapped_column(String(80), default="研究结论")
     claim: Mapped[str] = mapped_column(Text, nullable=False)
@@ -88,6 +110,7 @@ class EvidenceCard(Base):
 class ReviewProject(Base):
     __tablename__ = "review_projects"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    owner_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
     title: Mapped[str] = mapped_column(String(500), nullable=False)
     topic: Mapped[str] = mapped_column(String(1000), default="")
     notes: Mapped[str] = mapped_column(Text, default="")
@@ -96,6 +119,7 @@ class ReviewProject(Base):
 class ReviewParagraph(Base):
     __tablename__ = "review_paragraphs"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    owner_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
     project_id: Mapped[int] = mapped_column(ForeignKey("review_projects.id"), nullable=False, index=True)
     heading: Mapped[str] = mapped_column(String(500), default="")
     content: Mapped[str] = mapped_column(Text, nullable=False)
@@ -106,12 +130,17 @@ class ReviewParagraph(Base):
 Base.metadata.create_all(engine)
 
 def migrate_schema():
-    columns = {column['name'] for column in inspect(engine).get_columns('papers')}
-    evidence_columns = {column['name'] for column in inspect(engine).get_columns('evidence_cards')}
     with engine.begin() as connection:
-        if 'text_segments' not in columns:
+        for table in ("research_areas", "papers", "evidence_cards", "review_projects", "review_paragraphs"):
+            columns = {column["name"] for column in inspect(engine).get_columns(table)}
+            if "owner_id" not in columns:
+                connection.execute(sql_text(f"ALTER TABLE {table} ADD COLUMN owner_id INTEGER REFERENCES users(id)"))
+            connection.execute(sql_text(f"CREATE INDEX IF NOT EXISTS ix_{table}_owner_id ON {table} (owner_id)"))
+        paper_columns = {column["name"] for column in inspect(engine).get_columns("papers")}
+        evidence_columns = {column["name"] for column in inspect(engine).get_columns("evidence_cards")}
+        if "text_segments" not in paper_columns:
             connection.execute(sql_text("ALTER TABLE papers ADD COLUMN text_segments TEXT DEFAULT '[]'"))
-        if 'theme_tag' not in evidence_columns:
+        if "theme_tag" not in evidence_columns:
             connection.execute(sql_text("ALTER TABLE evidence_cards ADD COLUMN theme_tag VARCHAR(120) DEFAULT ''"))
 
 migrate_schema()
@@ -126,25 +155,171 @@ def seed_areas():
         db.commit()
 
 seed_areas()
+OWNED_MODELS = (ResearchArea, Paper, EvidenceCard, ReviewProject, ReviewParagraph)
+
+@event.listens_for(SQLAlchemySession, "do_orm_execute")
+def apply_account_data_scope(execute_state):
+    account_id = current_user_id.get()
+    if account_id is None or not execute_state.is_select:
+        return
+    for model in OWNED_MODELS:
+        execute_state.statement = execute_state.statement.options(
+            with_loader_criteria(model, lambda entity: entity.owner_id == account_id, include_aliases=True)
+        )
+
+@event.listens_for(SQLAlchemySession, "before_flush")
+def assign_account_owner(session, flush_context, instances):
+    account_id = current_user_id.get()
+    if account_id is None:
+        return
+    for item in session.new:
+        if isinstance(item, OWNED_MODELS) and item.owner_id is None:
+            item.owner_id = account_id
+
 app = FastAPI(title="学术智库", version="0.1.0", description="真实文献元数据检索与个人文献管理")
+
+def password_digest(password: str, salt: bytes | None = None) -> str:
+    salt = salt or secrets.token_bytes(16)
+    digest = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, 310000)
+    return salt.hex() + "$" + digest.hex()
+
+def verify_password(password: str, stored: str) -> bool:
+    try:
+        salt_hex, expected_hex = stored.split("$", 1)
+        actual = password_digest(password, bytes.fromhex(salt_hex)).split("$", 1)[1]
+        return secrets.compare_digest(actual, expected_hex)
+    except (ValueError, TypeError):
+        return False
+
+def token_digest(token: str) -> str:
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+def account_count() -> int:
+    with SessionLocal() as db:
+        return int(db.scalar(select(User.id).limit(1)) is not None)
 
 @app.middleware("http")
 async def security_gate(request: Request, call_next):
-    expected = os.getenv("ACADEMIC_ACCESS_TOKEN", "").strip()
-    if expected and request.url.path.startswith("/api/") and request.url.path not in {"/api/health", "/api/security/status"}:
+    path = request.url.path
+    public_paths = {"/api/health", "/api/security/status", "/api/auth/status", "/api/auth/register", "/api/auth/login"}
+    account_token = ""
+    account_id = None
+    if path.startswith("/api/") and path not in public_paths:
         supplied = request.headers.get("authorization", "")
-        token = supplied[7:].strip() if supplied.lower().startswith("bearer ") else ""
-        if not token or not secrets.compare_digest(token, expected):
+        account_token = supplied[7:].strip() if supplied.lower().startswith("bearer ") else ""
+        if account_token:
+            with SessionLocal() as db:
+                record = db.scalar(select(LoginSession).where(LoginSession.token_hash == token_digest(account_token)))
+                if record and record.expires_at > datetime.now(timezone.utc):
+                    account_id = record.user_id
+        users_exist = account_count()
+        if users_exist and account_id is None:
             from starlette.responses import JSONResponse
-            return JSONResponse(status_code=401, content={"detail": "访问口令不正确或已失效。请在页面顶部输入服务器访问口令。"})
-    return await call_next(request)
+            return JSONResponse(status_code=401, content={"detail": "请先登录学术智库账号。"})
+        if not users_exist:
+            expected = os.getenv("ACADEMIC_ACCESS_TOKEN", "").strip()
+            if expected and (not account_token or not secrets.compare_digest(account_token, expected)):
+                from starlette.responses import JSONResponse
+                return JSONResponse(status_code=401, content={"detail": "服务器访问口令不正确。"})
+    elif path == "/api/health":
+        supplied = request.headers.get("authorization", "")
+        possible = supplied[7:].strip() if supplied.lower().startswith("bearer ") else ""
+        if possible:
+            with SessionLocal() as db:
+                record = db.scalar(select(LoginSession).where(LoginSession.token_hash == token_digest(possible)))
+                if record and record.expires_at > datetime.now(timezone.utc):
+                    account_id = record.user_id
+    marker = current_user_id.set(account_id)
+    try:
+        return await call_next(request)
+    finally:
+        current_user_id.reset(marker)
+
+class AccountRegisterInput(BaseModel):
+    username: str = Field(min_length=3, max_length=80, pattern=r"^[A-Za-z0-9_.-]+$")
+    password: str = Field(min_length=10, max_length=200)
+    registration_code: str = Field(default="", max_length=200)
+
+class AccountLoginInput(BaseModel):
+    username: str = Field(min_length=1, max_length=80)
+    password: str = Field(min_length=1, max_length=200)
+
+def issue_login(db, user: User):
+    raw_token = secrets.token_urlsafe(48)
+    session = LoginSession(user_id=user.id, token_hash=token_digest(raw_token),
+                           expires_at=datetime.now(timezone.utc) + timedelta(days=30))
+    db.add(session)
+    db.commit()
+    return {"access_token": raw_token, "token_type": "bearer", "expires_in_days": 30,
+            "user": {"id": user.id, "username": user.username, "role": user.role}}
+
+@app.get("/api/auth/status")
+def auth_status():
+    with SessionLocal() as db:
+        count = db.scalar(select(User.id).limit(1))
+        return {"accounts_enabled": count is not None, "first_account_setup": count is None,
+                "registration_code_required": count is not None,
+                "notice": "首次创建账号将接管现有未分配文献；后续账号必须提供服务器配置的注册邀请码。"}
+
+@app.post("/api/auth/register")
+def register_account(payload: AccountRegisterInput):
+    with SessionLocal() as db:
+        first_user = db.scalar(select(User.id).limit(1)) is None
+        if not first_user:
+            invite = os.getenv("ACADEMIC_REGISTRATION_CODE", "").strip()
+            if not invite or not payload.registration_code or not secrets.compare_digest(payload.registration_code, invite):
+                raise HTTPException(403, "当前不开放自由注册。请联系管理员获取有效注册邀请码。")
+        if db.scalar(select(User.id).where(User.username == payload.username)):
+            raise HTTPException(409, "用户名已存在。")
+        user = User(username=payload.username, password_hash=password_digest(payload.password),
+                    role="admin" if first_user else "member")
+        db.add(user)
+        db.flush()
+        if first_user:
+            for table in ("research_areas", "papers", "evidence_cards", "review_projects", "review_paragraphs"):
+                db.execute(sql_text(f"UPDATE {table} SET owner_id = :uid WHERE owner_id IS NULL"), {"uid": user.id})
+        db.commit()
+        db.refresh(user)
+        return issue_login(db, user)
+
+@app.post("/api/auth/login")
+def login_account(payload: AccountLoginInput):
+    with SessionLocal() as db:
+        user = db.scalar(select(User).where(User.username == payload.username))
+        if user is None or not verify_password(payload.password, user.password_hash):
+            raise HTTPException(401, "用户名或密码不正确。")
+        return issue_login(db, user)
+
+@app.get("/api/auth/me")
+def account_me():
+    account_id = current_user_id.get()
+    if account_id is None:
+        raise HTTPException(401, "请先登录。")
+    with SessionLocal() as db:
+        user = db.get(User, account_id)
+        if user is None:
+            raise HTTPException(401, "账号不存在或已失效。")
+        return {"id": user.id, "username": user.username, "role": user.role}
+
+@app.post("/api/auth/logout")
+def logout_account(request: Request):
+    supplied = request.headers.get("authorization", "")
+    token = supplied[7:].strip() if supplied.lower().startswith("bearer ") else ""
+    if token:
+        with SessionLocal() as db:
+            record = db.scalar(select(LoginSession).where(LoginSession.token_hash == token_digest(token)))
+            if record:
+                db.delete(record)
+                db.commit()
+    return {"logged_out": True}
 
 @app.get("/api/security/status")
 def security_status():
     enabled = bool(os.getenv("ACADEMIC_ACCESS_TOKEN", "").strip())
-    return {"access_control_enabled": enabled,
-            "mode": "单一共享访问口令" if enabled else "未启用访问口令",
-            "notice": "共享口令仅用于基础访问限制，不提供个人账号、角色权限或文献数据隔离。公网部署前请启用强口令，并限制平台访问。" if enabled else "当前未设置 ACADEMIC_ACCESS_TOKEN，API未启用访问口令保护。请勿将未保护实例公开部署。"}
+    users = account_count()
+    return {"access_control_enabled": enabled, "accounts_enabled": users > 0,
+            "mode": "个人账号登录与数据隔离" if users else ("单一共享访问口令" if enabled else "尚未设置访问保护"),
+            "notice": "个人账号启用后，文献、证据卡片、研究分类和综述项目按账号隔离。首次注册接管现有数据；后续注册需配置 ACADEMIC_REGISTRATION_CODE。" if users else "首次使用请先创建管理员账号。尚未创建账号时，旧版共享访问口令仍可用于过渡。"}
 
 app.mount("/static", StaticFiles(directory=ROOT / "frontend"), name="static")
 

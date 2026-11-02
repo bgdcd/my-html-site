@@ -280,6 +280,13 @@ async def security_gate(request: Request, call_next):
                     if account_user and account_user.is_active:
                         account_id = record.user_id
         users_exist = account_count()
+        if account_id is not None:
+            with SessionLocal() as db:
+                signed_in_user = db.get(User, account_id)
+                password_exempt = {"/api/auth/me", "/api/auth/change-password", "/api/auth/logout", "/api/health", "/api/security/status"}
+                if signed_in_user and signed_in_user.force_password_change and path not in password_exempt:
+                    from starlette.responses import JSONResponse
+                    return JSONResponse(status_code=403, content={"detail": "管理员已重置你的密码，请先在“账号与安全”页面修改密码。"})
         if users_exist and account_id is None:
             from starlette.responses import JSONResponse
             return JSONResponse(status_code=401, content={"detail": "请先登录学术智库账号。"})
@@ -461,6 +468,26 @@ def admin_set_user_status(user_id: int, payload: UserStatusInput, request: Reque
                      "启用账号" if payload.is_active else "停用账号并撤销全部会话", request)
         db.commit()
         return {"id": target.id, "username": target.username, "is_active": target.is_active}
+
+class AdminPasswordResetInput(BaseModel):
+    temporary_password: str = Field(min_length=10, max_length=200)
+
+@app.post("/api/admin/users/{user_id}/reset-password")
+def admin_reset_user_password(user_id: int, payload: AdminPasswordResetInput, request: Request):
+    with SessionLocal() as db:
+        admin = require_admin(db)
+        target = db.get(User, user_id)
+        if not target:
+            raise HTTPException(404, "账号不存在。")
+        if target.id == admin.id:
+            raise HTTPException(400, "管理员不能通过此入口重置自己的密码，请使用修改密码功能。")
+        target.password_hash = password_digest(payload.temporary_password)
+        target.force_password_change = True
+        db.query(LoginSession).filter(LoginSession.user_id == target.id).delete(synchronize_session=False)
+        record_audit(db, "admin_password_reset", admin.id, target.id,
+                     "管理员设置临时密码，要求用户下次登录后修改", request)
+        db.commit()
+        return {"id": target.id, "username": target.username, "force_password_change": True}
 
 @app.get("/api/admin/audit-logs")
 def admin_audit_logs(limit: int = Query(default=100, ge=1, le=500)):

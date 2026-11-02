@@ -94,6 +94,18 @@ python backup_data.py restore --backup-dir data/backups/academic-backup-备份�
 
 **重要限制：** 默认备份放在 `data/backups/`，与业务数据位于同一持久盘，只能用于误操作回滚或文件损坏时的辅助恢复，不能抵御磁盘丢失、账号被盗或云平台故障。请定期将备份目录复制到独立的异地/对象存储，并实际演练恢复。工具当前仅支持本地文件型 SQLite；如果设置 PostgreSQL 等数据库，必须改用相应数据库原生备份方案。上传文件在归档期间仍可能变化，高写入场景请暂停上传后备份。
 
+## PostgreSQL 数据库（可选）
+
+应用通过 SQLAlchemy 连接数据库。默认使用 SQLite；如需更高并发和后续多用户扩展，可在部署平台配置：
+
+```text
+ACADEMIC_DATABASE_URL=postgresql+psycopg://用户名:密码@主机:5432/数据库名
+```
+
+请将真实连接串作为平台 Secret/环境变量保存，不要提交到仓库。切换数据库不会自动迁移旧 SQLite 数据；正式切换前需要单独执行数据迁移并核对文献记录、证据卡片、综述项目及文件路径。当前 `backup_data.py` 只备份 SQLite，PostgreSQL 必须使用 `pg_dump` / `pg_restore` 等原生工具。原始上传文件仍保存在应用的 `data/uploads/`，需单独做持久化和异地备份。
+
+GitHub Actions 使用独立 PostgreSQL 16 服务运行应用导入、建表、迁移和 API 检查；Docker 健康检查仍覆盖默认 SQLite 启动路径。
+
 ## 数据保存
 首次运行后自动创建 `data/academic_library.db` 和 `data/uploads/`。请定期备份整个 `data` 目录。
 

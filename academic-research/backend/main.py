@@ -77,6 +77,24 @@ class EvidenceCard(Base):
     notes: Mapped[str] = mapped_column(Text, default="")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
 
+class ReviewProject(Base):
+    __tablename__ = "review_projects"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    title: Mapped[str] = mapped_column(String(500), nullable=False)
+    topic: Mapped[str] = mapped_column(String(1000), default="")
+    notes: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+class ReviewParagraph(Base):
+    __tablename__ = "review_paragraphs"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("review_projects.id"), nullable=False, index=True)
+    heading: Mapped[str] = mapped_column(String(500), default="")
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    evidence_ids: Mapped[str] = mapped_column(Text, default="[]")
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+
 Base.metadata.create_all(engine)
 
 def migrate_schema():
@@ -611,6 +629,136 @@ def evidence_matrix(paper_ids: str = Query(min_length=1, description="逗号分�
             "notice": "本结果仅汇总研究者已建立的证据卡片，不自动推断论文结论；请核验原文后再形成综述。"
         }
 
+
+class ReviewProjectInput(BaseModel):
+    title: str = Field(min_length=1, max_length=500)
+    topic: str = Field(default="", max_length=1000)
+    notes: str = Field(default="", max_length=10000)
+
+class ReviewParagraphInput(BaseModel):
+    heading: str = Field(default="", max_length=500)
+    content: str = Field(min_length=1, max_length=20000)
+    evidence_ids: list[int] = Field(default_factory=list, max_length=100)
+    sort_order: int = 0
+
+def serialize_review_project(db, project):
+    paragraphs = db.scalars(select(ReviewParagraph).where(
+        ReviewParagraph.project_id == project.id).order_by(
+        ReviewParagraph.sort_order, ReviewParagraph.id)).all()
+    output = []
+    for paragraph in paragraphs:
+        ids = json.loads(paragraph.evidence_ids or "[]")
+        cards = db.scalars(select(EvidenceCard).where(EvidenceCard.id.in_(ids))).all() if ids else []
+        card_map = {card.id: card for card in cards}
+        citations = []
+        for evidence_id in ids:
+            card = card_map.get(evidence_id)
+            if card is None:
+                continue
+            paper = db.get(Paper, card.paper_id)
+            if paper is None:
+                continue
+            citations.append({
+                "evidence_id": card.id, "paper_id": paper.id,
+                "title": paper.title, "authors": paper.authors,
+                "year": paper.year, "doi": paper.doi,
+                "claim": card.claim, "source_text": card.source_text,
+                "locator": card.locator, "page_number": card.page_number,
+                "paragraph_number": card.paragraph_number,
+                "verification_status": card.verification_status
+            })
+        output.append({"id": paragraph.id, "heading": paragraph.heading,
+                       "content": paragraph.content, "evidence_ids": ids,
+                       "sort_order": paragraph.sort_order, "citations": citations})
+    return {"id": project.id, "title": project.title, "topic": project.topic,
+            "notes": project.notes, "created_at": project.created_at.isoformat(),
+            "paragraphs": output}
+
+@app.get("/api/review/projects")
+def list_review_projects():
+    with SessionLocal() as db:
+        projects = db.scalars(select(ReviewProject).order_by(ReviewProject.created_at.desc())).all()
+        return [{"id": p.id, "title": p.title, "topic": p.topic,
+                 "created_at": p.created_at.isoformat()} for p in projects]
+
+@app.post("/api/review/projects")
+def create_review_project(payload: ReviewProjectInput):
+    with SessionLocal() as db:
+        project = ReviewProject(**payload.model_dump())
+        db.add(project); db.commit(); db.refresh(project)
+        return {"id": project.id, "created": True}
+
+@app.get("/api/review/projects/{project_id}")
+def get_review_project(project_id: int):
+    with SessionLocal() as db:
+        project = db.get(ReviewProject, project_id)
+        if project is None:
+            raise HTTPException(404, "综述项目不存在")
+        return serialize_review_project(db, project)
+
+@app.patch("/api/review/projects/{project_id}")
+def update_review_project(project_id: int, payload: ReviewProjectInput):
+    with SessionLocal() as db:
+        project = db.get(ReviewProject, project_id)
+        if project is None:
+            raise HTTPException(404, "综述项目不存在")
+        for key, value in payload.model_dump().items():
+            setattr(project, key, value)
+        db.commit()
+        return {"id": project.id, "updated": True}
+
+@app.delete("/api/review/projects/{project_id}")
+def delete_review_project(project_id: int):
+    with SessionLocal() as db:
+        project = db.get(ReviewProject, project_id)
+        if project is None:
+            raise HTTPException(404, "综述项目不存在")
+        paragraphs = db.scalars(select(ReviewParagraph).where(ReviewParagraph.project_id == project_id)).all()
+        for paragraph in paragraphs:
+            db.delete(paragraph)
+        db.delete(project); db.commit()
+        return {"id": project_id, "deleted": True}
+
+@app.post("/api/review/projects/{project_id}/paragraphs")
+def create_review_paragraph(project_id: int, payload: ReviewParagraphInput):
+    with SessionLocal() as db:
+        if db.get(ReviewProject, project_id) is None:
+            raise HTTPException(404, "综述项目不存在")
+        if payload.evidence_ids:
+            cards = db.scalars(select(EvidenceCard).where(EvidenceCard.id.in_(payload.evidence_ids))).all()
+            if len({card.id for card in cards}) != len(set(payload.evidence_ids)):
+                raise HTTPException(400, "引用的证据卡片不存在")
+        paragraph = ReviewParagraph(project_id=project_id, heading=payload.heading,
+            content=payload.content, evidence_ids=json.dumps(list(dict.fromkeys(payload.evidence_ids))),
+            sort_order=payload.sort_order)
+        db.add(paragraph); db.commit(); db.refresh(paragraph)
+        return {"id": paragraph.id, "created": True}
+
+@app.patch("/api/review/paragraphs/{paragraph_id}")
+def update_review_paragraph(paragraph_id: int, payload: ReviewParagraphInput):
+    with SessionLocal() as db:
+        paragraph = db.get(ReviewParagraph, paragraph_id)
+        if paragraph is None:
+            raise HTTPException(404, "综述段落不存在")
+        if payload.evidence_ids:
+            cards = db.scalars(select(EvidenceCard).where(EvidenceCard.id.in_(payload.evidence_ids))).all()
+            if len({card.id for card in cards}) != len(set(payload.evidence_ids)):
+                raise HTTPException(400, "引用的证据卡片不存在")
+        paragraph.heading = payload.heading
+        paragraph.content = payload.content
+        paragraph.evidence_ids = json.dumps(list(dict.fromkeys(payload.evidence_ids)))
+        paragraph.sort_order = payload.sort_order
+        db.commit()
+        return {"id": paragraph.id, "updated": True}
+
+@app.delete("/api/review/paragraphs/{paragraph_id}")
+def delete_review_paragraph(paragraph_id: int):
+    with SessionLocal() as db:
+        paragraph = db.get(ReviewParagraph, paragraph_id)
+        if paragraph is None:
+            raise HTTPException(404, "综述段落不存在")
+        db.delete(paragraph); db.commit()
+        return {"id": paragraph_id, "deleted": True}
 
 @app.get("/api/stats")
 def stats():

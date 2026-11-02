@@ -318,15 +318,31 @@ window.__tiling={decomp,pose,layTiles,solve,norm,canSum360,interior,isSimple,sha
    const b=make('text',{x:350,y:322,fill:'#fff','font-size':17,'text-anchor':'middle'});b.textContent='正方形';svg.appendChild(b);
    const ring=make('circle',{cx:350,cy:145,r:103,fill:'none',stroke:'#75eaff','stroke-width':1.5,'stroke-dasharray':'4 8',class:'tile-glow'});svg.appendChild(ring);
   }else{
-   // 足球：足球表面的经典结构：12个正五边形与20个正六边形
-   svg.appendChild(make('circle',{cx:350,cy:205,r:156,fill:'#14234c',stroke:'#73eaff','stroke-width':3,class:'tile-glow'}));
-   const g=make('g',{class:'sphere-spin'});svg.appendChild(g);
-   const center=make('polygon',{points:pent(350,205,49,-90).map(a=>a.join(',')).join(' '),fill:'#d7dbea',stroke:'#fff','stroke-width':3});g.appendChild(center);
-   const positions=[[350,112],[438,145],[404,247],[296,247],[262,145],[350,298],[470,215],[420,315],[280,315],[230,215],[350,55],[350,355]];
-   positions.forEach((v,i)=>{const pts=pent(v[0],v[1],31,-90);g.appendChild(make('polygon',{points:pts.map(a=>a.join(',')).join(' '),fill:i%2?'#273e78':'#d7dbea',stroke:'#a8eaff','stroke-width':2}));});
-   [[305,103],[395,103],[454,180],[435,270],[350,330],[265,270],[246,180],[305,307],[395,307],[305,180],[395,180],[350,260]].forEach((v,i)=>g.appendChild(make('polygon',{points:hex(v[0],v[1],25,30).map(a=>a.join(',')).join(' '),fill:'#253d78','fill-opacity':.9,stroke:'#8deaff','stroke-width':1.6})));
-   svg.appendChild(make('path',{d:'M194 205Q350 35 506 205Q350 375 194 205',fill:'none',stroke:'#8beaff','stroke-opacity':.45,'stroke-width':2}));
-   const t=make('text',{x:350,y:400,fill:'#b8f3ff','font-size':14,'text-anchor':'middle','letter-spacing':3});t.textContent='12 PENTAGONS  ·  20 HEXAGONS';svg.appendChild(t);
+   // 正二十面体截角构造：真实的12个五边形与20个六边形足球拓扑
+   svg.appendChild(make('circle',{cx:350,cy:205,r:165,fill:'#101b3d',stroke:'#73eaff','stroke-width':2,class:'tile-glow'}));
+   const phi=(1+Math.sqrt(5))/2,raw=[[-1,phi,0],[1,phi,0],[-1,-phi,0],[1,-phi,0],[0,-1,phi],[0,1,phi],[0,-1,-phi],[0,1,-phi],[phi,0,-1],[phi,0,1],[-phi,0,-1],[-phi,0,1]];
+   const V=raw.map(p=>{const n=Math.hypot(...p);return p.map(x=>x/n)}),faces=[];
+   const dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2],sub=(a,b)=>a.map((x,i)=>x-b[i]),cross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
+   for(let a=0;a<12;a++)for(let b=a+1;b<12;b++)for(let d=b+1;d<12;d++){
+    const n=cross(sub(V[b],V[a]),sub(V[d],V[a]));let side=0,ok=true;
+    for(let k=0;k<12;k++)if(k!==a&&k!==b&&k!==d){const s=dot(n,sub(V[k],V[a]));if(Math.abs(s)<1e-7)continue;const z=Math.sign(s);if(side&&z!==side){ok=false;break}side=z}
+    if(ok){let q=[a,b,d];if(dot(n,V[a])<0)q=[a,d,b];faces.push(q)}
+   }
+   const directed=(a,b)=>V[a].map((x,i)=>(2*x+V[b][i])/3),pentFaces=[];
+   for(let v=0;v<12;v++){
+    const ns=[...new Set(faces.filter(f=>f.includes(v)).flat().filter(x=>x!==v))],axis=V[v],ref=Math.abs(axis[2])<.8?[0,0,1]:[0,1,0],u=cross(axis,ref),un=Math.hypot(...u),e1=u.map(x=>x/un),e2=cross(axis,e1);
+    ns.sort((a,b)=>{const angle=k=>{const p=sub(directed(v,k),axis);return Math.atan2(dot(p,e2),dot(p,e1))};return angle(a)-angle(b)});
+    pentFaces.push(ns.map(n=>directed(v,n)));
+   }
+   const polyFaces=[...pentFaces.map(p=>({p,kind:5})),...faces.map(f=>({p:[directed(f[0],f[1]),directed(f[1],f[0]),directed(f[1],f[2]),directed(f[2],f[1]),directed(f[2],f[0]),directed(f[0],f[2])],kind:6}))];
+   const layer=make('g');svg.appendChild(layer);const nodes=polyFaces.map(f=>{const el=make('polygon',{fill:f.kind===5?'#e8edf8':'#263e7e',stroke:'#9deeff','stroke-width':1.5,'stroke-linejoin':'round'});layer.appendChild(el);return{el,...f}});
+   let tick=0;const renderBall=()=>{if(stage!==3||closed)return;tick+=.008;const ax=.42+Math.sin(tick*.3)*.12,ay=tick*.72,az=.16;
+    const rotate=p=>{let[x,y,z]=p,cy=Math.cos(ay),sy=Math.sin(ay),cx=Math.cos(ax),sx=Math.sin(ax),cz=Math.cos(az),sz=Math.sin(az);let X=x*cy-z*sy,Z=x*sy+z*cy,Y=y*cx-Z*sx;Z=y*sx+Z*cx;return[X*cz-Y*sz,X*sz+Y*cz,Z]};
+    const project=p=>{const q=rotate(p),k=150/(2.8-q[2]*.45);return[350+q[0]*k,205-q[1]*k,q[2]]};
+    nodes.map(o=>({o,q:o.p.map(project)})).sort((a,b)=>a.q.reduce((s,p)=>s+p[2],0)-b.q.reduce((s,p)=>s+p[2],0)).forEach(({o,q})=>{o.el.setAttribute('points',q.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' '));o.el.setAttribute('opacity',(.62+(q.reduce((s,p)=>s+p[2],0)/q.length+1)*.19).toFixed(2));layer.appendChild(o.el)});
+    requestAnimationFrame(renderBall)
+   };renderBall();
+   const t=make('text',{x:350,y:400,fill:'#b8f3ff','font-size':14,'text-anchor':'middle','letter-spacing':2});t.textContent='12 PENTAGONS  ·  20 HEXAGONS';svg.appendChild(t);
   }
  }
  const data=[

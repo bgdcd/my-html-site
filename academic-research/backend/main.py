@@ -661,7 +661,7 @@ def serialize_review_project(db, project):
             citations.append({
                 "evidence_id": card.id, "paper_id": paper.id,
                 "title": paper.title, "authors": paper.authors,
-                "year": paper.year, "doi": paper.doi,
+                "journal": paper.journal, "year": paper.year, "doi": paper.doi,
                 "claim": card.claim, "source_text": card.source_text,
                 "locator": card.locator, "page_number": card.page_number,
                 "paragraph_number": card.paragraph_number,

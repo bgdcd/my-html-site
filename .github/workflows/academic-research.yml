@@ -47,7 +47,7 @@ jobs:
           required = {"/", "/api/health", "/api/areas", "/api/areas/{area_id}/move",
                       "/api/areas/{area_id}/merge", "/api/upload", "/api/papers",
                       "/api/papers/{paper_id}/metadata", "/api/papers/{paper_id}/area", "/api/search/fulltext",
-                      "/api/search/external", "/api/papers/{paper_id}/evidence", "/api/evidence/{evidence_id}", "/api/review/evidence-matrix", "/api/review/projects", "/api/review/projects/{project_id}", "/api/review/projects/{project_id}/paragraphs", "/api/review/paragraphs/{paragraph_id}", "/api/stats"}
+                      "/api/search/external", "/api/papers/{paper_id}/evidence", "/api/evidence/{evidence_id}", "/api/review/evidence-matrix", "/api/review/projects", "/api/review/projects/{project_id}", "/api/review/projects/{project_id}/paragraphs", "/api/review/paragraphs/{paragraph_id}", "/api/review/projects/{project_id}/export.docx", "/api/stats"}
           missing = required - paths
           assert not missing, f"缺少接口: {missing}"
           assert engine is not None and Paper.__tablename__ == "papers"
@@ -55,8 +55,9 @@ jobs:
           assert EvidenceCard.__tablename__ == "evidence_cards"
           assert ReviewProject.__tablename__ == "review_projects"
           assert ReviewParagraph.__tablename__ == "review_paragraphs"
+          assert any(route.path == "/api/review/projects/{project_id}/export.docx" for route in app.routes)
           from backend.main import extract_doi, guess_title
           assert extract_doi("DOI: 10.1234/example.2024") == "10.1234/example.2024"
           assert guess_title("页眉\n一个足够明确的论文题名\n正文", "paper.pdf") == "一个足够明确的论文题名"
-          print("应用导入、分类、证据卡片、综述项目与段落引用接口、DOI和题名识别检查通过")
+          print("应用导入、分类、证据卡片、综述项目、Word导出接口、DOI和题名识别检查通过")
           PY

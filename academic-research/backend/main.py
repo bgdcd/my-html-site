@@ -297,8 +297,10 @@ async def security_gate(request: Request, call_next):
         if possible:
             with SessionLocal() as db:
                 record = db.scalar(select(LoginSession).where(LoginSession.token_hash == token_digest(possible)))
-                if record and record.expires_at > datetime.now(timezone.utc):
-                    account_id = record.user_id
+                if record and login_session_valid(record):
+                    account_user = db.get(User, record.user_id)
+                    if account_user and account_user.is_active:
+                        account_id = record.user_id
     marker = current_user_id.set(account_id)
     try:
         return await call_next(request)

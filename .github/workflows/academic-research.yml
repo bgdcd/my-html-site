@@ -42,7 +42,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r academic-research/requirements.txt
       - name: 检查 Python 语法
-        run: python -m compileall -q academic-research/backend academic-research/backup_data.py
+        run: python -m compileall -q academic-research/backend academic-research/backup_data.py academic-research/migrate_sqlite_to_postgres.py
       - name: 检查前端脚本语法
         run: |
           python - <<'PY'
@@ -112,8 +112,19 @@ jobs:
               user_a = db.scalar(select(User).where(User.username == "account_alpha"))
               private_paper = Paper(owner_id=user_a.id, title="仅账号甲可见的论文")
               db.add(private_paper)
-              db.commit()
+              db.flush()
               private_paper_id = private_paper.id
+              private_evidence = EvidenceCard(owner_id=user_a.id, paper_id=private_paper_id,
+                                              claim="账号甲的真实证据记录", source_text="这是导出测试用的原文摘录")
+              db.add(private_evidence)
+              db.flush()
+              private_project = ReviewProject(owner_id=user_a.id, title="账号甲的综述项目", topic="测试主题")
+              db.add(private_project)
+              db.flush()
+              db.add(ReviewParagraph(owner_id=user_a.id, project_id=private_project.id,
+                                     heading="综述段落", content="仅属于账号甲的写作内容",
+                                     evidence_ids=json.dumps([private_evidence.id], ensure_ascii=False)))
+              db.commit()
           second = client.post("/api/auth/register", json={"username": "account_beta", "password": "TestPass#2026-Another", "registration_code": "ci-invite-secret-2026"})
           assert second.status_code == 200, second.text
           token_b = second.json()["access_token"]
@@ -121,6 +132,20 @@ jobs:
           papers_b = client.get("/api/papers", headers={"Authorization": "Bearer " + token_b})
           assert any(item["id"] == private_paper_id for item in papers_a.json()), papers_a.text
           assert all(item["id"] != private_paper_id for item in papers_b.json()), papers_b.text
+          import io, zipfile
+          export_a = client.get("/api/account/export.zip", headers={"Authorization": "Bearer " + token_a})
+          assert export_a.status_code == 200 and export_a.headers["content-type"] == "application/zip"
+          with zipfile.ZipFile(io.BytesIO(export_a.content)) as archive:
+              names = set(archive.namelist())
+              assert {"manifest.json", "account.json", "papers.json", "evidence_cards.json", "review_projects.json", "review_paragraphs.json"}.issubset(names)
+              assert "仅账号甲可见的论文" in archive.read("papers.json").decode("utf-8")
+              assert "账号甲的真实证据记录" in archive.read("evidence_cards.json").decode("utf-8")
+              assert "账号甲的综述项目" in archive.read("review_projects.json").decode("utf-8")
+          export_b = client.get("/api/account/export.zip", headers={"Authorization": "Bearer " + token_b})
+          with zipfile.ZipFile(io.BytesIO(export_b.content)) as archive:
+              assert "仅账号甲可见的论文" not in archive.read("papers.json").decode("utf-8")
+          integrity = client.get("/api/account/integrity", headers={"Authorization": "Bearer " + token_a})
+          assert integrity.status_code == 200 and integrity.json()["passed"], integrity.text
           assert client.get(f"/api/papers/{private_paper_id}", headers={"Authorization": "Bearer " + token_b}).status_code == 404
           assert client.get("/api/areas", headers={"Authorization": "Bearer " + token_b}).json() == []
           assert len(client.get("/api/areas", headers={"Authorization": "Bearer " + token_a}).json()) >= 4

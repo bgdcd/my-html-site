@@ -58,14 +58,14 @@ jobs:
         working-directory: academic-research
         run: |
           python - <<'PY'
-          from backend.main import app, engine, Paper, ResearchArea, EvidenceCard, ReviewProject, ReviewParagraph, EvidenceDraftInput, AIReviewDraftInput, SessionLocal, User
+          from backend.main import app, engine, Paper, ResearchArea, EvidenceCard, ReviewProject, ReviewParagraph, EvidenceDraftInput, AIReviewDraftInput, SessionLocal, User, AuditLog
           from fastapi.testclient import TestClient
           from sqlalchemy import select
           paths = {route.path for route in app.routes}
           required = {"/", "/api/health", "/api/areas", "/api/areas/{area_id}/move",
                       "/api/areas/{area_id}/merge", "/api/upload", "/api/papers",
                       "/api/papers/{paper_id}/metadata", "/api/papers/{paper_id}/area", "/api/search/fulltext",
-                      "/api/search/external", "/api/papers/{paper_id}/evidence", "/api/evidence/{evidence_id}", "/api/review/evidence-matrix", "/api/review/projects", "/api/review/projects/{project_id}", "/api/review/projects/{project_id}/paragraphs", "/api/review/paragraphs/{paragraph_id}", "/api/review/projects/{project_id}/export.docx", "/api/knowledge-graph", "/api/research-themes", "/api/research-analysis", "/api/review/evidence-draft", "/api/ai/status", "/api/ai/review-draft", "/api/security/status", "/api/auth/status", "/api/auth/register", "/api/auth/login", "/api/auth/me", "/api/auth/logout", "/api/stats"}
+                      "/api/search/external", "/api/papers/{paper_id}/evidence", "/api/evidence/{evidence_id}", "/api/review/evidence-matrix", "/api/review/projects", "/api/review/projects/{project_id}", "/api/review/projects/{project_id}/paragraphs", "/api/review/paragraphs/{paragraph_id}", "/api/review/projects/{project_id}/export.docx", "/api/knowledge-graph", "/api/research-themes", "/api/research-analysis", "/api/review/evidence-draft", "/api/ai/status", "/api/ai/review-draft", "/api/security/status", "/api/auth/status", "/api/auth/register", "/api/auth/login", "/api/auth/me", "/api/auth/logout", "/api/auth/change-password", "/api/admin/users", "/api/admin/users/{user_id}/status", "/api/admin/audit-logs", "/api/stats"}
           missing = required - paths
           assert not missing, f"缺少接口: {missing}"
           assert engine is not None and Paper.__tablename__ == "papers"
@@ -126,8 +126,28 @@ jobs:
           assert len(client.get("/api/areas", headers={"Authorization": "Bearer " + token_a}).json()) >= 4
           login = client.post("/api/auth/login", json={"username": "account_alpha", "password": "TestPass#2026-Strong"})
           assert login.status_code == 200, login.text
-          assert client.get("/api/auth/me", headers={"Authorization": "Bearer " + login.json()["access_token"]}).json()["username"] == "account_alpha"
+          token_login = login.json()["access_token"]
+          assert client.get("/api/auth/me", headers={"Authorization": "Bearer " + token_login}).json()["username"] == "account_alpha"
+          assert client.get("/api/admin/users", headers={"Authorization": "Bearer " + token_login}).status_code == 200
+          assert client.get("/api/admin/users", headers={"Authorization": "Bearer " + token_b}).status_code == 403
+          assert client.get("/api/admin/audit-logs", headers={"Authorization": "Bearer " + token_login}).status_code == 200
+          changed = client.post("/api/auth/change-password", headers={"Authorization": "Bearer " + token_login}, json={"current_password": "TestPass#2026-Strong", "new_password": "ChangedPass#2026-Strong"})
+          assert changed.status_code == 200, changed.text
+          assert client.get("/api/stats", headers={"Authorization": "Bearer " + token_login}).status_code == 401
+          relogin = client.post("/api/auth/login", json={"username": "account_alpha", "password": "ChangedPass#2026-Strong"})
+          assert relogin.status_code == 200, relogin.text
+          token_login = relogin.json()["access_token"]
+          disabled = client.patch("/api/admin/users/" + str(second.json()["user"]["id"]) + "/status",
+                                  headers={"Authorization": "Bearer " + token_login}, json={"is_active": False})
+          assert disabled.status_code == 200, disabled.text
+          assert client.get("/api/stats", headers={"Authorization": "Bearer " + token_b}).status_code == 401
+          assert client.get("/api/admin/audit-logs", headers={"Authorization": "Bearer " + token_login}).json()
           assert client.get("/api/stats").status_code == 401
+          for _ in range(5):
+              failed = client.post("/api/auth/login", json={"username": "account_alpha", "password": "wrong-password"})
+              assert failed.status_code == 401
+          limited = client.post("/api/auth/login", json={"username": "account_alpha", "password": "ChangedPass#2026-Strong"})
+          assert limited.status_code == 429, limited.text
           if previous_bootstrap is None:
               os.environ.pop("ACADEMIC_BOOTSTRAP_CODE", None)
           else:

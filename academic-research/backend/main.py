@@ -5,6 +5,8 @@ import json
 import os
 import re
 import uuid
+import secrets
+import zipfile
 from io import BytesIO
 from urllib.parse import quote
 from datetime import datetime, timezone
@@ -17,7 +19,7 @@ from docx import Document
 from docx.shared import Cm, Pt
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
-from fastapi import FastAPI, File, HTTPException, Query, UploadFile
+from fastapi import FastAPI, File, HTTPException, Query, UploadFile, Request
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -125,6 +127,25 @@ def seed_areas():
 
 seed_areas()
 app = FastAPI(title="学术智库", version="0.1.0", description="真实文献元数据检索与个人文献管理")
+
+@app.middleware("http")
+async def security_gate(request: Request, call_next):
+    expected = os.getenv("ACADEMIC_ACCESS_TOKEN", "").strip()
+    if expected and request.url.path.startswith("/api/") and request.url.path not in {"/api/health", "/api/security/status"}:
+        supplied = request.headers.get("authorization", "")
+        token = supplied[7:].strip() if supplied.lower().startswith("bearer ") else ""
+        if not token or not secrets.compare_digest(token, expected):
+            from starlette.responses import JSONResponse
+            return JSONResponse(status_code=401, content={"detail": "访问口令不正确或已失效。请在页面顶部输入服务器访问口令。"})
+    return await call_next(request)
+
+@app.get("/api/security/status")
+def security_status():
+    enabled = bool(os.getenv("ACADEMIC_ACCESS_TOKEN", "").strip())
+    return {"access_control_enabled": enabled,
+            "mode": "单一共享访问口令" if enabled else "未启用访问口令",
+            "notice": "共享口令仅用于基础访问限制，不提供个人账号、角色权限或文献数据隔离。公网部署前请启用强口令，并限制平台访问。" if enabled else "当前未设置 ACADEMIC_ACCESS_TOKEN，API未启用访问口令保护。请勿将未保护实例公开部署。"}
+
 app.mount("/static", StaticFiles(directory=ROOT / "frontend"), name="static")
 
 @app.get("/")
@@ -362,36 +383,74 @@ async def upload_paper(file: UploadFile = File(...)):
     suffix = Path(filename).suffix.lower()
     if suffix not in {".pdf", ".docx"}:
         raise HTTPException(400, "目前仅支持 PDF 和 DOCX 文件")
-    raw = await file.read()
-    if not raw: raise HTTPException(400, "文件内容为空")
-    if len(raw) > 40 * 1024 * 1024: raise HTTPException(413, "单个文件不能超过40MB")
-    digest = hashlib.sha256(raw).hexdigest()
     target = UPLOAD_DIR / f"{uuid.uuid4().hex}{suffix}"
-    target.write_bytes(raw)
+    digest = hashlib.sha256()
+    size = 0
+    prefix = b""
     try:
-        text, text_segments = extract_pdf_with_segments(target) if suffix == ".pdf" else extract_docx_with_segments(target)
-    except Exception as exc:
-        target.unlink(missing_ok=True)
-        raise HTTPException(422, f"文件解析失败：{exc.__class__.__name__}")
-    candidates = extract_candidate_metadata(target, suffix, text)
-    title = guess_title(text, filename, candidates["title"])
-    area_id = suggested_area(text)
-    with SessionLocal() as db:
-        existing = db.scalar(select(Paper).where(Paper.file_sha256 == digest))
-        if existing:
-            target.unlink(missing_ok=True)
-            return {"id": existing.id, "duplicate": True, "message": "该文件已在文献库中"}
-        paper = Paper(title=title, authors=candidates["authors"], year=candidates["year"],
-                      doi=candidates["doi"], abstract=candidates["abstract"],
-                      abstract_type="自动提取候选" if candidates["abstract"] else "未识别",
-                      keywords=candidates["keywords"], full_text=text, text_segments=json.dumps(text_segments, ensure_ascii=False), file_path=str(target),
-                      file_name=filename, file_sha256=digest, fulltext_status="已解析" if text else "未提取到文本",
-                      verification_status="自动提取候选，待人工核验", area_id=area_id, source="个人上传")
-        db.add(paper); db.commit(); db.refresh(paper)
-        return {"id": paper.id, "title": paper.title, "characters_extracted": len(text),
-                "area_id": area_id, "classification": "建议分类" if area_id else "待确认分类",
-                "fulltext_status": paper.fulltext_status, "metadata_candidates": candidates,
-                "metadata_note": "自动提取结果仅为候选值，请核对原文后确认"}
+        with target.open("wb") as output:
+            while True:
+                chunk = await file.read(1024 * 1024)
+                if not chunk:
+                    break
+                size += len(chunk)
+                if size > 40 * 1024 * 1024:
+                    raise HTTPException(413, "单个文件不能超过40MB")
+                if len(prefix) < 8:
+                    prefix += chunk[:8 - len(prefix)]
+                digest.update(chunk)
+                output.write(chunk)
+        if size == 0:
+            raise HTTPException(400, "文件内容为空")
+        if suffix == ".pdf":
+            if not prefix.startswith(b"%PDF-"):
+                raise HTTPException(400, "文件内容不是有效的PDF文件")
+        else:
+            if not prefix.startswith(b"PK\\x03\\x04"):
+                raise HTTPException(400, "DOCX文件格式无效")
+            try:
+                with zipfile.ZipFile(target) as archive:
+                    infos = archive.infolist()
+                    total_uncompressed = sum(item.file_size for item in infos)
+                    names = {item.filename for item in infos}
+                    if len(infos) > 5000 or total_uncompressed > 200 * 1024 * 1024:
+                        raise HTTPException(413, "DOCX内部内容过大，已拒绝解析")
+                    if "word/document.xml" not in names or "[Content_Types].xml" not in names:
+                        raise HTTPException(400, "压缩包不是有效的DOCX文档")
+            except zipfile.BadZipFile:
+                raise HTTPException(400, "DOCX压缩结构损坏")
+        file_digest = digest.hexdigest()
+        with SessionLocal() as db:
+            existing = db.scalar(select(Paper).where(Paper.file_sha256 == file_digest))
+            if existing:
+                target.unlink(missing_ok=True)
+                return {"id": existing.id, "duplicate": True, "message": "该文件已在文献库中"}
+        try:
+            extracted_text, text_segments = extract_pdf_with_segments(target) if suffix == ".pdf" else extract_docx_with_segments(target)
+        except Exception as exc:
+            raise HTTPException(422, f"文件解析失败：{exc.__class__.__name__}")
+        candidates = extract_candidate_metadata(target, suffix, extracted_text)
+        title = guess_title(extracted_text, filename, candidates["title"])
+        area_id = suggested_area(extracted_text)
+        with SessionLocal() as db:
+            paper = Paper(title=title, authors=candidates["authors"], year=candidates["year"],
+                          doi=candidates["doi"], abstract=candidates["abstract"],
+                          abstract_type="自动提取候选" if candidates["abstract"] else "未识别",
+                          keywords=candidates["keywords"], full_text=extracted_text, text_segments=json.dumps(text_segments, ensure_ascii=False), file_path=str(target),
+                          file_name=filename, file_sha256=file_digest, fulltext_status="已解析" if extracted_text else "未提取到文本",
+                          verification_status="自动提取候选，待人工核验", area_id=area_id, source="个人上传")
+            db.add(paper); db.commit(); db.refresh(paper)
+            return {"id": paper.id, "title": paper.title, "characters_extracted": len(extracted_text),
+                    "area_id": area_id, "classification": "建议分类" if area_id else "待确认分类",
+                    "fulltext_status": paper.fulltext_status, "metadata_candidates": candidates,
+                    "metadata_note": "自动提取结果仅为候选值，请核对原文后确认"}
+    finally:
+        await file.close()
+        if target.exists():
+            with SessionLocal() as db:
+                saved = db.scalar(select(Paper).where(Paper.file_path == str(target)))
+            if not saved:
+                target.unlink(missing_ok=True)
 
 @app.get("/api/papers")
 def list_papers(q: str = "", limit: int = Query(100, ge=1, le=500)):

@@ -322,7 +322,7 @@ def get_paper(paper_id: int):
         if p is None: raise HTTPException(404, "文献不存在")
         return {"id": p.id, "title": p.title, "authors": p.authors, "journal": p.journal,
                 "year": p.year, "doi": p.doi, "abstract": p.abstract, "abstract_type": p.abstract_type,
-                "keywords": p.keywords, "full_text": p.full_text, "source": p.source,
+                "keywords": p.keywords, "full_text": p.full_text, "file_name": p.file_name, "source": p.source,
                 "source_url": p.source_url, "fulltext_status": p.fulltext_status,
                 "verification_status": p.verification_status, "area_id": p.area_id}
 
@@ -333,12 +333,17 @@ class PaperMetadataUpdate(BaseModel):
     year: Optional[int] = None
     doi: Optional[str] = None
     abstract: Optional[str] = None
+    abstract_type: Optional[str] = None
     keywords: Optional[str] = None
     verification_status: Optional[str] = None
 
 @app.patch("/api/papers/{paper_id}/metadata")
 def update_paper_metadata(paper_id: int, payload: PaperMetadataUpdate):
     changes = payload.model_dump(exclude_unset=True)
+    if changes.get("abstract_type") not in (None, "来源提供", "自动提取候选", "人工核验", "未识别"):
+        raise HTTPException(400, "摘要类型只能选择：来源提供、自动提取候选、人工核验或未识别")
+    if "abstract" in changes and "abstract_type" not in changes:
+        changes["abstract_type"] = "人工核验"
     if "title" in changes and not (changes["title"] or "").strip():
         raise HTTPException(400, "题名不能为空")
     with SessionLocal() as db:

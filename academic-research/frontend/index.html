@@ -95,13 +95,19 @@ async function changeMyPassword(){
 async function loadAdminUsers(){
  try{
   const users=await api('/api/admin/users');
-  $('adminUsers').innerHTML=users.map(u=>'<div class="paper"><b>'+esc(u.username)+'</b><span class="tag">'+esc(u.role==='admin'?'管理员':'成员')+'</span><span class="tag">'+(u.is_active?'正常':'已停用')+'</span><span class="muted">创建时间：'+esc(u.created_at||'')+'</span>'+(u.is_self?'':('<button class="secondary" onclick="setUserStatus('+u.id+','+(!u.is_active)+')">'+(u.is_active?'停用账号':'重新启用')+'</button>'))+'</div>').join('')||'<p class="muted">暂无账号</p>';
+  $('adminUsers').innerHTML=users.map(u=>'<div class="paper"><b>'+esc(u.username)+'</b><span class="tag">'+esc(u.role==='admin'?'管理员':'成员')+'</span><span class="tag">'+(u.is_active?'正常':'已停用')+'</span><span class="muted">创建时间：'+esc(u.created_at||'')+'</span>'+(u.is_self?'':('<button class="secondary" onclick="setUserStatus('+u.id+','+(!u.is_active)+')">'+(u.is_active?'停用账号':'重新启用')+'</button><button class="secondary" onclick="resetUserPassword('+u.id+')">重置密码</button>'))+'</div>').join('')||'<p class="muted">暂无账号</p>';
  }catch(e){$('adminUsers').textContent=e.message}
 }
 async function setUserStatus(id,active){
  const action=active?'重新启用':'停用';
  if(!confirm('确定要'+action+'这个账号吗？'))return;
  try{await api('/api/admin/users/'+id+'/status',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({is_active:active})});await loadAdminUsers();}catch(e){alert(e.message)}
+}
+async function resetUserPassword(id){
+ const temporary=prompt('请输入临时密码（至少10位）。请通过安全渠道告知该成员，首次登录后必须修改。');
+ if(!temporary)return;
+ if(temporary.length<10){alert('临时密码至少需要10位');return}
+ try{await api('/api/admin/users/'+id+'/reset-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({temporary_password:temporary})});alert('密码已重置。该成员下次登录后必须先修改密码。');await loadAdminUsers();}catch(e){alert(e.message)}
 }
 async function loadAuditLogs(){
  try{

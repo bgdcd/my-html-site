@@ -318,7 +318,7 @@ window.__tiling={decomp,pose,layTiles,solve,norm,canSum360,interior,isSimple,sha
    const b=make('text',{x:350,y:322,fill:'#fff','font-size':17,'text-anchor':'middle'});b.textContent='正方形';svg.appendChild(b);
    const ring=make('circle',{cx:350,cy:145,r:103,fill:'none',stroke:'#75eaff','stroke-width':1.5,'stroke-dasharray':'4 8',class:'tile-glow'});svg.appendChild(ring);
   }else{
-   // 足球：球面上12个五边形与20个六边形的结构意象
+   // 足球：足球表面的经典结构：12个正五边形与20个正六边形
    svg.appendChild(make('circle',{cx:350,cy:205,r:156,fill:'#14234c',stroke:'#73eaff','stroke-width':3,class:'tile-glow'}));
    const g=make('g',{class:'sphere-spin'});svg.appendChild(g);
    const center=make('polygon',{points:pent(350,205,49,-90).map(a=>a.join(',')).join(' '),fill:'#d7dbea',stroke:'#fff','stroke-width':3});g.appendChild(center);
@@ -331,9 +331,9 @@ window.__tiling={decomp,pose,layTiles,solve,norm,canSum360,interior,isSimple,sha
  }
  const data=[
   ['实验室启动 · SYSTEM ONLINE','欢迎进入几何构造空间','从一面几何墙开始，观察图形如何彼此连接、不断延展，并最终走向三维空间。','几何构造引擎已就绪。准备开启密铺探索。'],
-  ['第一类 · 平面密铺','正五边形与菱形，铺满一面墙','从一个基本单元出发，正五边形与菱形依次出现、旋转、连接，图案向四周延展，形成连续的平面视觉结构。','观察重点：图形之间是否留有空隙？是否发生重叠？'],
-  ['第二类 · 图形组合','聚焦：正五边形与正方形','镜头从整面墙推进到一个局部单元。正五边形被保留，正方形在下方展开，形成新的组合研究对象。','观察重点：组合中的边、角和连接关系发生了什么变化？'],
-  ['第三类 · 走向立体','正五边形与正六边形，构成足球','平面结构向空间弯曲，图形逐渐包裹成球面。足球表面由正五边形和正六边形共同组成。','数学提示：足球是球面多边形镶嵌结构，不是铺满三维空间的普通密铺。']
+  ['第一类 · 平面密铺','五边形与菱形，组成几何图案墙','镜头沿着由五边形与菱形构成的组合图案墙推进。观察不同图形如何排列、连接与重复，感受平面图案的节奏与秩序。','数学辨析：这是组合图案展示，不代表正五边形与菱形已经实现严格无缝密铺；判断密铺还要检验边界、空隙与重叠。'],
+  ['第二类 · 图形组合','镜头聚焦：正五边形与正方形','镜头从整面墙推进到一个局部单元。镜头抽取一个五边形单元，再将正方形移动到它的边旁，形成可观察的组合关系。','观察重点：正方形与五边形怎样靠边连接？连接处的角度与边长有什么关系？'],
+  ['第三类 · 走向立体','正五边形与正六边形，构成足球','镜头进入立体空间，观察足球表面的多边形组合。经典足球外形由12个正五边形和20个正六边形组成，图形沿球面连接成封闭结构。','数学提示：这是球面镶嵌，不是把多边形铺满整个三维空间。']
  ];
  function render(){
   const d=data[stage];$('introIndex').textContent='SYSTEM 0'+(stage+1)+' / 04';$('introStep').textContent=d[0];$('introTitle').textContent=d[1];$('introDesc').textContent=d[2];$('introNote').textContent=d[3];

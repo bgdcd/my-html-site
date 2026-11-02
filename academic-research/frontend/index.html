@@ -10,13 +10,14 @@
 <header class="top"><h1>学术智库</h1><p>真实文献管理 · 学术资料检索 · 研究知识积累</p></header>
 <div class="wrap"><div class="grid">
 <aside class="panel nav">
-<button class="active" data-tab="overview">总览</button><button data-tab="library">我的文献库</button><button data-tab="external">外部文献检索</button><button data-tab="upload">上传论文</button><button data-tab="areas">研究领域管理</button>
+<button class="active" data-tab="overview">总览</button><button data-tab="library">我的文献库</button><button data-tab="external">外部文献检索</button><button data-tab="review">证据综合分析</button><button data-tab="upload">上传论文</button><button data-tab="areas">研究领域管理</button>
 <div class="notice">来源透明：外部接口元数据不等于全文。当前未接入知网、万方授权服务。</div>
 </aside>
 <main class="main">
 <section id="overview" class="panel"><h2>研究资料总览</h2><div class="stats"><div class="card stat"><strong id="total">—</strong><span>文献总数</span></div><div class="card stat"><strong id="uploaded">—</strong><span>个人上传</span></div><div class="card stat"><strong id="pending">—</strong><span>待确认分类</span></div></div><p class="muted" id="health">正在连接数据库…</p><h3>研究领域</h3><div id="areaOverview"></div></section>
 <section id="article" class="panel hidden"><div id="articleContent">正在读取文献…</div></section>
 <section id="library" class="panel hidden"><h2>我的文献库</h2><div class="row"><input id="libraryQ" type="text" placeholder="检索题名、作者、摘要或全文"><button class="primary" onclick="loadPapers()">检索</button><button class="secondary" onclick="searchFulltext()">全文段落检索</button></div><div id="fulltextResults"></div><div id="papers"></div></section>
+<section id="review" class="panel hidden"><h2>多篇文献证据综合分析</h2><p class="muted">勾选个人文献库中的论文，按研究目的、对象、方法、结论等证据类型汇总已录入的证据卡片。此处呈现真实记录，不会自动补写缺失结论。</p><div class="row"><input id="reviewQ" type="text" placeholder="筛选题名或作者" oninput="renderReviewChoices()"><button class="secondary" onclick="loadReviewChoices()">刷新文献列表</button><button class="primary" onclick="runEvidenceMatrix()">生成证据矩阵</button></div><div id="reviewChoices">正在读取文献…</div><div id="reviewMatrix"></div></section>
 <section id="external" class="panel hidden"><h2>外部文献检索</h2><p class="muted">调用 OpenAlex 或 Crossref 公开接口，显示接口真实返回结果。</p><div class="row"><input id="externalQ" type="text" placeholder="输入论文主题、关键词或题名"><select id="source"><option value="openalex">OpenAlex</option><option value="crossref">Crossref</option></select><button class="primary" onclick="searchExternal()">开始检索</button></div><div id="externalResults"></div></section>
 <section id="upload" class="panel hidden"><h2>上传论文</h2><p>支持 PDF、DOCX，单个文件最大40MB。扫描版PDF若无文本层，当前版本可能无法提取文字。</p><div class="row"><input id="file" type="file" accept=".pdf,.docx"><button class="primary" onclick="uploadFile()">上传并解析</button></div><div id="uploadResult" class="muted"></div></section>
 <section id="areas" class="panel hidden"><h2>研究领域管理</h2><p class="muted">第04领域保持空白；可在此添加你自己的方向。自动分类仅为初步建议，未命中文献进入待确认。</p><div id="areasList"></div><div class="row"><input id="areaName" type="text" placeholder="输入要新增的研究方向"><button class="primary" onclick="addArea()">新增领域</button></div></section>
@@ -27,6 +28,28 @@ document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{document.query
 async function api(url,opts){const r=await fetch(url,opts);const d=await r.json();if(!r.ok)throw Error(d.detail||'请求失败');return d}
 async function refresh(){try{const [s,h,a]=await Promise.all([api('/api/stats'),api('/api/health'),api('/api/areas')]);$('total').textContent=s.total;$('uploaded').textContent=s.uploaded;$('pending').textContent=s.pending;$('health').textContent='数据库已连接 · 服务状态正常';$('areaOverview').innerHTML=a.map(x=>'<span class="tag">'+esc(x.name)+'</span>').join('');renderAreas(a)}catch(e){$('health').textContent='数据库连接失败：'+e.message}}
 function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+let reviewPapers=[];
+async function loadReviewChoices(){
+ try{reviewPapers=await api('/api/papers?limit=500');renderReviewChoices()}
+ catch(e){$('reviewChoices').textContent='读取文献失败：'+e.message}
+}
+function renderReviewChoices(){
+ const q=($('reviewQ')?.value||'').trim().toLowerCase();
+ const rows=reviewPapers.filter(p=>(p.title+' '+p.authors).toLowerCase().includes(q));
+ $('reviewChoices').innerHTML=rows.length?rows.map(p=>'<label style="display:block;padding:8px;border-bottom:1px solid #edf0f5"><input type="checkbox" class="review-paper" value="'+p.id+'" style="min-width:auto;margin-right:8px"> '+esc(p.title)+' <span class="muted">'+esc(p.authors)+' · '+esc(p.year||'')+'</span></label>').join(''):'没有匹配文献';
+}
+async function runEvidenceMatrix(){
+ const ids=[...document.querySelectorAll('.review-paper:checked')].map(x=>x.value);
+ if(!ids.length){$('reviewMatrix').textContent='请至少勾选一篇文献';return}
+ if(ids.length>50){$('reviewMatrix').textContent='一次最多比较50篇文献';return}
+ $('reviewMatrix').textContent='正在汇总已保存的证据卡片…';
+ try{
+  const d=await api('/api/review/evidence-matrix?paper_ids='+encodeURIComponent(ids.join(',')));
+  const paperMap=new Map(d.papers.map(p=>[p.id,p]));
+  const groups=d.groups.map(g=>'<h3>'+esc(g.evidence_type)+'（'+g.count+'条）</h3><div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse"><thead><tr><th style="text-align:left;padding:8px">文献</th><th style="text-align:left;padding:8px">研究者概括</th><th style="text-align:left;padding:8px">原文摘录</th><th style="text-align:left;padding:8px">出处与核验</th></tr></thead><tbody>'+g.items.map(x=>{const p=paperMap.get(x.paper_id);return '<tr style="border-top:1px solid #e5e9f0"><td style="padding:8px;min-width:180px">'+esc(p?.title||'')+'<div class="muted">'+esc(p?.authors||'')+' · '+esc(p?.year||'')+'</div></td><td style="padding:8px;min-width:180px">'+esc(x.claim)+'</td><td style="padding:8px;min-width:180px">'+esc(x.source_text||'未提供')+'</td><td style="padding:8px;min-width:130px">'+esc(x.locator||'未注明')+'<div class="muted">'+esc(x.verification_status)+'</div></td></tr>'}).join('')+'</tbody></table></div>').join('');
+  $('reviewMatrix').innerHTML='<p class="muted">纳入文献 '+d.paper_count+' 篇 · 已记录证据 '+d.evidence_count+' 条</p><div class="notice">'+esc(d.notice)+'</div>'+(groups||'<p>所选文献尚无证据卡片。请先进入文献详情页建立证据卡片。</p>');
+ }catch(e){$('reviewMatrix').textContent='汇总失败：'+e.message}
+}
 async function loadPapers(){try{const a=await api('/api/papers?q='+encodeURIComponent($('libraryQ').value));const areas=await api('/api/areas');$('papers').innerHTML=a.length?a.map(p=>'<div class="paper"><b>'+esc(p.title)+'</b><span class="muted">'+esc(p.authors)+' '+esc(p.journal)+' '+esc(p.year||'')+'</span><div><span class="tag">'+esc(p.source)+'</span><span class="tag">'+esc(p.fulltext_status)+'</span><span class="tag">'+esc(p.verification_status)+'</span></div><div class="row"><button class="secondary" onclick="showPaper('+p.id+')">查看详情</button><button class="secondary" onclick="verifyMetadata('+p.id+')">核验/编辑元数据</button>'+(p.file_name?'<button class="secondary" onclick="downloadOriginal('+p.id+')">下载原件</button>':'')+'<select id="paper-area-'+p.id+'" onchange="assignArea('+p.id+')"><option value="">待确认分类</option>'+areas.map(x=>'<option value="'+x.id+'">'+esc(x.name)+'</option>').join('')+'</select></div></div>').join(''):'暂无文献记录';a.forEach(p=>{const el=$('paper-area-'+p.id);if(el)el.value=p.area_id??''})}catch(e){$('papers').textContent=e.message}}
 async function verifyMetadata(id){const p=await api('/api/papers/'+id);const title=prompt('题名（请对照原文核验）',p.title||'');if(title===null)return;const authors=prompt('作者',p.authors||'');if(authors===null)return;const journal=prompt('期刊/来源',p.journal||'');if(journal===null)return;const yearText=prompt('年份（可留空）',p.year||'');if(yearText===null)return;const doi=prompt('DOI（可留空）',p.doi||'');if(doi===null)return;const abstract=prompt('摘要内容（请对照原文）',p.abstract||'');if(abstract===null)return;const abstractType=prompt('摘要来源类型：来源提供 / 自动提取候选 / 人工核验 / 未识别',p.abstract_type||'人工核验');if(abstractType===null)return;const keywords=prompt('关键词',p.keywords||'');if(keywords===null)return;try{await api('/api/papers/'+id+'/metadata',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({title,authors,journal,year:yearText.trim()?Number(yearText):null,doi,abstract,abstract_type:abstractType,keywords})});alert('元数据已保存，状态标记为人工核验');loadPapers();refresh()}catch(e){alert(e.message)}}
 async function assignArea(id){const v=$('paper-area-'+id).value;try{await api('/api/papers/'+id+'/area',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({area_id:v?Number(v):null})});refresh()}catch(e){alert(e.message)}}
@@ -100,5 +123,5 @@ async function moveArea(id){const parent=$('parent-'+id).value;try{await api('/a
 async function mergeArea(id){const a=await api('/api/areas');const choices=a.filter(x=>x.id!==id);const target=prompt('请输入要合并到的目标分类编号：\\n'+choices.map(x=>x.id+'：'+x.name).join('\\n'));if(!target)return;try{const d=await api('/api/areas/'+id+'/merge',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({target_area_id:Number(target)})});alert('合并完成，迁移文献 '+d.moved_papers+' 篇');refresh()}catch(e){alert(e.message)}}
 async function deleteArea(id){if(!confirm('确定删除该分类？有关联文献或下级分类时系统会阻止删除。'))return;try{await api('/api/areas/'+id,{method:'DELETE'});refresh()}catch(e){alert(e.message)}}
 async function addArea(){const n=$('areaName').value.trim();if(!n)return;try{await api('/api/areas',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:n})});$('areaName').value='';refresh()}catch(e){alert(e.message)}}
-refresh();loadPapers();
+refresh();loadPapers();loadReviewChoices();
 </script></body></html>

@@ -80,7 +80,7 @@ footer{text-align:center;color:#756c9f;font-size:10px;letter-spacing:2px;padding
 </section>
 <section class="lower">
 <div class="panel"><h3>◉ 教师控制台 / 学生接入</h3><p>教师创建课堂房间，学生平板输入房间码加入。跨设备实时同步需要部署并配置课堂通信服务；此处先提供连接入口，不用本地假数据冒充在线同步。</p><div class="row"><input class="field" id="roomCode" value="TILE360" maxlength="16" aria-label="课堂房间码"><select class="field" id="userRole"><option value="teacher">教师端</option><option value="student">学生端</option></select><button class="btn small" onclick="connectRoom()">连接课堂</button></div><div class="row" style="margin-top:9px"><input class="field grow" id="wsUrl" placeholder="课堂通信服务 WebSocket 地址（wss://…）"><button class="btn small ghost" onclick="saveRoomConfig()">保存</button></div><div class="roomstate" id="roomState">尚未连接课堂通信服务。教师端与学生端暂未建立跨设备同步。</div></div>
-<div class="panel"><h3>◇ 原有教学工具 / 保持独立运行</h3><p>密铺实验室以原文件方式打开，不改动原有图形、吸附、裁切、拼接及密铺算法。投票系统保留原入口，待接入已确认的投票页面地址。</p><div class="row"><button class="btn small" onclick="openLab()">启动原版密铺实验室 ↗</button><button class="btn small ghost" onclick="setVoteUrl()">设置原投票入口</button></div><div class="roomstate" id="voteState">投票入口尚未绑定：未在仓库根目录清单中识别到独立投票页面。</div></div>
+<div class="panel"><h3>◇ 原有教学工具 / 保持独立运行</h3><p>密铺实验室以原文件方式打开，不改动原有图形、吸附、裁切、拼接及密铺算法。投票系统保留原入口，待接入已确认的投票页面地址。</p><div class="row"><button class="btn small" onclick="openLab()">启动原版密铺实验室 ↗</button><button class="btn small ghost" onclick="openVote()">打开原投票 ↗</button><button class="btn small ghost" onclick="setVoteUrl()">绑定投票网址</button></div><div class="roomstate" id="voteState">投票入口尚未绑定：未在仓库根目录清单中识别到独立投票页面。</div></div>
 </section>
 <footer>AI TILING UNIVERSE · DISCOVER THE RULES · PROVE WITH MATHEMATICS · CREATE WITHOUT LIMITS</footer>
 </div>

@@ -373,7 +373,7 @@ def get_paper(paper_id: int):
         if p is None: raise HTTPException(404, "文献不存在")
         return {"id": p.id, "title": p.title, "authors": p.authors, "journal": p.journal,
                 "year": p.year, "doi": p.doi, "abstract": p.abstract, "abstract_type": p.abstract_type,
-                "keywords": p.keywords, "full_text": p.full_text, "file_name": p.file_name, "source": p.source,
+                "keywords": p.keywords, "full_text": p.full_text, "text_segments": json.loads(p.text_segments or "[]"), "file_name": p.file_name, "source": p.source,
                 "source_url": p.source_url, "fulltext_status": p.fulltext_status,
                 "verification_status": p.verification_status, "area_id": p.area_id}
 

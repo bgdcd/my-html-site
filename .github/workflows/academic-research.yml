@@ -33,8 +33,10 @@ jobs:
           python - <<'PY'
           from backend.main import app, engine, Paper, ResearchArea
           paths = {route.path for route in app.routes}
-          required = {"/", "/api/health", "/api/areas", "/api/upload",
-                      "/api/papers", "/api/search/external", "/api/stats"}
+          required = {"/", "/api/health", "/api/areas", "/api/areas/{area_id}/move",
+                      "/api/areas/{area_id}/merge", "/api/upload", "/api/papers",
+                      "/api/papers/{paper_id}/metadata", "/api/papers/{paper_id}/area",
+                      "/api/search/external", "/api/stats"}
           missing = required - paths
           assert not missing, f"缺少接口: {missing}"
           assert engine is not None and Paper.__tablename__ == "papers"

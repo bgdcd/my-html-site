@@ -421,6 +421,38 @@ def save_external(payload: SaveExternal):
         db.add(p); db.commit(); db.refresh(p)
         return {"id": p.id, "saved": True}
 
+@app.get("/api/search/fulltext")
+def search_fulltext(q: str = Query(min_length=1), limit: int = Query(50, ge=1, le=200), context: int = Query(120, ge=30, le=500)):
+    """在已保存全文中查找关键词，并返回可回溯的原文上下文；不推断PDF页码。"""
+    keyword = q.strip()
+    if not keyword:
+        raise HTTPException(400, "请输入检索词")
+    with SessionLocal() as db:
+        rows = db.scalars(
+            select(Paper).where(Paper.full_text.like(f"%{keyword}%"))
+            .order_by(Paper.created_at.desc()).limit(limit)
+        ).all()
+        results = []
+        for paper in rows:
+            source_text = paper.full_text or ""
+            positions = [m.start() for m in re.finditer(re.escape(keyword), source_text, re.I)]
+            if not positions:
+                continue
+            start = max(0, positions[0] - context)
+            end = min(len(source_text), positions[0] + len(keyword) + context)
+            snippet = source_text[start:end]
+            results.append({
+                "id": paper.id, "title": paper.title, "authors": paper.authors,
+                "year": paper.year, "source": paper.source, "source_url": paper.source_url,
+                "fulltext_status": paper.fulltext_status, "verification_status": paper.verification_status,
+                "match_count": len(positions), "first_match_offset": positions[0],
+                "snippet": ("…" if start else "") + snippet + ("…" if end < len(source_text) else ""),
+                "snippet_start": start, "snippet_end": end,
+                "location_note": "全文字符位置；当前未保存可靠页码"
+            })
+        return {"query": keyword, "count": len(results), "results": results}
+
+
 @app.get("/api/stats")
 def stats():
     with SessionLocal() as db:

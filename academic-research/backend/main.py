@@ -576,6 +576,42 @@ def delete_evidence_card(evidence_id: int):
         db.delete(item); db.commit()
         return {"id": evidence_id, "deleted": True}
 
+@app.get("/api/review/evidence-matrix")
+def evidence_matrix(paper_ids: str = Query(min_length=1, description="逗号分隔的文献编号")):
+    try:
+        ids = list(dict.fromkeys(int(value.strip()) for value in paper_ids.split(",") if value.strip()))
+    except ValueError:
+        raise HTTPException(400, "文献编号必须为数字")
+    if not ids or len(ids) > 50 or any(value < 1 for value in ids):
+        raise HTTPException(400, "请选择1至50篇有效文献")
+    with SessionLocal() as db:
+        papers = db.scalars(select(Paper).where(Paper.id.in_(ids))).all()
+        found = {paper.id: paper for paper in papers}
+        missing = [value for value in ids if value not in found]
+        if missing:
+            raise HTTPException(404, "以下文献编号不存在：" + ", ".join(map(str, missing)))
+        cards = db.scalars(select(EvidenceCard).where(EvidenceCard.paper_id.in_(ids)).order_by(EvidenceCard.evidence_type, EvidenceCard.paper_id, EvidenceCard.id)).all()
+        grouped = {}
+        for card in cards:
+            grouped.setdefault(card.evidence_type, []).append({
+                "id": card.id, "paper_id": card.paper_id, "claim": card.claim,
+                "source_text": card.source_text, "locator": card.locator,
+                "page_number": card.page_number, "paragraph_number": card.paragraph_number,
+                "verification_status": card.verification_status,
+                "confidence": card.confidence, "notes": card.notes
+            })
+        return {
+            "paper_count": len(papers), "evidence_count": len(cards),
+            "papers": [{"id": p.id, "title": p.title, "authors": p.authors,
+                        "journal": p.journal, "year": p.year, "doi": p.doi,
+                        "source": p.source, "source_url": p.source_url,
+                        "verification_status": p.verification_status} for p in papers],
+            "groups": [{"evidence_type": key, "count": len(value), "items": value}
+                       for key, value in grouped.items()],
+            "notice": "本结果仅汇总研究者已建立的证据卡片，不自动推断论文结论；请核验原文后再形成综述。"
+        }
+
+
 @app.get("/api/stats")
 def stats():
     with SessionLocal() as db:

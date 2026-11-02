@@ -62,7 +62,19 @@ function renderReviewWorkspace(){
  const p=activeReviewProject;if(!p)return;
  const paragraphs=p.paragraphs.map(x=>'<div class="paper"><b>'+esc(x.heading||'未命名段落')+'</b><p>'+esc(x.content)+'</p>'+(x.citations.length?'<div class="muted">引用来源：</div>'+x.citations.map(c=>'<div class="notice">['+c.evidence_id+'] '+esc(c.title)+'（'+esc(c.year||'年份未记录')+'）'+(c.locator?' · '+esc(c.locator):'')+' · '+esc(c.verification_status)+'<p>'+esc(c.source_text||c.claim)+'</p></div>').join(''):'<p class="muted">本段未关联证据卡片</p>')+'<div class="row"><button class="secondary" onclick="editReviewParagraph('+x.id+')">编辑段落</button><button class="secondary" onclick="deleteReviewParagraph('+x.id+')">删除段落</button></div></div>').join('');
  const evidence=reviewEvidencePool.map(c=>'<label style="display:block;padding:8px;border-bottom:1px solid #edf0f5"><input type="checkbox" class="draft-evidence" value="'+c.id+'" style="min-width:auto;margin-right:8px"> ['+c.id+'] '+esc(c.evidence_type)+'：'+esc(c.claim)+'<div class="muted">'+esc(c.paper_title)+' · '+esc(c.paper_year||'')+' · '+esc(c.locator||'出处未注明')+' · '+esc(c.verification_status)+'</div></label>').join('');
- $('draftWorkspace').innerHTML='<h3>'+esc(p.title)+'</h3><p class="muted">研究主题：'+esc(p.topic||'未填写')+' · 段落数：'+p.paragraphs.length+'</p><h3>已撰写段落</h3>'+(paragraphs||'<p class="muted">尚未撰写段落。</p>')+'<hr><h3>新增综述段落</h3><input id="paragraphHeading" type="text" placeholder="段落小标题"><textarea id="paragraphContent" rows="5" style="width:100%;padding:10px;border:1px solid #d7deea;border-radius:8px;font:inherit" placeholder="在此撰写综述内容。请确保论述与证据相符。"></textarea><h4>关联证据卡片</h4><p class="muted">勾选支持本段论述的证据。只有真实存在的证据卡片可被引用。</p><div style="max-height:260px;overflow:auto;border:1px solid #e3e8f1;border-radius:8px">'+(evidence||'<p class="muted">证据库暂无卡片，请先在论文详情中建立证据卡片。</p>')+'</div><div class="row"><button class="primary" onclick="saveReviewParagraph()">保存段落</button></div>';
+ $('draftWorkspace').innerHTML='<h3>'+esc(p.title)+'</h3><p class="muted">研究主题：'+esc(p.topic||'未填写')+' · 段落数：'+p.paragraphs.length+'</p><h3>已撰写段落</h3>'+(paragraphs||'<p class="muted">尚未撰写段落。</p>')+'<hr><h3>新增综述段落</h3><input id="paragraphHeading" type="text" placeholder="段落小标题"><textarea id="paragraphContent" rows="5" style="width:100%;padding:10px;border:1px solid #d7deea;border-radius:8px;font:inherit" placeholder="在此撰写综述内容。请确保论述与证据相符。"></textarea><h4>关联证据卡片</h4><p class="muted">勾选支持本段论述的证据。只有真实存在的证据卡片可被引用。</p><div style="max-height:260px;overflow:auto;border:1px solid #e3e8f1;border-radius:8px">'+(evidence||'<p class="muted">证据库暂无卡片，请先在论文详情中建立证据卡片。</p>')+'</div><div class="row"><button class="secondary" onclick="generateEvidenceDraft()">根据所选证据整理写作素材</button><button class="primary" onclick="saveReviewParagraph()">保存段落</button></div><p class="muted">写作素材会将所选证据的论点、原文和出处整理到正文编辑框，供你修改；不会自动编造结论。</p>';
+}
+async function generateEvidenceDraft(){
+ if(!activeReviewProject){alert('请先选择综述项目');return}
+ const evidence_ids=[...document.querySelectorAll('.draft-evidence:checked')].map(x=>Number(x.value));
+ if(!evidence_ids.length){alert('请先勾选需要用于写作的证据卡片');return}
+ const section=$('paragraphHeading').value.trim()||'研究现状';
+ try{
+  const d=await api('/api/review/evidence-draft',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({evidence_ids,section})});
+  $('paragraphContent').value=d.draft_text;
+  $('paragraphContent').focus();
+  alert('已整理 '+d.included_count+' 条真实证据。请核对原文、补充比较分析，再保存段落。');
+ }catch(e){alert('整理写作素材失败：'+e.message)}
 }
 async function saveReviewParagraph(){
  if(!activeReviewProject)return;

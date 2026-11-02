@@ -41,5 +41,8 @@ jobs:
           assert not missing, f"缺少接口: {missing}"
           assert engine is not None and Paper.__tablename__ == "papers"
           assert ResearchArea.__tablename__ == "research_areas"
-          print("应用导入成功，基础路由和数据模型检查通过")
+          from backend.main import extract_doi, guess_title
+          assert extract_doi("DOI: 10.1234/example.2024") == "10.1234/example.2024"
+          assert guess_title("页眉\\n一个足够明确的论文题名\\n正文", "paper.pdf") == "一个足够明确的论文题名"
+          print("应用导入、分类与元数据接口、DOI和题名识别检查通过")
           PY

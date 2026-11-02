@@ -449,7 +449,6 @@ def admin_set_user_status(user_id: int, payload: UserStatusInput, request: Reque
         if target.id == admin.id and not payload.is_active:
             raise HTTPException(400, "不能停用当前登录的管理员账号。")
         if target.role == "admin" and not payload.is_active:
-            active_admins = db.scalar(select(User.id).where(User.role == "admin", User.is_active.is_(True)))
             active_admin_count = len(db.scalars(select(User.id).where(User.role == "admin", User.is_active.is_(True))).all())
             if active_admin_count <= 1:
                 raise HTTPException(400, "至少保留一名有效管理员。")
@@ -486,10 +485,12 @@ def home():
 
 @app.get("/api/health")
 def health():
-    with SessionLocal() as db:
-        paper_count = len(db.scalars(select(Paper.id)).all())
-        area_count = len(db.scalars(select(ResearchArea.id)).all())
-    return {"status": "ok", "database": "connected", "papers": paper_count, "areas": area_count}
+    try:
+        with engine.connect() as connection:
+            connection.execute(sql_text("SELECT 1"))
+        return {"status": "ok", "database": "connected"}
+    except Exception:
+        raise HTTPException(503, "数据库暂时不可用。")
 
 class AreaMove(BaseModel):
     parent_id: Optional[int] = None

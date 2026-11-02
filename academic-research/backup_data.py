@@ -199,6 +199,29 @@ def restore_backup(backup_dir: Path, target_database: Path, target_uploads: Path
         raise
 
 
+def prune_backups(backup_root: Path, keep: int) -> list[str]:
+    if keep < 1:
+        raise ValueError("至少保留一个备份目录。")
+    if not backup_root.is_dir():
+        return []
+    candidates = []
+    for path in backup_root.iterdir():
+        if not path.is_dir() or not path.name.startswith("academic-backup-"):
+            continue
+        try:
+            verify_backup(path)
+            candidates.append(path)
+        except Exception:
+            # 不自动删除校验失败的备份，留待人工检查。
+            continue
+    candidates.sort(key=lambda item: item.name, reverse=True)
+    removed = []
+    for path in candidates[keep:]:
+        shutil.rmtree(path)
+        removed.append(str(path))
+    return removed
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="学术智库数据备份、校验与恢复")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -212,6 +235,9 @@ def main() -> int:
     restore_parser.add_argument("--database", type=Path, required=True, help="新的 SQLite 文件路径")
     restore_parser.add_argument("--uploads", type=Path, required=True, help="新的上传文件目录")
     restore_parser.add_argument("--yes", action="store_true", help="确认执行恢复操作")
+    prune_parser = sub.add_parser("prune", help="清理超过保留数量的旧备份（仅删除校验通过的备份）")
+    prune_parser.add_argument("--backup-root", type=Path, default=DEFAULT_BACKUP_DIR)
+    prune_parser.add_argument("--keep", type=int, default=7, help="保留最近多少份完整备份，默认7份")
     args = parser.parse_args()
     try:
         if args.command == "backup":
@@ -221,6 +247,9 @@ def main() -> int:
         elif args.command == "verify":
             manifest = verify_backup(args.backup_dir.resolve())
             print(json.dumps({"status": "verified", "created_at_utc": manifest["created_at_utc"], "upload_file_count": manifest["upload_file_count"]}, ensure_ascii=False))
+        elif args.command == "prune":
+            removed = prune_backups(args.backup_root.resolve(), args.keep)
+            print(json.dumps({"status": "pruned", "removed_count": len(removed), "removed": removed}, ensure_ascii=False))
         elif args.command == "restore":
             if not args.yes:
                 raise RuntimeError("恢复操作需要显式添加 --yes 参数确认。")

@@ -406,7 +406,7 @@ async def upload_paper(file: UploadFile = File(...)):
             if not prefix.startswith(b"%PDF-"):
                 raise HTTPException(400, "文件内容不是有效的PDF文件")
         else:
-            if not prefix.startswith(b"PK\\x03\\x04"):
+            if not prefix.startswith(b"PK\x03\x04"):
                 raise HTTPException(400, "DOCX文件格式无效")
             try:
                 with zipfile.ZipFile(target) as archive:

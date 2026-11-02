@@ -10,7 +10,7 @@
 <header class="top"><h1>学术智库</h1><p>真实文献管理 · 学术资料检索 · 研究知识积累</p></header>
 <div class="wrap"><div class="grid">
 <aside class="panel nav">
-<button class="active" data-tab="overview">总览</button><button data-tab="writing">文献综述工作台</button><button data-tab="library">我的文献库</button><button data-tab="external">外部文献检索</button><button data-tab="review">证据综合分析</button><button data-tab="graph">文献知识图谱</button><button data-tab="upload">上传论文</button><button data-tab="areas">研究领域管理</button>
+<button class="active" data-tab="overview">总览</button><button data-tab="writing">文献综述工作台</button><button data-tab="library">我的文献库</button><button data-tab="external">外部文献检索</button><button data-tab="review">证据综合分析</button><button data-tab="graph">文献知识图谱</button><button data-tab="themes">研究主题归纳</button><button data-tab="upload">上传论文</button><button data-tab="areas">研究领域管理</button>
 <div class="notice">来源透明：外部接口元数据不等于全文。当前未接入知网、万方授权服务。</div>
 </aside>
 <main class="main">
@@ -18,7 +18,7 @@
 <section id="article" class="panel hidden"><div id="articleContent">正在读取文献…</div></section>
 <section id="library" class="panel hidden"><h2>我的文献库</h2><div class="row"><input id="libraryQ" type="text" placeholder="检索题名、作者、摘要或全文"><button class="primary" onclick="loadPapers()">检索</button><button class="secondary" onclick="searchFulltext()">全文段落检索</button></div><div id="fulltextResults"></div><div id="papers"></div></section>
 <section id="writing" class="panel hidden"><h2>文献综述工作台</h2><p class="muted">建立综述项目，围绕主题组织段落，并把段落与已核验的证据卡片关联。当前提供人工撰写与引用追溯，不自动生成未经核验的论述。</p><div class="row"><input id="draftTitle" type="text" placeholder="综述项目名称"><input id="draftTopic" type="text" placeholder="研究主题/核心问题"><button class="primary" onclick="createReviewProject()">创建项目</button></div><div class="row"><select id="draftProject" onchange="openReviewProject()"><option value="">选择已有综述项目</option></select><button class="secondary" onclick="loadReviewProjects()">刷新项目</button><select id="citationStyle"><option value="gb">GB/T 7714 顺序编码制</option><option value="simple">简明作者-年份制</option></select><button class="secondary" onclick="exportReviewText()">导出综述与参考文献</button><button class="primary" onclick="exportReviewDocx()">导出 Word 文档</button></div><div id="draftWorkspace"><p class="muted">请先创建或选择一个综述项目。</p></div></section>
-<section id="graph" class="panel hidden"><h2>文献知识图谱</h2><p class="muted">根据个人文献库和已录入的证据卡片构建关系。连线只表示“文献包含证据”及“证据属于某类”，不擅自推断论文之间的支持、冲突或因果关系。</p><div class="row"><button class="primary" onclick="loadKnowledgeGraph()">生成/刷新知识图谱</button><span id="graphSummary" class="muted"></span></div><div id="knowledgeGraph"><p class="muted">点击“生成/刷新知识图谱”读取真实文献关系。</p></div></section><section id="review" class="panel hidden"><h2>多篇文献证据综合分析</h2><p class="muted">勾选个人文献库中的论文，按研究目的、对象、方法、结论等证据类型汇总已录入的证据卡片。此处呈现真实记录，不会自动补写缺失结论。</p><div class="row"><input id="reviewQ" type="text" placeholder="筛选题名或作者" oninput="renderReviewChoices()"><button class="secondary" onclick="loadReviewChoices()">刷新文献列表</button><button class="primary" onclick="runEvidenceMatrix()">生成证据矩阵</button></div><div id="reviewChoices">正在读取文献…</div><div id="reviewMatrix"></div></section>
+<section id="themes" class="panel hidden"><h2>研究主题归纳</h2><p class="muted">在证据卡片中为每条证据添加研究者确认的主题标签。本页按标签汇总多篇文献的真实证据，不自动猜测主题或生成研究结论。</p><div class="row"><button class="primary" onclick="loadResearchThemes()">刷新主题归纳</button><span id="themeSummary" class="muted"></span></div><div id="researchThemes"><p class="muted">请先在文献详情的证据卡片中添加主题标签。</p></div></section><section id="graph" class="panel hidden"><h2>文献知识图谱</h2><p class="muted">根据个人文献库和已录入的证据卡片构建关系。连线只表示“文献包含证据”及“证据属于某类”，不擅自推断论文之间的支持、冲突或因果关系。</p><div class="row"><button class="primary" onclick="loadKnowledgeGraph()">生成/刷新知识图谱</button><span id="graphSummary" class="muted"></span></div><div id="knowledgeGraph"><p class="muted">点击“生成/刷新知识图谱”读取真实文献关系。</p></div></section><section id="review" class="panel hidden"><h2>多篇文献证据综合分析</h2><p class="muted">勾选个人文献库中的论文，按研究目的、对象、方法、结论等证据类型汇总已录入的证据卡片。此处呈现真实记录，不会自动补写缺失结论。</p><div class="row"><input id="reviewQ" type="text" placeholder="筛选题名或作者" oninput="renderReviewChoices()"><button class="secondary" onclick="loadReviewChoices()">刷新文献列表</button><button class="primary" onclick="runEvidenceMatrix()">生成证据矩阵</button></div><div id="reviewChoices">正在读取文献…</div><div id="reviewMatrix"></div></section>
 <section id="external" class="panel hidden"><h2>外部文献检索</h2><p class="muted">调用 OpenAlex 或 Crossref 公开接口，显示接口真实返回结果。</p><div class="row"><input id="externalQ" type="text" placeholder="输入论文主题、关键词或题名"><select id="source"><option value="openalex">OpenAlex</option><option value="crossref">Crossref</option></select><button class="primary" onclick="searchExternal()">开始检索</button></div><div id="externalResults"></div></section>
 <section id="upload" class="panel hidden"><h2>上传论文</h2><p>支持 PDF、DOCX，单个文件最大40MB。扫描版PDF若无文本层，当前版本可能无法提取文字。</p><div class="row"><input id="file" type="file" accept=".pdf,.docx"><button class="primary" onclick="uploadFile()">上传并解析</button></div><div id="uploadResult" class="muted"></div></section>
 <section id="areas" class="panel hidden"><h2>研究领域管理</h2><p class="muted">第04领域保持空白；可在此添加你自己的方向。自动分类仅为初步建议，未命中文献进入待确认。</p><div id="areasList"></div><div class="row"><input id="areaName" type="text" placeholder="输入要新增的研究方向"><button class="primary" onclick="addArea()">新增领域</button></div></section>
@@ -150,6 +150,15 @@ function renderReviewChoices(){
  const rows=reviewPapers.filter(p=>(p.title+' '+p.authors).toLowerCase().includes(q));
  $('reviewChoices').innerHTML=rows.length?rows.map(p=>'<label style="display:block;padding:8px;border-bottom:1px solid #edf0f5"><input type="checkbox" class="review-paper" value="'+p.id+'" style="min-width:auto;margin-right:8px"> '+esc(p.title)+' <span class="muted">'+esc(p.authors)+' · '+esc(p.year||'')+'</span></label>').join(''):'没有匹配文献';
 }
+
+async function loadResearchThemes(){
+ $('researchThemes').textContent='正在汇总已标注主题的证据…';
+ try{
+  const d=await api('/api/research-themes');
+  $('themeSummary').textContent='主题 '+d.theme_count+' 个 · 证据 '+d.evidence_count+' 条';
+  $('researchThemes').innerHTML='<div class="notice">'+esc(d.notice)+'</div>'+(d.themes.length?d.themes.map(t=>'<div class="paper"><h3>'+esc(t.theme)+'</h3><div class="muted">涉及文献 '+t.paper_count+' 篇 · 证据 '+t.evidence_count+' 条</div>'+t.items.map(x=>'<div class="notice"><b>'+esc(x.title)+'</b><div class="muted">'+esc(x.authors||'作者未记录')+' · '+esc(x.year||'年份未记录')+' · '+esc(x.evidence_type)+' · '+esc(x.verification_status)+'</div><p>'+esc(x.claim)+'</p>'+(x.source_text?'<div class="snippet">'+esc(x.source_text)+'</div>':'')+'<div class="muted">出处：'+esc(x.page_number?'PDF第'+x.page_number+'页':(x.paragraph_number?'DOCX第'+x.paragraph_number+'段':(x.locator||'未注明')))+'</div></div>').join('')+'</div>').join(''):'<p>当前没有已标注主题的证据。请打开文献详情，新增证据卡片并填写主题标签。</p>');
+ }catch(e){$('researchThemes').textContent='主题归纳读取失败：'+e.message}
+}
 async function loadKnowledgeGraph(){
  $('knowledgeGraph').textContent='正在读取个人文献库中的真实证据关系…';
  try{
@@ -218,12 +227,13 @@ async function addEvidence(paperId){
  const pageText=prompt('PDF页码（非PDF或未知请留空）','');if(pageText===null)return;
  const paragraphText=prompt('DOCX正文段落编号（未知请留空）','');if(paragraphText===null)return;
  const notes=prompt('研究者备注（可留空）','');if(notes===null)return;
+ const themeTag=prompt('研究主题标签（填写你确认的主题，如“基本运动技能”；可留空）','');if(themeTag===null)return;
  try{
   await api('/api/papers/'+paperId+'/evidence',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
    evidence_type:type,claim:claim.trim(),source_text:sourceText,locator,
    page_number:pageText.trim()?Number(pageText):null,
    paragraph_number:paragraphText.trim()?Number(paragraphText):null,
-   confidence:'待核验',verification_status:'待核验',notes
+   confidence:'待核验',verification_status:'待核验',notes,theme_tag:themeTag.trim()
   })});
   await loadEvidence(paperId);
  }catch(e){alert('保存证据卡片失败：'+e.message)}

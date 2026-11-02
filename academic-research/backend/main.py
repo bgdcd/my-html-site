@@ -194,6 +194,12 @@ def verify_password(password: str, stored: str) -> bool:
 def token_digest(token: str) -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
+def login_session_valid(record: LoginSession) -> bool:
+    expiry = record.expires_at
+    if expiry.tzinfo is None:
+        expiry = expiry.replace(tzinfo=timezone.utc)
+    return expiry > datetime.now(timezone.utc)
+
 def account_count() -> int:
     with SessionLocal() as db:
         return int(db.scalar(select(User.id).limit(1)) is not None)
@@ -210,7 +216,7 @@ async def security_gate(request: Request, call_next):
         if account_token:
             with SessionLocal() as db:
                 record = db.scalar(select(LoginSession).where(LoginSession.token_hash == token_digest(account_token)))
-                if record and record.expires_at > datetime.now(timezone.utc):
+                if record and login_session_valid(record):
                     account_id = record.user_id
         users_exist = account_count()
         if users_exist and account_id is None:
@@ -218,7 +224,10 @@ async def security_gate(request: Request, call_next):
             return JSONResponse(status_code=401, content={"detail": "请先登录学术智库账号。"})
         if not users_exist:
             expected = os.getenv("ACADEMIC_ACCESS_TOKEN", "").strip()
-            if expected and (not account_token or not secrets.compare_digest(account_token, expected)):
+            if not expected:
+                from starlette.responses import JSONResponse
+                return JSONResponse(status_code=503, content={"detail": "管理员账号尚未初始化。请先创建管理员账号后再使用文献库。"})
+            if not account_token or not secrets.compare_digest(account_token, expected):
                 from starlette.responses import JSONResponse
                 return JSONResponse(status_code=401, content={"detail": "服务器访问口令不正确。"})
     elif path == "/api/health":

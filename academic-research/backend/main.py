@@ -669,6 +669,10 @@ class ReviewProjectInput(BaseModel):
     topic: str = Field(default="", max_length=1000)
     notes: str = Field(default="", max_length=10000)
 
+class EvidenceDraftInput(BaseModel):
+    evidence_ids: list[int] = Field(min_length=1, max_length=50)
+    section: str = Field(default="研究现状", max_length=100)
+
 class ReviewParagraphInput(BaseModel):
     heading: str = Field(default="", max_length=500)
     content: str = Field(min_length=1, max_length=20000)
@@ -794,6 +798,64 @@ def delete_review_paragraph(paragraph_id: int):
         db.delete(paragraph); db.commit()
         return {"id": paragraph_id, "deleted": True}
 
+
+
+@app.post("/api/review/evidence-draft")
+def evidence_writing_draft(payload: EvidenceDraftInput):
+    """根据用户选定的真实证据卡片整理可追溯写作素材，不生成或推断研究结论。"""
+    ids = list(dict.fromkeys(payload.evidence_ids))
+    if not ids or len(ids) > 50 or any(value < 1 for value in ids):
+        raise HTTPException(400, "请选择1至50条有效证据")
+    with SessionLocal() as db:
+        cards = db.scalars(select(EvidenceCard).where(EvidenceCard.id.in_(ids))).all()
+        by_id = {card.id: card for card in cards}
+        missing = [value for value in ids if value not in by_id]
+        if missing:
+            raise HTTPException(404, "部分证据卡片不存在：" + ", ".join(map(str, missing)))
+        grouped = {}
+        for evidence_id in ids:
+            card = by_id[evidence_id]
+            paper = db.get(Paper, card.paper_id)
+            if paper is None:
+                continue
+            grouped.setdefault(card.evidence_type or "未分类证据", []).append({
+                "evidence_id": card.id, "paper_id": paper.id, "title": paper.title,
+                "authors": paper.authors, "year": paper.year, "journal": paper.journal,
+                "doi": paper.doi, "claim": card.claim, "source_text": card.source_text,
+                "locator": card.locator, "page_number": card.page_number,
+                "paragraph_number": card.paragraph_number,
+                "verification_status": card.verification_status,
+                "theme_tag": card.theme_tag
+            })
+        if not grouped:
+            raise HTTPException(400, "所选证据没有可关联的文献记录")
+        lines = ["写作素材初稿（由已选证据卡片整理，非AI生成结论）", "拟写部分："+(payload.section or "研究现状"), ""]
+        for evidence_type, items in grouped.items():
+            lines.append("【"+evidence_type+"】")
+            for item in items:
+                author = item["authors"] or "作者未记录"
+                year = item["year"] or "年份待核验"
+                locator = ("PDF第"+str(item["page_number"])+"页" if item["page_number"] else
+                           ("DOCX第"+str(item["paragraph_number"])+"段" if item["paragraph_number"] else (item["locator"] or "出处待补充")))
+                lines.append("• "+(item["claim"] or "论点概括待补充"))
+                lines.append("  来源："+author+"（"+str(year)+"），《"+(item["title"] or "题名待核验")+"》；"+locator+"；证据卡片编号："+str(item["evidence_id"])+"；核验状态："+(item["verification_status"] or "待核验"))
+                if item["source_text"]:
+                    lines.append("  原文摘录："+item["source_text"].strip())
+            lines.append("")
+        lines.extend([
+            "【需要研究者完成的综合判断】",
+            "1. 比较上述研究的研究对象、研究设计与测量指标是否具有可比性。",
+            "2. 判断不同研究的结果是相互支持、存在差异，还是研究条件不同而不能直接比较；不得仅凭主题相同作出判断。",
+            "3. 补充证据卡片未覆盖的文献与反例，再形成综合论述。",
+            "",
+            "核验提醒：含“待核验”状态的证据，以及缺少原文摘录或出处的条目，正式写作前必须回到原文核实。",
+            "本素材仅重组用户选定的数据库记录，不代表系统已阅读全文或自动完成文献综述。"
+        ])
+        return {"selected_count": len(ids), "included_count": sum(len(v) for v in grouped.values()),
+                "groups": [{"evidence_type": key, "count": len(value)} for key, value in grouped.items()],
+                "draft_text": "\\n".join(lines),
+                "evidence": [item for values in grouped.values() for item in values],
+                "notice": "这是可编辑的证据写作素材初稿，不是AI生成的学术结论。请逐条核验来源并自行完成比较、综合和论证。"}
 
 @app.get("/api/review/projects/{project_id}/export.docx")
 def export_review_project_docx(project_id: int, style: str = Query("gb", pattern="^(gb|simple)$")):

@@ -17,7 +17,7 @@
 <section id="overview" class="panel"><h2>研究资料总览</h2><div class="stats"><div class="card stat"><strong id="total">—</strong><span>文献总数</span></div><div class="card stat"><strong id="uploaded">—</strong><span>个人上传</span></div><div class="card stat"><strong id="pending">—</strong><span>待确认分类</span></div></div><p class="muted" id="health">正在连接数据库…</p><h3>研究领域</h3><div id="areaOverview"></div></section>
 <section id="article" class="panel hidden"><div id="articleContent">正在读取文献…</div></section>
 <section id="library" class="panel hidden"><h2>我的文献库</h2><div class="row"><input id="libraryQ" type="text" placeholder="检索题名、作者、摘要或全文"><button class="primary" onclick="loadPapers()">检索</button><button class="secondary" onclick="searchFulltext()">全文段落检索</button></div><div id="fulltextResults"></div><div id="papers"></div></section>
-<section id="writing" class="panel hidden"><h2>文献综述工作台</h2><p class="muted">建立综述项目，围绕主题组织段落，并把段落与已核验的证据卡片关联。当前提供人工撰写与引用追溯，不自动生成未经核验的论述。</p><div class="row"><input id="draftTitle" type="text" placeholder="综述项目名称"><input id="draftTopic" type="text" placeholder="研究主题/核心问题"><button class="primary" onclick="createReviewProject()">创建项目</button></div><div class="row"><select id="draftProject" onchange="openReviewProject()"><option value="">选择已有综述项目</option></select><button class="secondary" onclick="loadReviewProjects()">刷新项目</button><select id="citationStyle"><option value="gb">GB/T 7714 顺序编码制</option><option value="simple">简明作者-年份制</option></select><button class="secondary" onclick="exportReviewText()">导出综述与参考文献</button></div><div id="draftWorkspace"><p class="muted">请先创建或选择一个综述项目。</p></div></section>
+<section id="writing" class="panel hidden"><h2>文献综述工作台</h2><p class="muted">建立综述项目，围绕主题组织段落，并把段落与已核验的证据卡片关联。当前提供人工撰写与引用追溯，不自动生成未经核验的论述。</p><div class="row"><input id="draftTitle" type="text" placeholder="综述项目名称"><input id="draftTopic" type="text" placeholder="研究主题/核心问题"><button class="primary" onclick="createReviewProject()">创建项目</button></div><div class="row"><select id="draftProject" onchange="openReviewProject()"><option value="">选择已有综述项目</option></select><button class="secondary" onclick="loadReviewProjects()">刷新项目</button><select id="citationStyle"><option value="gb">GB/T 7714 顺序编码制</option><option value="simple">简明作者-年份制</option></select><button class="secondary" onclick="exportReviewText()">导出综述与参考文献</button><button class="primary" onclick="exportReviewDocx()">导出 Word 文档</button></div><div id="draftWorkspace"><p class="muted">请先创建或选择一个综述项目。</p></div></section>
 <section id="review" class="panel hidden"><h2>多篇文献证据综合分析</h2><p class="muted">勾选个人文献库中的论文，按研究目的、对象、方法、结论等证据类型汇总已录入的证据卡片。此处呈现真实记录，不会自动补写缺失结论。</p><div class="row"><input id="reviewQ" type="text" placeholder="筛选题名或作者" oninput="renderReviewChoices()"><button class="secondary" onclick="loadReviewChoices()">刷新文献列表</button><button class="primary" onclick="runEvidenceMatrix()">生成证据矩阵</button></div><div id="reviewChoices">正在读取文献…</div><div id="reviewMatrix"></div></section>
 <section id="external" class="panel hidden"><h2>外部文献检索</h2><p class="muted">调用 OpenAlex 或 Crossref 公开接口，显示接口真实返回结果。</p><div class="row"><input id="externalQ" type="text" placeholder="输入论文主题、关键词或题名"><select id="source"><option value="openalex">OpenAlex</option><option value="crossref">Crossref</option></select><button class="primary" onclick="searchExternal()">开始检索</button></div><div id="externalResults"></div></section>
 <section id="upload" class="panel hidden"><h2>上传论文</h2><p>支持 PDF、DOCX，单个文件最大40MB。扫描版PDF若无文本层，当前版本可能无法提取文字。</p><div class="row"><input id="file" type="file" accept=".pdf,.docx"><button class="primary" onclick="uploadFile()">上传并解析</button></div><div id="uploadResult" class="muted"></div></section>
@@ -95,6 +95,17 @@ function formatReference(c){
  const doi=(c.doi||'').trim();
  if($('citationStyle').value==='simple')return authors+'（'+year+'）. '+title+'. '+(journal||'出版来源待核验')+(doi?' . DOI: '+doi:'')+'.';
  return authors+'. '+title+(journal?'[J]. '+journal+', ':'[文献类型待核验]. ')+year+(doi?'. DOI: '+doi:'')+'.';
+}
+async function exportReviewDocx(){
+ if(!activeReviewProject){alert('请先选择综述项目');return}
+ try{
+  const response=await fetch('/api/review/projects/'+activeReviewProject.id+'/export.docx?style='+encodeURIComponent($('citationStyle').value));
+  if(!response.ok){let message='Word 导出失败';try{const data=await response.json();message=data.detail||message}catch(e){}throw Error(message)}
+  const blob=await response.blob();
+  const url=URL.createObjectURL(blob),a=document.createElement('a');
+  a.href=url;a.download=(activeReviewProject.title||'文献综述')+'.docx';
+  document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+ }catch(e){alert('Word 导出失败：'+e.message)}
 }
 function exportReviewText(){
  if(!activeReviewProject){alert('请先选择综述项目');return}

@@ -9,6 +9,7 @@ import secrets
 import time
 import threading
 import zipfile
+import tempfile
 from io import BytesIO
 from urllib.parse import quote
 from datetime import datetime, timezone, timedelta
@@ -24,6 +25,7 @@ from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from fastapi import FastAPI, File, HTTPException, Query, UploadFile, Request
 from fastapi.responses import FileResponse, StreamingResponse
+from starlette.background import BackgroundTask
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, create_engine, select, or_, inspect, text as sql_text, event
@@ -494,6 +496,166 @@ def admin_reset_user_password(user_id: int, payload: AdminPasswordResetInput, re
                      "管理员设置临时密码，要求用户下次登录后修改", request)
         db.commit()
         return {"id": target.id, "username": target.username, "force_password_change": True}
+
+def json_model_rows(rows, excluded_fields=None):
+    excluded_fields = set(excluded_fields or ())
+    output = []
+    for row in rows:
+        item = {}
+        for column in row.__table__.columns:
+            if column.name in excluded_fields:
+                continue
+            value = getattr(row, column.name)
+            item[column.name] = value.isoformat() if isinstance(value, datetime) else value
+        output.append(item)
+    return output
+
+@app.get("/api/account/integrity")
+def account_data_integrity():
+    account_id = current_user_id.get()
+    with SessionLocal() as db:
+        user = db.get(User, account_id) if account_id else None
+        if not user or not user.is_active:
+            raise HTTPException(401, "请先登录有效账号。")
+        papers = db.scalars(select(Paper).order_by(Paper.id)).all()
+        areas = db.scalars(select(ResearchArea)).all()
+        area_ids = {area.id for area in areas}
+        cards = db.scalars(select(EvidenceCard)).all()
+        card_ids = {card.id for card in cards}
+        paragraphs = db.scalars(select(ReviewParagraph)).all()
+        missing_files, unsafe_paths, invalid_area_refs, invalid_evidence_refs = [], [], [], []
+        for paper in papers:
+            if paper.area_id is not None and paper.area_id not in area_ids:
+                invalid_area_refs.append(paper.id)
+            if paper.file_path:
+                path = Path(paper.file_path).resolve()
+                try:
+                    path.relative_to(UPLOAD_DIR.resolve())
+                except ValueError:
+                    unsafe_paths.append(paper.id)
+                    continue
+                if not path.is_file():
+                    missing_files.append(paper.id)
+        for paragraph in paragraphs:
+            try:
+                evidence_ids = json.loads(paragraph.evidence_ids or "[]")
+                if not isinstance(evidence_ids, list):
+                    raise ValueError("引用字段不是数组")
+            except (TypeError, ValueError, json.JSONDecodeError):
+                invalid_evidence_refs.append({"paragraph_id": paragraph.id, "reason": "引用数据格式损坏"})
+                continue
+            missing = sorted(set(int(value) for value in evidence_ids if str(value).isdigit()) - card_ids)
+            if missing:
+                invalid_evidence_refs.append({"paragraph_id": paragraph.id, "missing_evidence_ids": missing})
+        duplicate_hashes = db.execute(
+            select(Paper.file_sha256).where(Paper.file_sha256 != "")
+            .group_by(Paper.file_sha256).having(sql_text("COUNT(*) > 1"))
+        ).scalars().all()
+        report = {
+            "account": user.username,
+            "checked_at": datetime.now(timezone.utc).isoformat(),
+            "counts": {"papers": len(papers), "areas": len(areas), "evidence_cards": len(cards),
+                       "review_projects": len(db.scalars(select(ReviewProject)).all()),
+                       "review_paragraphs": len(paragraphs)},
+            "file_integrity": {"papers_with_original_file": sum(bool(p.file_path) for p in papers),
+                               "missing_original_file_paper_ids": missing_files,
+                               "unsafe_file_path_paper_ids": unsafe_paths},
+            "reference_integrity": {"invalid_area_paper_ids": invalid_area_refs,
+                                    "invalid_evidence_links": invalid_evidence_refs},
+            "duplicate_file_sha256": duplicate_hashes,
+        }
+        report["passed"] = not any((missing_files, unsafe_paths, invalid_area_refs,
+                                    invalid_evidence_refs, duplicate_hashes))
+        record_audit(db, "personal_data_integrity_checked", user.id, user.id,
+                     "检查个人资料库完整性", None)
+        db.commit()
+        return report
+
+@app.get("/api/account/export.zip")
+def export_personal_data():
+    account_id = current_user_id.get()
+    with SessionLocal() as db:
+        user = db.get(User, account_id) if account_id else None
+        if not user or not user.is_active:
+            raise HTTPException(401, "请先登录有效账号。")
+        papers = db.scalars(select(Paper).order_by(Paper.id)).all()
+        areas = db.scalars(select(ResearchArea).order_by(ResearchArea.id)).all()
+        evidence = db.scalars(select(EvidenceCard).order_by(EvidenceCard.id)).all()
+        projects = db.scalars(select(ReviewProject).order_by(ReviewProject.id)).all()
+        paragraphs = db.scalars(select(ReviewParagraph).order_by(ReviewParagraph.id)).all()
+        record_audit(db, "personal_data_exported", user.id, user.id,
+                     f"导出个人资料：{len(papers)}篇文献、{len(evidence)}条证据卡片", None)
+        db.commit()
+        audit_rows = db.scalars(
+            select(AuditLog).where(or_(AuditLog.actor_user_id == user.id,
+                                      AuditLog.target_user_id == user.id))
+            .order_by(AuditLog.created_at.desc()).limit(1000)
+        ).all()
+
+        temp = tempfile.NamedTemporaryFile(prefix="academic-export-", suffix=".zip",
+                                           dir=DATA_DIR, delete=False)
+        archive_path = Path(temp.name)
+        temp.close()
+        files_manifest = []
+        try:
+            with zipfile.ZipFile(archive_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+                archive.writestr("account.json", json.dumps(
+                    {"id": user.id, "username": user.username, "role": user.role,
+                     "created_at": user.created_at.isoformat() if user.created_at else ""},
+                    ensure_ascii=False, indent=2))
+                archive.writestr("research_areas.json", json.dumps(
+                    json_model_rows(areas), ensure_ascii=False, indent=2))
+                archive.writestr("papers.json", json.dumps(
+                    json_model_rows(papers, {"file_path"}), ensure_ascii=False, indent=2))
+                archive.writestr("evidence_cards.json", json.dumps(
+                    json_model_rows(evidence), ensure_ascii=False, indent=2))
+                archive.writestr("review_projects.json", json.dumps(
+                    json_model_rows(projects), ensure_ascii=False, indent=2))
+                archive.writestr("review_paragraphs.json", json.dumps(
+                    json_model_rows(paragraphs), ensure_ascii=False, indent=2))
+                archive.writestr("audit_logs.json", json.dumps(
+                    json_model_rows(audit_rows), ensure_ascii=False, indent=2))
+                for paper in papers:
+                    if not paper.file_path:
+                        continue
+                    original = Path(paper.file_path).resolve()
+                    try:
+                        original.relative_to(UPLOAD_DIR.resolve())
+                    except ValueError:
+                        files_manifest.append({"paper_id": paper.id, "status": "路径不在上传目录，未导出"})
+                        continue
+                    if not original.is_file():
+                        files_manifest.append({"paper_id": paper.id, "status": "原件缺失"})
+                        continue
+                    archive_name = f"original_files/{paper.id}_{Path(paper.file_name or original.name).name}"
+                    archive.write(original, archive_name)
+                    digest = hashlib.sha256()
+                    with original.open("rb") as handle:
+                        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                            digest.update(chunk)
+                    files_manifest.append({"paper_id": paper.id, "archive_path": archive_name,
+                                           "size_bytes": original.stat().st_size,
+                                           "sha256": digest.hexdigest(), "status": "已导出"})
+                manifest = {
+                    "format": "academic-research-personal-export",
+                    "version": 1,
+                    "exported_at": datetime.now(timezone.utc).isoformat(),
+                    "account_id": user.id,
+                    "account": user.username,
+                    "counts": {"papers": len(papers), "areas": len(areas), "evidence_cards": len(evidence),
+                               "review_projects": len(projects), "review_paragraphs": len(paragraphs)},
+                    "original_files": files_manifest,
+                    "note": "本导出包含个人文献元数据、已提取全文、证据卡片、综述内容及可读取的上传原件；不含密码哈希和登录令牌。"
+                }
+                archive.writestr("manifest.json", json.dumps(manifest, ensure_ascii=False, indent=2))
+        except Exception:
+            archive_path.unlink(missing_ok=True)
+            raise
+        return FileResponse(
+            archive_path, filename=f"学术智库个人数据-{user.id}.zip",
+            media_type="application/zip",
+            background=BackgroundTask(lambda: archive_path.unlink(missing_ok=True))
+        )
 
 @app.get("/api/admin/audit-logs")
 def admin_audit_logs(limit: int = Query(default=100, ge=1, le=500)):

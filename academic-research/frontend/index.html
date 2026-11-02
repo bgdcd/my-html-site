@@ -31,7 +31,7 @@ function saveAccessToken(){
  if(value)sessionStorage.setItem('academic_access_token',value);else sessionStorage.removeItem('academic_access_token');
  $('accessToken').value='';
  loadSecurityStatus();
- refresh();
+ refresh();loadPapers();loadReviewChoices();loadReviewProjects();
 }
 async function loadSecurityStatus(){
  try{

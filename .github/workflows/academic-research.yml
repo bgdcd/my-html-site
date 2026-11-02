@@ -43,6 +43,6 @@ jobs:
           assert ResearchArea.__tablename__ == "research_areas"
           from backend.main import extract_doi, guess_title
           assert extract_doi("DOI: 10.1234/example.2024") == "10.1234/example.2024"
-          assert guess_title("页眉\\n一个足够明确的论文题名\\n正文", "paper.pdf") == "一个足够明确的论文题名"
+          assert guess_title("页眉\n一个足够明确的论文题名\n正文", "paper.pdf") == "一个足够明确的论文题名"
           print("应用导入、分类与元数据接口、DOI和题名识别检查通过")
           PY

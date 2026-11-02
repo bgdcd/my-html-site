@@ -341,7 +341,10 @@ def auth_status():
                 "notice": "首次管理员注册需要 ACADEMIC_BOOTSTRAP_CODE；后续账号必须提供 ACADEMIC_REGISTRATION_CODE 邀请码。"}
 
 @app.post("/api/auth/register")
-def register_account(payload: AccountRegisterInput):
+def register_account(payload: AccountRegisterInput, request: Request):
+    registration_key = login_rate_key(request, "registration")
+    if login_rate_limited(registration_key):
+        raise HTTPException(429, "注册尝试次数过多，请15分钟后再试。")
     with SessionLocal() as db:
         first_user = db.scalar(select(User.id).limit(1)) is None
         if first_user:
@@ -349,13 +352,16 @@ def register_account(payload: AccountRegisterInput):
             if not bootstrap:
                 raise HTTPException(503, "尚未配置管理员初始化口令。请先在服务器环境变量中设置 ACADEMIC_BOOTSTRAP_CODE。")
             if not payload.registration_code or not secrets.compare_digest(payload.registration_code, bootstrap):
+                record_login_failure(registration_key)
                 raise HTTPException(403, "管理员初始化口令不正确。")
         else:
             invite = os.getenv("ACADEMIC_REGISTRATION_CODE", "").strip()
             if not invite or not payload.registration_code or not secrets.compare_digest(payload.registration_code, invite):
+                record_login_failure(registration_key)
                 raise HTTPException(403, "当前不开放自由注册。请联系管理员获取有效注册邀请码。")
         if db.scalar(select(User.id).where(User.username == payload.username)):
             raise HTTPException(409, "用户名已存在。")
+        clear_login_failures(registration_key)
         user = User(username=payload.username, password_hash=password_digest(payload.password),
                     role="admin" if first_user else "member")
         db.add(user)

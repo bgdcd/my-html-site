@@ -80,6 +80,7 @@ class EvidenceCard(Base):
     confidence: Mapped[str] = mapped_column(String(40), default="待核验")
     verification_status: Mapped[str] = mapped_column(String(40), default="待核验")
     notes: Mapped[str] = mapped_column(Text, default="")
+    theme_tag: Mapped[str] = mapped_column(String(120), default="", index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 class ReviewProject(Base):
@@ -104,9 +105,12 @@ Base.metadata.create_all(engine)
 
 def migrate_schema():
     columns = {column['name'] for column in inspect(engine).get_columns('papers')}
-    if 'text_segments' not in columns:
-        with engine.begin() as connection:
+    evidence_columns = {column['name'] for column in inspect(engine).get_columns('evidence_cards')}
+    with engine.begin() as connection:
+        if 'text_segments' not in columns:
             connection.execute(sql_text("ALTER TABLE papers ADD COLUMN text_segments TEXT DEFAULT '[]'"))
+        if 'theme_tag' not in evidence_columns:
+            connection.execute(sql_text("ALTER TABLE evidence_cards ADD COLUMN theme_tag VARCHAR(120) DEFAULT ''"))
 
 migrate_schema()
 
@@ -581,6 +585,7 @@ class EvidenceCardInput(BaseModel):
     confidence: str = Field(default="待核验", max_length=40)
     verification_status: str = Field(default="待核验", max_length=40)
     notes: str = Field(default="", max_length=5000)
+    theme_tag: str = Field(default="", max_length=120)
 
 @app.get("/api/papers/{paper_id}/evidence")
 def list_evidence_cards(paper_id: int):
@@ -592,7 +597,7 @@ def list_evidence_cards(paper_id: int):
                  "claim": x.claim, "source_text": x.source_text, "locator": x.locator,
                  "page_number": x.page_number, "paragraph_number": x.paragraph_number,
                  "confidence": x.confidence, "verification_status": x.verification_status,
-                 "notes": x.notes, "created_at": x.created_at.isoformat()} for x in rows]
+                 "notes": x.notes, "theme_tag": x.theme_tag, "created_at": x.created_at.isoformat()} for x in rows]
 
 @app.post("/api/papers/{paper_id}/evidence")
 def create_evidence_card(paper_id: int, payload: EvidenceCardInput):
@@ -896,6 +901,35 @@ def export_review_project_docx(project_id: int, style: str = Query("gb", pattern
     return StreamingResponse(stream, media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         headers={"Content-Disposition": "attachment; filename*=UTF-8''" + filename})
 
+
+
+@app.get("/api/research-themes")
+def research_themes(area_id: Optional[int] = Query(default=None, ge=1)):
+    """汇总研究者明确标注的证据主题；不自动推断或生成主题。"""
+    with SessionLocal() as db:
+        query = select(EvidenceCard).where(EvidenceCard.theme_tag != "").order_by(EvidenceCard.theme_tag, EvidenceCard.paper_id, EvidenceCard.id)
+        cards = db.scalars(query).all()
+        grouped = {}
+        for card in cards:
+            paper = db.get(Paper, card.paper_id)
+            if paper is None:
+                continue
+            if area_id is not None and paper.area_id != area_id:
+                continue
+            grouped.setdefault(card.theme_tag, []).append({
+                "evidence_id": card.id, "paper_id": paper.id, "title": paper.title,
+                "authors": paper.authors, "year": paper.year, "area_id": paper.area_id,
+                "evidence_type": card.evidence_type, "claim": card.claim,
+                "source_text": card.source_text, "locator": card.locator,
+                "page_number": card.page_number, "paragraph_number": card.paragraph_number,
+                "verification_status": card.verification_status
+            })
+        themes = [{"theme": name, "evidence_count": len(items),
+                   "paper_count": len({item["paper_id"] for item in items}),
+                   "items": items} for name, items in grouped.items()]
+        return {"theme_count": len(themes), "evidence_count": sum(x["evidence_count"] for x in themes),
+                "themes": themes,
+                "notice": "主题名称由研究者在证据卡片中手动标注；本页仅按标签归集真实证据，不代表AI自动归纳，也不表示同主题证据结论一致。请逐条核验原文。"}
 
 @app.get("/api/knowledge-graph")
 def knowledge_graph(paper_ids: str = Query(default="", description="可选，逗号分隔的文献编号")):

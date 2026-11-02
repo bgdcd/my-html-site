@@ -931,6 +931,50 @@ def research_themes(area_id: Optional[int] = Query(default=None, ge=1)):
                 "themes": themes,
                 "notice": "主题名称由研究者在证据卡片中手动标注；本页仅按标签归集真实证据，不代表AI自动归纳，也不表示同主题证据结论一致。请逐条核验原文。"}
 
+
+@app.get("/api/research-analysis")
+def research_analysis(area_id: Optional[int] = Query(default=None, ge=1)):
+    """按人工主题标签并列真实证据，并统计个人资料库的证据类型覆盖；不推断研究结论或研究空白。"""
+    standard_types = ["研究目的", "研究对象", "研究方法", "样本特征", "研究结论", "局限性", "理论观点"]
+    with SessionLocal() as db:
+        cards = db.scalars(select(EvidenceCard).where(
+            EvidenceCard.theme_tag != ""
+        ).order_by(EvidenceCard.theme_tag, EvidenceCard.paper_id, EvidenceCard.id)).all()
+        grouped = {}
+        for card in cards:
+            paper = db.get(Paper, card.paper_id)
+            if paper is None or (area_id is not None and paper.area_id != area_id):
+                continue
+            grouped.setdefault(card.theme_tag, []).append({
+                "evidence_id": card.id, "paper_id": paper.id, "title": paper.title,
+                "authors": paper.authors, "year": paper.year, "journal": paper.journal,
+                "doi": paper.doi, "source": paper.source, "source_url": paper.source_url,
+                "evidence_type": card.evidence_type, "claim": card.claim,
+                "source_text": card.source_text, "locator": card.locator,
+                "page_number": card.page_number, "paragraph_number": card.paragraph_number,
+                "verification_status": card.verification_status,
+                "confidence": card.confidence
+            })
+        themes = []
+        for name, items in grouped.items():
+            type_counts = {}
+            for item in items:
+                type_counts[item["evidence_type"]] = type_counts.get(item["evidence_type"], 0) + 1
+            themes.append({
+                "theme": name, "paper_count": len({item["paper_id"] for item in items}),
+                "evidence_count": len(items), "type_counts": type_counts,
+                "unrepresented_types": [value for value in standard_types if value not in type_counts],
+                "pending_count": sum(1 for item in items if item["verification_status"] != "已核验"),
+                "items": items
+            })
+        return {
+            "theme_count": len(themes),
+            "paper_count": len({item["paper_id"] for items in grouped.values() for item in items}),
+            "evidence_count": sum(len(items) for items in grouped.values()),
+            "themes": themes, "standard_evidence_types": standard_types,
+            "notice": "本分析仅并列研究者已标注同主题的证据，并统计当前个人资料库中已录入的证据类型。不同论点是否一致、矛盾或因研究对象/方法不同而不可直接比较，需要研究者核对原文后判断。未出现某类证据只表示本资料库当前未录入，不代表学界没有相关研究，因此不能直接称为研究空白。"
+        }
+
 @app.get("/api/knowledge-graph")
 def knowledge_graph(paper_ids: str = Query(default="", description="可选，逗号分隔的文献编号")):
     """基于真实文献和研究者证据卡片构建可追溯关系图，不推断论文间语义关系。"""

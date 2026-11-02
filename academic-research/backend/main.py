@@ -232,6 +232,10 @@ def record_audit(db, action: str, actor_id: Optional[int] = None, target_id: Opt
     db.add(AuditLog(actor_user_id=actor_id, target_user_id=target_id, action=action,
                     detail=detail[:1000], ip_address=ip[:80]))
 
+def audit_current_user(db, action: str, target_id: Optional[int] = None, detail: str = ""):
+    record_audit(db, action, current_user_id.get(), target_id, detail)
+
+
 def require_admin(db):
     account_id = current_user_id.get()
     user = db.get(User, account_id) if account_id else None
@@ -708,6 +712,7 @@ def move_area(area_id: int, payload: AreaMove):
             parent = db.get(ResearchArea, parent_id)
             parent_id = parent.parent_id if parent else None
         item.parent_id = payload.parent_id
+        audit_current_user(db, "research_area_moved", item.id, f"分类层级调整，上级分类编号 {payload.parent_id}")
         db.commit()
         return {"id": item.id, "name": item.name, "parent_id": item.parent_id}
 
@@ -727,6 +732,8 @@ def merge_area(area_id: int, payload: AreaMerge):
         for paper in papers: paper.area_id = target.id
         children = db.scalars(select(ResearchArea).where(ResearchArea.parent_id == source.id)).all()
         for child in children: child.parent_id = target.id
+        audit_current_user(db, "research_area_merged", source.id,
+                           f"分类合并至 {target.id}；迁移文献 {len(papers)} 篇、子分类 {len(children)} 个")
         db.delete(source); db.commit()
         return {"merged_area_id": area_id, "target_area_id": target.id, "moved_papers": len(papers), "moved_subareas": len(children)}
 
@@ -738,6 +745,7 @@ def delete_area(area_id: int):
         pc = len(db.scalars(select(Paper.id).where(Paper.area_id == area_id)).all())
         cc = len(db.scalars(select(ResearchArea.id).where(ResearchArea.parent_id == area_id)).all())
         if pc or cc: raise HTTPException(409, "分类仍有关联文献或下级分类，请先移动或合并")
+        audit_current_user(db, "research_area_deleted", item.id, f"删除研究分类：{item.name}")
         db.delete(item); db.commit()
         return {"deleted": True, "id": area_id}
 
@@ -750,7 +758,9 @@ def assign_paper_area(paper_id: int, payload: PaperAreaInput):
         paper = db.get(Paper, paper_id)
         if paper is None: raise HTTPException(404, "文献不存在")
         if payload.area_id is not None and db.get(ResearchArea, payload.area_id) is None: raise HTTPException(404, "目标分类不存在")
-        paper.area_id = payload.area_id; db.commit()
+        paper.area_id = payload.area_id
+        audit_current_user(db, "paper_area_changed", paper.id, f"文献分类调整为分类编号 {payload.area_id}")
+        db.commit()
         return {"id": paper.id, "area_id": paper.area_id, "classification": "待确认" if paper.area_id is None else "已归类"}
 
 @app.get("/api/areas")
@@ -772,7 +782,9 @@ def add_area(payload: AreaInput):
         if payload.parent_id and db.get(ResearchArea, payload.parent_id) is None:
             raise HTTPException(404, "上级分类不存在")
         item = ResearchArea(name=name, parent_id=payload.parent_id, is_placeholder=False)
-        db.add(item); db.commit(); db.refresh(item)
+        db.add(item); db.flush()
+        audit_current_user(db, "research_area_created", item.id, f"新增研究分类：{item.name}")
+        db.commit(); db.refresh(item)
         return {"id": item.id, "name": item.name, "parent_id": item.parent_id}
 
 @app.patch("/api/areas/{area_id}")
@@ -792,6 +804,7 @@ def rename_area(area_id: int, payload: AreaInput):
         item.name = payload.name.strip()
         item.parent_id = payload.parent_id
         item.is_placeholder = False
+        audit_current_user(db, "research_area_updated", item.id, f"修改研究分类：{item.name}")
         db.commit()
         return {"id": item.id, "name": item.name, "parent_id": item.parent_id}
 
@@ -969,7 +982,10 @@ async def upload_paper(file: UploadFile = File(...)):
                           keywords=candidates["keywords"], full_text=extracted_text, text_segments=json.dumps(text_segments, ensure_ascii=False), file_path=str(target),
                           file_name=filename, file_sha256=file_digest, fulltext_status="已解析" if extracted_text else "未提取到文本",
                           verification_status="自动提取候选，待人工核验", area_id=area_id, source="个人上传")
-            db.add(paper); db.commit(); db.refresh(paper)
+            db.add(paper); db.flush()
+            audit_current_user(db, "paper_uploaded", paper.id,
+                               f"上传文献：{paper.title[:200]}；文件大小 {size} 字节；SHA-256 {file_digest}")
+            db.commit(); db.refresh(paper)
             return {"id": paper.id, "title": paper.title, "characters_extracted": len(extracted_text),
                     "area_id": area_id, "classification": "建议分类" if area_id else "待确认分类",
                     "fulltext_status": paper.fulltext_status, "metadata_candidates": candidates,
@@ -1035,6 +1051,8 @@ def update_paper_metadata(paper_id: int, payload: PaperMetadataUpdate):
             setattr(paper, key, value.strip() if isinstance(value, str) else value)
         if "verification_status" not in changes:
             paper.verification_status = "人工核验"
+        audit_current_user(db, "paper_metadata_updated", paper.id,
+                           "修改文献元数据字段：" + ", ".join(sorted(changes.keys())))
         db.commit()
         return {"id": paper.id, "updated_fields": list(changes.keys()),
                 "verification_status": paper.verification_status}
@@ -1105,7 +1123,9 @@ def save_external(payload: SaveExternal):
                   source=payload.source, source_url=payload.source_url,
                   fulltext_status="仅元数据/摘要", verification_status="来源接口返回，待人工核验",
                   area_id=payload.area_id)
-        db.add(p); db.commit(); db.refresh(p)
+        db.add(p); db.flush()
+        audit_current_user(db, "external_paper_saved", p.id, f"保存外部文献元数据：{p.title[:200]}；来源 {p.source}")
+        db.commit(); db.refresh(p)
         return {"id": p.id, "saved": True}
 
 @app.get("/api/search/fulltext")
@@ -1194,7 +1214,9 @@ def create_evidence_card(paper_id: int, payload: EvidenceCardInput):
         if db.get(Paper, paper_id) is None:
             raise HTTPException(404, "文献不存在")
         item = EvidenceCard(paper_id=paper_id, **payload.model_dump())
-        db.add(item); db.commit(); db.refresh(item)
+        db.add(item); db.flush()
+        audit_current_user(db, "evidence_created", item.id, f"新增证据卡片：文献 {paper_id}；类型 {item.evidence_type}")
+        db.commit(); db.refresh(item)
         return {"id": item.id, "paper_id": paper_id, "saved": True}
 
 @app.patch("/api/evidence/{evidence_id}")
@@ -1205,6 +1227,7 @@ def update_evidence_card(evidence_id: int, payload: EvidenceCardInput):
             raise HTTPException(404, "证据卡片不存在")
         for key, value in payload.model_dump().items():
             setattr(item, key, value)
+        audit_current_user(db, "evidence_updated", item.id, f"修改证据卡片：文献 {item.paper_id}；类型 {item.evidence_type}")
         db.commit()
         return {"id": item.id, "updated": True}
 
@@ -1214,6 +1237,7 @@ def delete_evidence_card(evidence_id: int):
         item = db.get(EvidenceCard, evidence_id)
         if item is None:
             raise HTTPException(404, "证据卡片不存在")
+        audit_current_user(db, "evidence_deleted", item.id, f"删除证据卡片：文献 {item.paper_id}；类型 {item.evidence_type}")
         db.delete(item); db.commit()
         return {"id": evidence_id, "deleted": True}
 
@@ -1318,7 +1342,9 @@ def list_review_projects():
 def create_review_project(payload: ReviewProjectInput):
     with SessionLocal() as db:
         project = ReviewProject(**payload.model_dump())
-        db.add(project); db.commit(); db.refresh(project)
+        db.add(project); db.flush()
+        audit_current_user(db, "review_project_created", project.id, f"创建综述项目：{project.title[:200]}")
+        db.commit(); db.refresh(project)
         return {"id": project.id, "created": True}
 
 @app.get("/api/review/projects/{project_id}")
@@ -1337,6 +1363,7 @@ def update_review_project(project_id: int, payload: ReviewProjectInput):
             raise HTTPException(404, "综述项目不存在")
         for key, value in payload.model_dump().items():
             setattr(project, key, value)
+        audit_current_user(db, "review_project_updated", project.id, f"修改综述项目：{project.title[:200]}")
         db.commit()
         return {"id": project.id, "updated": True}
 
@@ -1349,6 +1376,8 @@ def delete_review_project(project_id: int):
         paragraphs = db.scalars(select(ReviewParagraph).where(ReviewParagraph.project_id == project_id)).all()
         for paragraph in paragraphs:
             db.delete(paragraph)
+        audit_current_user(db, "review_project_deleted", project.id,
+                           f"删除综述项目：{project.title[:200]}；同时删除段落 {len(paragraphs)} 个")
         db.delete(project); db.commit()
         return {"id": project_id, "deleted": True}
 
@@ -1364,7 +1393,9 @@ def create_review_paragraph(project_id: int, payload: ReviewParagraphInput):
         paragraph = ReviewParagraph(project_id=project_id, heading=payload.heading,
             content=payload.content, evidence_ids=json.dumps(list(dict.fromkeys(payload.evidence_ids))),
             sort_order=payload.sort_order)
-        db.add(paragraph); db.commit(); db.refresh(paragraph)
+        db.add(paragraph); db.flush()
+        audit_current_user(db, "review_paragraph_created", paragraph.id, f"新增综述段落：项目 {project_id}；标题 {paragraph.heading[:160]}")
+        db.commit(); db.refresh(paragraph)
         return {"id": paragraph.id, "created": True}
 
 @app.patch("/api/review/paragraphs/{paragraph_id}")
@@ -1381,6 +1412,7 @@ def update_review_paragraph(paragraph_id: int, payload: ReviewParagraphInput):
         paragraph.content = payload.content
         paragraph.evidence_ids = json.dumps(list(dict.fromkeys(payload.evidence_ids)))
         paragraph.sort_order = payload.sort_order
+        audit_current_user(db, "review_paragraph_updated", paragraph.id, f"修改综述段落：项目 {paragraph.project_id}；标题 {paragraph.heading[:160]}")
         db.commit()
         return {"id": paragraph.id, "updated": True}
 
@@ -1390,6 +1422,7 @@ def delete_review_paragraph(paragraph_id: int):
         paragraph = db.get(ReviewParagraph, paragraph_id)
         if paragraph is None:
             raise HTTPException(404, "综述段落不存在")
+        audit_current_user(db, "review_paragraph_deleted", paragraph.id, f"删除综述段落：项目 {paragraph.project_id}；标题 {paragraph.heading[:160]}")
         db.delete(paragraph); db.commit()
         return {"id": paragraph_id, "deleted": True}
 

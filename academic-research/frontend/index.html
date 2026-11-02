@@ -22,7 +22,7 @@
 <section id="external" class="panel hidden"><h2>外部文献检索</h2><p class="muted">调用 OpenAlex 或 Crossref 公开接口，显示接口真实返回结果。</p><div class="row"><input id="externalQ" type="text" placeholder="输入论文主题、关键词或题名"><select id="source"><option value="openalex">OpenAlex</option><option value="crossref">Crossref</option></select><button class="primary" onclick="searchExternal()">开始检索</button></div><div id="externalResults"></div></section>
 <section id="upload" class="panel hidden"><h2>上传论文</h2><p>支持 PDF、DOCX，单个文件最大40MB。扫描版PDF若无文本层，当前版本可能无法提取文字。</p><div class="row"><input id="file" type="file" accept=".pdf,.docx"><button class="primary" onclick="uploadFile()">上传并解析</button></div><div id="uploadResult" class="muted"></div></section>
 <section id="areas" class="panel hidden"><h2>研究领域管理</h2><p class="muted">第04领域保持空白；可在此添加你自己的方向。自动分类仅为初步建议，未命中文献进入待确认。</p><div id="areasList"></div><div class="row"><input id="areaName" type="text" placeholder="输入要新增的研究方向"><button class="primary" onclick="addArea()">新增领域</button></div></section>
-<section id="account" class="panel hidden"><h2>账号与安全</h2><p class="muted" id="accountDetail">正在读取账号信息…</p><h3>修改登录密码</h3><div class="row"><input id="currentPassword" type="password" placeholder="当前密码" autocomplete="current-password"><input id="newPassword" type="password" placeholder="新密码（至少10位）" autocomplete="new-password"><button class="primary" onclick="changeMyPassword()">修改密码</button></div><div id="passwordMessage" class="muted"></div><div id="adminTools" class="hidden"><h3>成员账号管理</h3><p class="muted">管理员可以查看账号、停用或重新启用成员。停用会撤销该账号的全部登录会话。</p><div class="row"><button class="secondary" onclick="loadAdminUsers()">刷新账号列表</button><button class="secondary" onclick="loadAuditLogs()">查看安全审计记录</button></div><div id="adminUsers"></div><h3>安全审计</h3><div id="auditLogs"></div></div></section>
+<section id="account" class="panel hidden"><h2>账号与安全</h2><p class="muted" id="accountDetail">正在读取账号信息…</p><div class="row"><button class="primary" onclick="downloadPersonalData()">导出我的个人数据（ZIP）</button><button class="secondary" onclick="checkPersonalIntegrity()">检查数据完整性</button></div><div id="personalIntegrity" class="muted"></div><h3>修改登录密码</h3><div class="row"><input id="currentPassword" type="password" placeholder="当前密码" autocomplete="current-password"><input id="newPassword" type="password" placeholder="新密码（至少10位）" autocomplete="new-password"><button class="primary" onclick="changeMyPassword()">修改密码</button></div><div id="passwordMessage" class="muted"></div><div id="adminTools" class="hidden"><h3>成员账号管理</h3><p class="muted">管理员可以查看账号、停用或重新启用成员。停用会撤销该账号的全部登录会话。</p><div class="row"><button class="secondary" onclick="loadAdminUsers()">刷新账号列表</button><button class="secondary" onclick="loadAuditLogs()">查看安全审计记录</button></div><div id="adminUsers"></div><h3>安全审计</h3><div id="auditLogs"></div></div></section>
 </main></div></div>
 <script>
 const $=id=>document.getElementById(id);
@@ -82,6 +82,25 @@ async function loadSecurityStatus(){
   $('securityNotice').textContent=d.mode+'；'+d.notice;
   $('securityNotice').style.color=d.accounts_enabled?'#c7f3d2':(d.access_control_enabled?'#c7f3d2':'#ffd7a1');
  }catch(e){$('securityNotice').textContent='无法读取安全状态'}
+}
+async function downloadPersonalData(){
+ try{
+  const token=sessionStorage.getItem('academic_account_token')||'';
+  const response=await fetch('/api/account/export.zip',{headers:token?{'Authorization':'Bearer '+token}:{}});
+  if(!response.ok){let msg='导出失败';try{msg=(await response.json()).detail||msg}catch(e){}throw Error(msg)}
+  const blob=await response.blob();
+  const url=URL.createObjectURL(blob);
+  const link=document.createElement('a');link.href=url;link.download='学术智库个人资料.zip';
+  document.body.appendChild(link);link.click();link.remove();URL.revokeObjectURL(url);
+  $('personalIntegrity').textContent='个人资料导出已开始。请妥善保管包含全文和原件的压缩包。';
+ }catch(e){$('personalIntegrity').textContent=e.message}
+}
+async function checkPersonalIntegrity(){
+ try{
+  const d=await api('/api/account/integrity');
+  const c=d.counts||{},f=d.file_integrity||{},r=d.reference_integrity||{};
+  $('personalIntegrity').innerHTML='<div class="notice"><b>'+(d.passed?'完整性检查未发现异常':'完整性检查发现需要处理的问题')+'</b><p>文献 '+(c.papers||0)+' 篇 · 证据卡片 '+(c.evidence_cards||0)+' 条 · 综述项目 '+(c.review_projects||0)+' 个</p><p>缺失原件 '+(f.missing_original_file_paper_ids||[]).length+' 项；不安全文件路径 '+(f.unsafe_file_path_paper_ids||[]).length+' 项；无效分类引用 '+(r.invalid_area_paper_ids||[]).length+' 项；无效证据引用 '+(r.invalid_evidence_links||[]).length+' 项；重复文件哈希 '+(d.duplicate_file_sha256||[]).length+' 组。</p></div>';
+ }catch(e){$('personalIntegrity').textContent=e.message}
 }
 async function changeMyPassword(){
  try{

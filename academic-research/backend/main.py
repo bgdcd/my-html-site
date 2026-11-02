@@ -115,6 +115,11 @@ def merge_area(area_id: int, payload: AreaMerge):
         target = db.get(ResearchArea, payload.target_area_id)
         if source is None or target is None: raise HTTPException(404, "待合并分类不存在")
         if source.id == target.id: raise HTTPException(400, "不能与自身合并")
+        parent_id = target.parent_id
+        while parent_id is not None:
+            if parent_id == source.id: raise HTTPException(400, "不能合并到自身的下级分类")
+            parent = db.get(ResearchArea, parent_id)
+            parent_id = parent.parent_id if parent else None
         papers = db.scalars(select(Paper).where(Paper.area_id == source.id)).all()
         for paper in papers: paper.area_id = target.id
         children = db.scalars(select(ResearchArea).where(ResearchArea.parent_id == source.id)).all()
@@ -172,6 +177,15 @@ def rename_area(area_id: int, payload: AreaInput):
     with SessionLocal() as db:
         item = db.get(ResearchArea, area_id)
         if item is None: raise HTTPException(404, "分类不存在")
+        if not payload.name.strip(): raise HTTPException(400, "分类名称不能为空")
+        if payload.parent_id == area_id: raise HTTPException(400, "分类不能设置自身为上级")
+        if payload.parent_id is not None and db.get(ResearchArea, payload.parent_id) is None:
+            raise HTTPException(404, "上级分类不存在")
+        parent_id = payload.parent_id
+        while parent_id is not None:
+            if parent_id == area_id: raise HTTPException(400, "不能设置为自己的下级分类")
+            parent = db.get(ResearchArea, parent_id)
+            parent_id = parent.parent_id if parent else None
         item.name = payload.name.strip()
         item.parent_id = payload.parent_id
         item.is_placeholder = False

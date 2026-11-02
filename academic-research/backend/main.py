@@ -6,6 +6,8 @@ import os
 import re
 import uuid
 import secrets
+import time
+import threading
 import zipfile
 from io import BytesIO
 from urllib.parse import quote
@@ -47,6 +49,8 @@ class User(Base):
     username: Mapped[str] = mapped_column(String(80), nullable=False, unique=True, index=True)
     password_hash: Mapped[str] = mapped_column(String(300), nullable=False)
     role: Mapped[str] = mapped_column(String(20), default="member")
+    is_active: Mapped[bool] = mapped_column(default=True)
+    force_password_change: Mapped[bool] = mapped_column(default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 class LoginSession(Base):
@@ -56,6 +60,16 @@ class LoginSession(Base):
     token_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True, index=True)
     expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+class AuditLog(Base):
+    __tablename__ = "audit_logs"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    actor_user_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True, index=True)
+    target_user_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True, index=True)
+    action: Mapped[str] = mapped_column(String(80), nullable=False, index=True)
+    detail: Mapped[str] = mapped_column(Text, default="")
+    ip_address: Mapped[str] = mapped_column(String(80), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
 
 class ResearchArea(Base):
     __tablename__ = "research_areas"
@@ -131,6 +145,11 @@ Base.metadata.create_all(engine)
 
 def migrate_schema():
     with engine.begin() as connection:
+        user_columns = {column["name"] for column in inspect(engine).get_columns("users")}
+        if "is_active" not in user_columns:
+            connection.execute(sql_text("ALTER TABLE users ADD COLUMN is_active BOOLEAN NOT NULL DEFAULT TRUE"))
+        if "force_password_change" not in user_columns:
+            connection.execute(sql_text("ALTER TABLE users ADD COLUMN force_password_change BOOLEAN NOT NULL DEFAULT FALSE"))
         for table in ("research_areas", "papers", "evidence_cards", "review_projects", "review_paragraphs"):
             columns = {column["name"] for column in inspect(engine).get_columns(table)}
             if "owner_id" not in columns:
@@ -200,6 +219,46 @@ def login_session_valid(record: LoginSession) -> bool:
         expiry = expiry.replace(tzinfo=timezone.utc)
     return expiry > datetime.now(timezone.utc)
 
+LOGIN_FAILURES: dict[str, list[float]] = {}
+LOGIN_FAILURE_LOCK = threading.Lock()
+LOGIN_FAILURE_WINDOW = 900
+LOGIN_FAILURE_LIMIT = 5
+
+def record_audit(db, action: str, actor_id: Optional[int] = None, target_id: Optional[int] = None,
+                 detail: str = "", request: Optional[Request] = None):
+    ip = request.client.host if request and request.client else ""
+    db.add(AuditLog(actor_user_id=actor_id, target_user_id=target_id, action=action,
+                    detail=detail[:1000], ip_address=ip[:80]))
+
+def require_admin(db):
+    account_id = current_user_id.get()
+    user = db.get(User, account_id) if account_id else None
+    if not user or not user.is_active:
+        raise HTTPException(401, "请先登录有效账号。")
+    if user.role != "admin":
+        raise HTTPException(403, "此操作仅限管理员。")
+    return user
+
+def login_rate_key(request: Request, username: str) -> str:
+    ip = request.client.host if request.client else "unknown"
+    return ip + "|" + username.strip().lower()
+
+def login_rate_limited(key: str) -> bool:
+    now = time.monotonic()
+    with LOGIN_FAILURE_LOCK:
+        attempts = [stamp for stamp in LOGIN_FAILURES.get(key, []) if now - stamp < LOGIN_FAILURE_WINDOW]
+        LOGIN_FAILURES[key] = attempts
+        return len(attempts) >= LOGIN_FAILURE_LIMIT
+
+def record_login_failure(key: str):
+    now = time.monotonic()
+    with LOGIN_FAILURE_LOCK:
+        LOGIN_FAILURES[key] = [stamp for stamp in LOGIN_FAILURES.get(key, []) if now - stamp < LOGIN_FAILURE_WINDOW] + [now]
+
+def clear_login_failures(key: str):
+    with LOGIN_FAILURE_LOCK:
+        LOGIN_FAILURES.pop(key, None)
+
 def account_count() -> int:
     with SessionLocal() as db:
         return int(db.scalar(select(User.id).limit(1)) is not None)
@@ -217,7 +276,9 @@ async def security_gate(request: Request, call_next):
             with SessionLocal() as db:
                 record = db.scalar(select(LoginSession).where(LoginSession.token_hash == token_digest(account_token)))
                 if record and login_session_valid(record):
-                    account_id = record.user_id
+                    account_user = db.get(User, record.user_id)
+                    if account_user and account_user.is_active:
+                        account_id = record.user_id
         users_exist = account_count()
         if users_exist and account_id is None:
             from starlette.responses import JSONResponse
@@ -295,15 +356,29 @@ def register_account(payload: AccountRegisterInput):
                 db.execute(sql_text(f"UPDATE {table} SET owner_id = :uid WHERE owner_id IS NULL"), {"uid": user.id})
         db.commit()
         db.refresh(user)
+        record_audit(db, "account_created", user.id, user.id, "账号创建", None)
+        db.commit()
         return issue_login(db, user)
 
 @app.post("/api/auth/login")
-def login_account(payload: AccountLoginInput):
+def login_account(payload: AccountLoginInput, request: Request):
+    key = login_rate_key(request, payload.username)
+    if login_rate_limited(key):
+        raise HTTPException(429, "登录尝试次数过多，请15分钟后再试。")
     with SessionLocal() as db:
         user = db.scalar(select(User).where(User.username == payload.username))
-        if user is None or not verify_password(payload.password, user.password_hash):
+        if user is None or not user.is_active or not verify_password(payload.password, user.password_hash):
+            record_login_failure(key)
+            record_audit(db, "login_failed", user.id if user else None, user.id if user else None,
+                         "账号或密码不正确", request)
+            db.commit()
             raise HTTPException(401, "用户名或密码不正确。")
-        return issue_login(db, user)
+        clear_login_failures(key)
+        record_audit(db, "login_success", user.id, user.id, "账号登录成功", request)
+        db.commit()
+        result = issue_login(db, user)
+        result["user"]["force_password_change"] = user.force_password_change
+        return result
 
 @app.get("/api/auth/me")
 def account_me():
@@ -312,9 +387,10 @@ def account_me():
         raise HTTPException(401, "请先登录。")
     with SessionLocal() as db:
         user = db.get(User, account_id)
-        if user is None:
-            raise HTTPException(401, "账号不存在或已失效。")
-        return {"id": user.id, "username": user.username, "role": user.role}
+        if user is None or not user.is_active:
+            raise HTTPException(401, "账号不存在、已停用或已失效。")
+        return {"id": user.id, "username": user.username, "role": user.role,
+                "force_password_change": user.force_password_change}
 
 @app.post("/api/auth/logout")
 def logout_account(request: Request):
@@ -327,6 +403,72 @@ def logout_account(request: Request):
                 db.delete(record)
                 db.commit()
     return {"logged_out": True}
+
+class PasswordChangeInput(BaseModel):
+    current_password: str = Field(min_length=1, max_length=200)
+    new_password: str = Field(min_length=10, max_length=200)
+
+class UserStatusInput(BaseModel):
+    is_active: bool
+
+@app.post("/api/auth/change-password")
+def change_password(payload: PasswordChangeInput, request: Request):
+    account_id = current_user_id.get()
+    with SessionLocal() as db:
+        user = db.get(User, account_id) if account_id else None
+        if not user or not user.is_active:
+            raise HTTPException(401, "请先登录有效账号。")
+        if not verify_password(payload.current_password, user.password_hash):
+            record_audit(db, "password_change_failed", user.id, user.id, "原密码验证失败", request)
+            db.commit()
+            raise HTTPException(400, "当前密码不正确。")
+        user.password_hash = password_digest(payload.new_password)
+        user.force_password_change = False
+        db.execute(select(LoginSession).where(LoginSession.user_id == user.id))
+        db.query(LoginSession).filter(LoginSession.user_id == user.id).delete(synchronize_session=False)
+        record_audit(db, "password_changed", user.id, user.id, "用户修改密码并注销全部会话", request)
+        db.commit()
+        return {"changed": True, "notice": "密码已修改，请使用新密码重新登录。"}
+
+@app.get("/api/admin/users")
+def admin_list_users():
+    with SessionLocal() as db:
+        admin = require_admin(db)
+        users = db.scalars(select(User).order_by(User.created_at.asc())).all()
+        return [{"id": u.id, "username": u.username, "role": u.role, "is_active": u.is_active,
+                 "created_at": u.created_at.isoformat() if u.created_at else "",
+                 "is_self": u.id == admin.id} for u in users]
+
+@app.patch("/api/admin/users/{user_id}/status")
+def admin_set_user_status(user_id: int, payload: UserStatusInput, request: Request):
+    with SessionLocal() as db:
+        admin = require_admin(db)
+        target = db.get(User, user_id)
+        if not target:
+            raise HTTPException(404, "账号不存在。")
+        if target.id == admin.id and not payload.is_active:
+            raise HTTPException(400, "不能停用当前登录的管理员账号。")
+        if target.role == "admin" and not payload.is_active:
+            active_admins = db.scalar(select(User.id).where(User.role == "admin", User.is_active.is_(True)))
+            active_admin_count = len(db.scalars(select(User.id).where(User.role == "admin", User.is_active.is_(True))).all())
+            if active_admin_count <= 1:
+                raise HTTPException(400, "至少保留一名有效管理员。")
+        target.is_active = payload.is_active
+        if not payload.is_active:
+            db.query(LoginSession).filter(LoginSession.user_id == target.id).delete(synchronize_session=False)
+        record_audit(db, "user_status_changed", admin.id, target.id,
+                     "启用账号" if payload.is_active else "停用账号并撤销全部会话", request)
+        db.commit()
+        return {"id": target.id, "username": target.username, "is_active": target.is_active}
+
+@app.get("/api/admin/audit-logs")
+def admin_audit_logs(limit: int = Query(default=100, ge=1, le=500)):
+    with SessionLocal() as db:
+        require_admin(db)
+        rows = db.scalars(select(AuditLog).order_by(AuditLog.created_at.desc()).limit(limit)).all()
+        return [{"id": r.id, "actor_user_id": r.actor_user_id, "target_user_id": r.target_user_id,
+                 "action": r.action, "detail": r.detail, "ip_address": r.ip_address,
+                 "created_at": r.created_at.isoformat() if r.created_at else ""} for r in rows]
 
 @app.get("/api/security/status")
 def security_status():

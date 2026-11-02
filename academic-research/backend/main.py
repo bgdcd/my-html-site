@@ -548,9 +548,28 @@ def account_data_integrity():
             except (TypeError, ValueError, json.JSONDecodeError):
                 invalid_evidence_refs.append({"paragraph_id": paragraph.id, "reason": "引用数据格式损坏"})
                 continue
-            missing = sorted(set(int(value) for value in evidence_ids if str(value).isdigit()) - card_ids)
-            if missing:
-                invalid_evidence_refs.append({"paragraph_id": paragraph.id, "missing_evidence_ids": missing})
+            normalized_ids = set()
+            malformed_ids = []
+            for value in evidence_ids:
+                if isinstance(value, bool):
+                    malformed_ids.append(str(value))
+                    continue
+                try:
+                    numeric_id = int(value)
+                except (TypeError, ValueError):
+                    malformed_ids.append(str(value)[:80])
+                    continue
+                if numeric_id < 1:
+                    malformed_ids.append(str(value)[:80])
+                else:
+                    normalized_ids.add(numeric_id)
+            missing = sorted(normalized_ids - card_ids)
+            if missing or malformed_ids:
+                invalid_evidence_refs.append({
+                    "paragraph_id": paragraph.id,
+                    "missing_evidence_ids": missing,
+                    "malformed_evidence_ids": malformed_ids,
+                })
         duplicate_hashes = db.execute(
             select(Paper.file_sha256).where(Paper.file_sha256 != "")
             .group_by(Paper.file_sha256).having(sql_text("COUNT(*) > 1"))

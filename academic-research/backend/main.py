@@ -5,6 +5,8 @@ import json
 import os
 import re
 import uuid
+from io import BytesIO
+from urllib.parse import quote
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
@@ -13,7 +15,7 @@ import fitz
 import httpx
 from docx import Document
 from fastapi import FastAPI, File, HTTPException, Query, UploadFile
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, create_engine, select, or_, inspect, text as sql_text
@@ -759,6 +761,111 @@ def delete_review_paragraph(paragraph_id: int):
             raise HTTPException(404, "综述段落不存在")
         db.delete(paragraph); db.commit()
         return {"id": paragraph_id, "deleted": True}
+
+
+@app.get("/api/review/projects/{project_id}/export.docx")
+def export_review_project_docx(project_id: int, style: str = Query("gb", pattern="^(gb|simple)$")):
+    with SessionLocal() as db:
+        project = db.get(ReviewProject, project_id)
+        if project is None:
+            raise HTTPException(404, "综述项目不存在")
+        data = serialize_review_project(db, project)
+
+    document = Document()
+    section = document.sections[0]
+    section.top_margin = section.bottom_margin =  section.left_margin = section.right_margin = __import__("docx").shared.Cm(2.54)
+
+    def set_run_font(run, size=12, bold=False):
+        run.font.name = "宋体"
+        run.font.size = __import__("docx").shared.Pt(size)
+        run.bold = bold
+        rpr = run._element.get_or_add_rPr()
+        rfonts = rpr.rFonts
+        if rfonts is not None:
+            rfonts.set("{http://schemas.openxmlformats.org/wordprocessingml/2006/main}eastAsia", "宋体")
+
+    title = document.add_heading(data["title"] or "文献综述", 0)
+    title.alignment = 1
+    for run in title.runs:
+        set_run_font(run, 18, True)
+    topic = document.add_paragraph()
+    topic.alignment = 1
+    set_run_font(topic.add_run("研究主题："+(data["topic"] or "未填写")), 10)
+
+    bibliography = []
+    number_by_paper = {}
+    for paragraph in data["paragraphs"]:
+        for citation in paragraph["citations"]:
+            paper_id = citation["paper_id"]
+            if paper_id not in number_by_paper:
+                number_by_paper[paper_id] = len(number_by_paper) + 1
+                bibliography.append(citation)
+
+    for index, paragraph in enumerate(data["paragraphs"], 1):
+        heading = paragraph["heading"] or f"第{index}部分"
+        h = document.add_heading(heading, level=1)
+        for run in h.runs:
+            set_run_font(run, 14, True)
+        markers = list(dict.fromkeys(number_by_paper[c["paper_id"]] for c in paragraph["citations"] if c["paper_id"] in number_by_paper))
+        if style == "gb" and markers:
+            body_text = paragraph["content"] + " [" + "][".join(str(n) for n in markers) + "]"
+        elif style == "simple" and paragraph["citations"]:
+            names = []
+            for citation in paragraph["citations"]:
+                author = (citation.get("authors") or "作者未记录").split("，")[0].split(",")[0]
+                label = author + "，" + str(citation.get("year") or "年份缺失")
+                if label not in names:
+                    names.append(label)
+            body_text = paragraph["content"] + "（" + "；".join(names) + "）"
+        else:
+            body_text = paragraph["content"]
+        p = document.add_paragraph()
+        p.paragraph_format.first_line_indent = __import__("docx").shared.Cm(0.74)
+        p.paragraph_format.line_spacing = 1.5
+        set_run_font(p.add_run(body_text), 12)
+
+    document.add_heading("参考文献", level=1)
+    for citation in bibliography:
+        authors = (citation.get("authors") or "作者信息缺失").strip().replace("，", ", ").replace("、", ", ")
+        paper_title = (citation.get("title") or "题名缺失").strip()
+        journal = (citation.get("journal") or "").strip()
+        year = str(citation.get("year") or "年份缺失")
+        doi = (citation.get("doi") or "").strip()
+        if style == "gb":
+            reference = authors + ". " + paper_title + ("[J]. " + journal + ", " if journal else "[文献类型待核验]. ") + year + (". DOI: " + doi if doi else "") + "."
+            number = number_by_paper[citation["paper_id"]]
+            reference = f"[{number}] " + reference
+        else:
+            reference = authors + "（" + year + "）. " + paper_title + ". " + (journal or "出版来源待核验") + (". DOI: " + doi if doi else "") + "."
+        p = document.add_paragraph(reference)
+        p.paragraph_format.left_indent = __import__("docx").shared.Cm(0.74)
+        p.paragraph_format.first_line_indent = __import__("docx").shared.Cm(-0.74)
+        for run in p.runs:
+            set_run_font(run, 10)
+
+        locators = []
+        for paragraph in data["paragraphs"]:
+            for item in paragraph["citations"]:
+                if item["paper_id"] == citation["paper_id"]:
+                    locator = ("第"+str(item["page_number"])+"页" if item.get("page_number") else
+                               ("第"+str(item["paragraph_number"])+"段" if item.get("paragraph_number") else ""))
+                    if locator and locator not in locators:
+                        locators.append(locator)
+        if locators:
+            note = document.add_paragraph("引用定位："+ "；".join(locators))
+            for run in note.runs:
+                set_run_font(run, 9)
+
+    note = document.add_paragraph("说明：本报告根据个人文献库中已保存的综述段落和证据卡片生成。参考文献条目仅使用现有元数据；作者、年份、期刊或文献类型缺失时，须对照原文核验。GB/T 7714 格式为基于现有字段的初步排版，尚未完成所有文献类型的完整著录规则校验。")
+    for run in note.runs:
+        set_run_font(run, 9)
+
+    stream = BytesIO()
+    document.save(stream)
+    stream.seek(0)
+    filename = quote((data["title"] or "文献综述") + ".docx")
+    return StreamingResponse(stream, media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": "attachment; filename*=UTF-8''" + filename})
 
 @app.get("/api/stats")
 def stats():

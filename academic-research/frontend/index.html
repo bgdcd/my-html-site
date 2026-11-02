@@ -343,5 +343,5 @@ async function moveArea(id){const parent=$('parent-'+id).value;try{await api('/a
 async function mergeArea(id){const a=await api('/api/areas');const choices=a.filter(x=>x.id!==id);const target=prompt('请输入要合并到的目标分类编号：\\n'+choices.map(x=>x.id+'：'+x.name).join('\\n'));if(!target)return;try{const d=await api('/api/areas/'+id+'/merge',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({target_area_id:Number(target)})});alert('合并完成，迁移文献 '+d.moved_papers+' 篇');refresh()}catch(e){alert(e.message)}}
 async function deleteArea(id){if(!confirm('确定删除该分类？有关联文献或下级分类时系统会阻止删除。'))return;try{await api('/api/areas/'+id,{method:'DELETE'});refresh()}catch(e){alert(e.message)}}
 async function addArea(){const n=$('areaName').value.trim();if(!n)return;try{await api('/api/areas',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:n})});$('areaName').value='';refresh()}catch(e){alert(e.message)}}
-refresh();loadPapers();loadReviewChoices();loadReviewProjects();
+loadSecurityStatus();refresh();loadPapers();loadReviewChoices();loadReviewProjects();
 </script></body></html>

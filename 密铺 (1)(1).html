@@ -90,7 +90,7 @@ html,body{color:var(--txt);background:#060b1a}
 @keyframes sphereSpin{to{transform:rotate(360deg)}}
 @media(max-width:720px){#tilingIntro .intro-shell{height:96vh;padding:15px;gap:9px}#tilingIntro .intro-stage{grid-template-columns:1fr;grid-template-rows:minmax(220px,1fr) auto;gap:8px}#tilingIntro .intro-visual{min-height:220px;max-height:42vh}#tilingIntro .intro-copy{padding:0 4px}#tilingIntro .intro-copy p{line-height:1.55}#tilingIntro .intro-note{display:none}#tilingIntro .intro-foot{gap:6px;flex-wrap:wrap}#tilingIntro .intro-progress{order:3;flex-basis:100%}}
 </style></head>
-<div id="tilingIntro" role="dialog" aria-label="密铺实验室开场动画">
+<body><div id="tilingIntro" role="dialog" aria-label="密铺实验室开场动画">
  <div class="intro-stars"></div>
  <div class="intro-shell">
   <header class="intro-head"><div><div class="intro-kicker">GEOMETRY · TILING · EXPLORATION</div><h1>密铺实验室</h1></div><div class="intro-index" id="introIndex">SYSTEM 01 / 04</div></header>
@@ -100,7 +100,7 @@ html,body{color:var(--txt);background:#060b1a}
   </main>
   <footer class="intro-foot"><div class="intro-progress" id="introProgress"><i class="active"></i><i></i><i></i><i></i></div><button class="intro-skip" id="introSkip">跳过动画</button><button class="intro-btn" id="introNext">启动实验室　→</button></footer>
  </div>
-</div><body><div class="app">
+</div><div class="app">
 <header class="topbar"><div class="logo">铺</div><div class="heading"><h1>图形密铺互动</h1><p>拖动图形 · 任意旋转 · 放大缩小 · 观察角与角度</p></div><div class="top-tip">💡 把左侧图形直接拖到画布，试试怎样铺满平面！</div></header>
 <div class="workspace"><aside class="sidebar"><section class="panel"><div class="panel-title">图形库 <span style="font-size:10px;font-weight:500">拖拽使用</span></div><div class="palette" id="palette"></div></section>
 <section class="panel"><div class="panel-title">自定义多边形</div><div style="font-size:12px;color:#59728c">拖动滑块改变边数（3—8条边）</div><div class="custom-axis"><span>3</span><input id="polySides" type="range" min="3" max="8" step="1" value="3" aria-label="自定义多边形边数"><span>8</span><output id="polySidesValue">3</output></div><div class="custom-preview" id="customPreviewDrag" title="按住此处，将图形拖到右侧画布"><svg id="customPreviewSvg" viewBox="0 0 240 100" role="img" aria-label="自定义多边形实时预览"><polygon id="customPreviewPolygon" points="120,12 72,82 168,82" fill="#ffad66" stroke="#d77828" stroke-width="2.5" stroke-linejoin="round"/></svg><strong id="customPreviewName">任意三角形</strong><small>拖动上方滑块，图形会立即变化</small></div><div style="font-size:11px;color:#1678dc;text-align:center;margin-top:7px;font-weight:700">按住上方图形预览，直接拖到右侧画布；选中后可拖动顶点改变形状</div><button class="tile-btn" id="autoTileCustomBtn" style="margin-top:8px">自动密铺验证</button><div id="tilingResult" style="font-size:11px;line-height:1.5;margin-top:6px;color:#49647e">调整图形后，点击验证能否尝试密铺</div></section>

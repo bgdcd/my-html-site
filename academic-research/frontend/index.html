@@ -101,26 +101,32 @@ function exportReviewText(){
  const style=$('citationStyle').value;
  const bibliography=[],numberByPaper=new Map();
  activeReviewProject.paragraphs.forEach(p=>p.citations.forEach(c=>{
-  if(!numberByPaper.has(c.paper_id)){
-   const n=numberByPaper.size+1;numberByPaper.set(c.paper_id,n);
-   bibliography.push({number:n,citation:c});
-  }
+  if(!numberByPaper.has(c.paper_id)){const n=numberByPaper.size+1;numberByPaper.set(c.paper_id,n);bibliography.push({number:n,citation:c})}
  }));
- let out=activeReviewProject.title+'\n研究主题：'+(activeReviewProject.topic||'未填写')+'\n\n';
+ let out=activeReviewProject.title+'\\n研究主题：'+(activeReviewProject.topic||'未填写')+'\\n\\n';
  activeReviewProject.paragraphs.forEach((p,i)=>{
   const markers=[...new Set(p.citations.map(c=>numberByPaper.get(c.paper_id)).filter(Boolean))];
-  const suffix=markers.length?(style==='gb'?' ['+markers.join('][')+']':'（'+[...new Set(p.citations.map(c=>(c.authors||'作者未记录').split(/[，、,;]/)[0]+'，'+(c.year||'年份缺失)))].join('；')+'）'):'';
-  out+=(p.heading||('第'+(i+1)+'部分'))+'\n'+p.content+suffix+'\n\n';
+  let suffix='';
+  if(markers.length){
+   if(style==='gb') suffix=' ['+markers.join('][')+']';
+   else {
+    const names=[...new Set(p.citations.map(c=>{
+     const author=(c.authors||'作者未记录').split(/[，、,;]/)[0];
+     return author+'，'+(c.year||'年份缺失');
+    }))];
+    suffix='（'+names.join('；')+'）';
+   }
+  }
+  out+=(p.heading||('第'+(i+1)+'部分'))+'\\n'+p.content+suffix+'\\n\\n';
  });
- out+='参考文献\n';
+ out+='参考文献\\n';
  bibliography.forEach(x=>{
   const c=x.citation;
-  const ref=formatReference(c);
-  out+=(style==='gb'?'['+x.number+'] ':'')+ref+'\n';
-  const locators=[...new Set(activeReviewProject.paragraphs.flatMap(p=>p.citations.filter(y=>y.paper_id===c.paper_id).map(y=>y.page_number?'第'+y.page_number+'页':(y.paragraph_number?'第'+y.paragraph_number+'段':'' )).filter(Boolean)))];
-  if(locators.length)out+='  引用定位：'+locators.join('；')+'\n';
+  out+=(style==='gb'?'['+x.number+'] ':'')+formatReference(c)+'\\n';
+  const locators=[...new Set(activeReviewProject.paragraphs.flatMap(p=>p.citations.filter(y=>y.paper_id===c.paper_id).map(y=>y.page_number?'第'+y.page_number+'页':(y.paragraph_number?'第'+y.paragraph_number+'段':'')).filter(Boolean)))];
+  if(locators.length)out+='  引用定位：'+locators.join('；')+'\\n';
  });
- out+='\n说明：参考文献条目依据个人文献库现有元数据生成。缺失的作者、年份、期刊或文献类型需要对照原文补充核验；本导出不代表元数据已完整。\n';
+ out+='\\n说明：参考文献依据个人文献库现有元数据生成，缺失信息需对照原文核验。\\n';
  const blob=new Blob([out],{type:'text/plain;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=(activeReviewProject.title||'文献综述')+'.txt';a.click();URL.revokeObjectURL(url);
 }
 let reviewPapers=[];

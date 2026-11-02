@@ -10,7 +10,7 @@
 <header class="top"><h1>学术智库</h1><p>真实文献管理 · 学术资料检索 · 研究知识积累</p></header>
 <div class="wrap"><div class="grid">
 <aside class="panel nav">
-<button class="active" data-tab="overview">总览</button><button data-tab="writing">文献综述工作台</button><button data-tab="library">我的文献库</button><button data-tab="external">外部文献检索</button><button data-tab="review">证据综合分析</button><button data-tab="upload">上传论文</button><button data-tab="areas">研究领域管理</button>
+<button class="active" data-tab="overview">总览</button><button data-tab="writing">文献综述工作台</button><button data-tab="library">我的文献库</button><button data-tab="external">外部文献检索</button><button data-tab="review">证据综合分析</button><button data-tab="graph">文献知识图谱</button><button data-tab="upload">上传论文</button><button data-tab="areas">研究领域管理</button>
 <div class="notice">来源透明：外部接口元数据不等于全文。当前未接入知网、万方授权服务。</div>
 </aside>
 <main class="main">
@@ -18,7 +18,7 @@
 <section id="article" class="panel hidden"><div id="articleContent">正在读取文献…</div></section>
 <section id="library" class="panel hidden"><h2>我的文献库</h2><div class="row"><input id="libraryQ" type="text" placeholder="检索题名、作者、摘要或全文"><button class="primary" onclick="loadPapers()">检索</button><button class="secondary" onclick="searchFulltext()">全文段落检索</button></div><div id="fulltextResults"></div><div id="papers"></div></section>
 <section id="writing" class="panel hidden"><h2>文献综述工作台</h2><p class="muted">建立综述项目，围绕主题组织段落，并把段落与已核验的证据卡片关联。当前提供人工撰写与引用追溯，不自动生成未经核验的论述。</p><div class="row"><input id="draftTitle" type="text" placeholder="综述项目名称"><input id="draftTopic" type="text" placeholder="研究主题/核心问题"><button class="primary" onclick="createReviewProject()">创建项目</button></div><div class="row"><select id="draftProject" onchange="openReviewProject()"><option value="">选择已有综述项目</option></select><button class="secondary" onclick="loadReviewProjects()">刷新项目</button><select id="citationStyle"><option value="gb">GB/T 7714 顺序编码制</option><option value="simple">简明作者-年份制</option></select><button class="secondary" onclick="exportReviewText()">导出综述与参考文献</button><button class="primary" onclick="exportReviewDocx()">导出 Word 文档</button></div><div id="draftWorkspace"><p class="muted">请先创建或选择一个综述项目。</p></div></section>
-<section id="review" class="panel hidden"><h2>多篇文献证据综合分析</h2><p class="muted">勾选个人文献库中的论文，按研究目的、对象、方法、结论等证据类型汇总已录入的证据卡片。此处呈现真实记录，不会自动补写缺失结论。</p><div class="row"><input id="reviewQ" type="text" placeholder="筛选题名或作者" oninput="renderReviewChoices()"><button class="secondary" onclick="loadReviewChoices()">刷新文献列表</button><button class="primary" onclick="runEvidenceMatrix()">生成证据矩阵</button></div><div id="reviewChoices">正在读取文献…</div><div id="reviewMatrix"></div></section>
+<section id="graph" class="panel hidden"><h2>文献知识图谱</h2><p class="muted">根据个人文献库和已录入的证据卡片构建关系。连线只表示“文献包含证据”及“证据属于某类”，不擅自推断论文之间的支持、冲突或因果关系。</p><div class="row"><button class="primary" onclick="loadKnowledgeGraph()">生成/刷新知识图谱</button><span id="graphSummary" class="muted"></span></div><div id="knowledgeGraph"><p class="muted">点击“生成/刷新知识图谱”读取真实文献关系。</p></div></section><section id="review" class="panel hidden"><h2>多篇文献证据综合分析</h2><p class="muted">勾选个人文献库中的论文，按研究目的、对象、方法、结论等证据类型汇总已录入的证据卡片。此处呈现真实记录，不会自动补写缺失结论。</p><div class="row"><input id="reviewQ" type="text" placeholder="筛选题名或作者" oninput="renderReviewChoices()"><button class="secondary" onclick="loadReviewChoices()">刷新文献列表</button><button class="primary" onclick="runEvidenceMatrix()">生成证据矩阵</button></div><div id="reviewChoices">正在读取文献…</div><div id="reviewMatrix"></div></section>
 <section id="external" class="panel hidden"><h2>外部文献检索</h2><p class="muted">调用 OpenAlex 或 Crossref 公开接口，显示接口真实返回结果。</p><div class="row"><input id="externalQ" type="text" placeholder="输入论文主题、关键词或题名"><select id="source"><option value="openalex">OpenAlex</option><option value="crossref">Crossref</option></select><button class="primary" onclick="searchExternal()">开始检索</button></div><div id="externalResults"></div></section>
 <section id="upload" class="panel hidden"><h2>上传论文</h2><p>支持 PDF、DOCX，单个文件最大40MB。扫描版PDF若无文本层，当前版本可能无法提取文字。</p><div class="row"><input id="file" type="file" accept=".pdf,.docx"><button class="primary" onclick="uploadFile()">上传并解析</button></div><div id="uploadResult" class="muted"></div></section>
 <section id="areas" class="panel hidden"><h2>研究领域管理</h2><p class="muted">第04领域保持空白；可在此添加你自己的方向。自动分类仅为初步建议，未命中文献进入待确认。</p><div id="areasList"></div><div class="row"><input id="areaName" type="text" placeholder="输入要新增的研究方向"><button class="primary" onclick="addArea()">新增领域</button></div></section>
@@ -149,6 +149,30 @@ function renderReviewChoices(){
  const q=($('reviewQ')?.value||'').trim().toLowerCase();
  const rows=reviewPapers.filter(p=>(p.title+' '+p.authors).toLowerCase().includes(q));
  $('reviewChoices').innerHTML=rows.length?rows.map(p=>'<label style="display:block;padding:8px;border-bottom:1px solid #edf0f5"><input type="checkbox" class="review-paper" value="'+p.id+'" style="min-width:auto;margin-right:8px"> '+esc(p.title)+' <span class="muted">'+esc(p.authors)+' · '+esc(p.year||'')+'</span></label>').join(''):'没有匹配文献';
+}
+async function loadKnowledgeGraph(){
+ $('knowledgeGraph').textContent='正在读取个人文献库中的真实证据关系…';
+ try{
+  const d=await api('/api/knowledge-graph');
+  $('graphSummary').textContent='文献 '+d.paper_count+' 篇 · 证据 '+d.evidence_count+' 条 · 证据类别 '+(d.type_count||0)+' 类';
+  if(!d.nodes.length){$('knowledgeGraph').innerHTML='<p>'+esc(d.notice)+'</p>';return}
+  const papers=d.nodes.filter(n=>n.node_type==='paper');
+  const evidence=d.nodes.filter(n=>n.node_type==='evidence');
+  const types=d.nodes.filter(n=>n.node_type==='evidence_type');
+  const paperMap=new Map(papers.map(n=>[n.paper_id,n]));
+  const typeMap=new Map(types.map(n=>[n.id,n]));
+  const edgeToType=new Map(d.edges.filter(e=>e.relation==='证据类型').map(e=>[e.source,e.target]));
+  const paperCards=papers.map(p=>{
+   const related=evidence.filter(e=>e.paper_id===p.paper_id);
+   return '<div class="paper"><div class="tag">文献节点 · '+related.length+'条证据</div><b>'+esc(p.label)+'</b><div class="muted">'+esc(p.authors||'作者未记录')+' · '+esc(p.year||'年份未记录')+'</div><div class="muted">文献核验：'+esc(p.verification_status||'待核验')+'</div><div class="notice">'+(related.length?related.map(e=>{
+    const t=typeMap.get(edgeToType.get(e.id));
+    const locator=e.page_number?'PDF第'+e.page_number+'页':(e.paragraph_number?'DOCX第'+e.paragraph_number+'段':(e.locator||'出处未注明'));
+    return '<div style="padding:8px 0;border-bottom:1px solid #e5e9f0"><span class="tag">'+esc(t?.label||'未分类')+'</span><b>'+esc(e.label)+'</b><div class="muted">关系：文献包含证据 → 证据属于 '+esc(t?.label||'未分类')+'</div><div class="muted">核验：'+esc(e.verification_status||'待核验')+' · '+esc(locator)+'</div>'+(e.source_text?'<div class="snippet">'+esc(e.source_text)+'</div>':'')+'</div>';
+   }).join(''):'尚未建立证据卡片')+'</div></div>';
+  }).join('');
+  const typeSummary=types.map(t=>'<span class="tag">'+esc(t.label)+' · '+evidence.filter(e=>edgeToType.get(e.id)===t.id).length+'条</span>').join(' ');
+  $('knowledgeGraph').innerHTML='<div class="notice">'+esc(d.notice)+'</div><h3>证据类别节点</h3><div>'+typeSummary+'</div><h3>文献—证据关系网络</h3><p class="muted">每张文献卡片下方列出它连接的证据节点，再标出证据所属类别。这里只显示数据库中实际存在的关系。</p>'+paperCards;
+ }catch(e){$('knowledgeGraph').textContent='知识图谱读取失败：'+e.message}
 }
 async function runEvidenceMatrix(){
  const ids=[...document.querySelectorAll('.review-paper:checked')].map(x=>x.value);

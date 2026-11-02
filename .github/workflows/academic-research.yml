@@ -70,4 +70,22 @@ jobs:
           assert extract_doi("DOI: 10.1234/example.2024") == "10.1234/example.2024"
           assert guess_title("页眉\n一个足够明确的论文题名\n正文", "paper.pdf") == "一个足够明确的论文题名"
           print("应用导入、分类、证据卡片、综述项目、Word导出接口、DOI和题名识别检查通过")
+
+      - name: Docker镜像构建与容器健康检查
+        run: |
+          docker build -t academic-research-ci academic-research
+          mkdir -p /tmp/academic-research-ci-data
+          docker run -d --name academic-research-ci -p 8000:10000 \
+            -v /tmp/academic-research-ci-data:/app/academic-research/data \
+            academic-research-ci
+          trap 'docker logs academic-research-ci || true; docker rm -f academic-research-ci || true' EXIT
+          for i in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:8000/api/health; then
+              echo "容器健康检查通过"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "容器未能在限定时间内通过健康检查"
+          exit 1
           PY

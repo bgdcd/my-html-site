@@ -201,7 +201,7 @@ function formatReference(c){
 async function exportReviewDocx(){
  if(!activeReviewProject){alert('请先选择综述项目');return}
  try{
-  const token=sessionStorage.getItem('academic_access_token')||'';const response=await fetch('/api/review/projects/'+activeReviewProject.id+'/export.docx?style='+encodeURIComponent($('citationStyle').value),{headers:token?{'Authorization':'Bearer '+token}:{}});
+  const token=sessionStorage.getItem('academic_account_token')||sessionStorage.getItem('academic_access_token')||'';const response=await fetch('/api/review/projects/'+activeReviewProject.id+'/export.docx?style='+encodeURIComponent($('citationStyle').value),{headers:token?{'Authorization':'Bearer '+token}:{}});
   if(!response.ok){let message='Word 导出失败';try{const data=await response.json();message=data.detail||message}catch(e){}throw Error(message)}
   const blob=await response.blob();
   const url=URL.createObjectURL(blob),a=document.createElement('a');

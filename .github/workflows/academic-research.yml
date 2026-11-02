@@ -91,6 +91,37 @@ jobs:
           print("应用导入、分类、证据卡片、综述项目、Word导出接口、DOI和题名识别检查通过")
           PY
 
+      - name: 备份、校验与恢复往返测试
+        working-directory: academic-research
+        run: |
+          python - <<'PY'
+          import json, os, sqlite3, subprocess, sys, tempfile
+          from pathlib import Path
+          with tempfile.TemporaryDirectory() as temp:
+              root = Path(temp)
+              db = root / "source.db"
+              uploads = root / "uploads"
+              uploads.mkdir()
+              with sqlite3.connect(db) as conn:
+                  conn.execute("CREATE TABLE sample (id INTEGER PRIMARY KEY, value TEXT)")
+                  conn.execute("INSERT INTO sample(value) VALUES ('学术智库备份测试')")
+              (uploads / "paper.txt").write_text("备份原文件测试", encoding="utf-8")
+              env = os.environ.copy()
+              env["ACADEMIC_DATABASE_URL"] = "sqlite:///" + str(db)
+              backup_root = root / "backups"
+              subprocess.run([sys.executable, "backup_data.py", "backup", "--output", str(backup_root)], env=env, check=True)
+              backup_dir = next(backup_root.iterdir())
+              subprocess.run([sys.executable, "backup_data.py", "verify", "--backup-dir", str(backup_dir)], env=env, check=True)
+              restored_db = root / "restored.db"
+              restored_uploads = root / "restored_uploads"
+              subprocess.run([sys.executable, "backup_data.py", "restore", "--backup-dir", str(backup_dir), "--database", str(restored_db), "--uploads", str(restored_uploads), "--yes"], env=env, check=True)
+              with sqlite3.connect(restored_db) as conn:
+                  row = conn.execute("SELECT value FROM sample WHERE id=1").fetchone()
+                  assert row and row[0] == "学术智库备份测试"
+              assert (restored_uploads / "paper.txt").read_text(encoding="utf-8") == "备份原文件测试"
+              print("SQLite在线备份、上传归档、SHA-256校验及恢复往返测试通过")
+          PY
+
       - name: Docker镜像构建与容器健康检查
         run: |
           docker build -t academic-research-ci academic-research

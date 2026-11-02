@@ -43,7 +43,7 @@ def table_row_count(connection, table) -> int:
     )).scalar_one())
 
 
-def migrate_uploads(source_dir: Path, destination_dir: Path, paper_table):
+def migrate_uploads(source_dir: Path, destination_dir: Path, paper_table, source_engine: Engine):
     source_dir = source_dir.resolve()
     destination_dir = destination_dir.resolve()
     if not source_dir.is_dir():
@@ -51,30 +51,20 @@ def migrate_uploads(source_dir: Path, destination_dir: Path, paper_table):
     if destination_dir.exists():
         raise SystemExit(f"上传目标目录已存在，为避免覆盖已拒绝：{destination_dir}")
 
-    with source_dir.open("rb") if source_dir.is_file() else _null_context() as _:
-        pass
-    for row in paper_table.metadata.bind.connect().execute(select(paper_table)).mappings():
-        raw_path = row.get("file_path") or ""
-        if not raw_path:
-            continue
-        file_path = Path(raw_path).resolve()
-        try:
-            file_path.relative_to(source_dir)
-        except ValueError as exc:
-            raise SystemExit(f"文献原件路径不在指定上传目录内：{raw_path}") from exc
-        if not file_path.is_file():
-            raise SystemExit(f"找不到文献原件：{file_path}")
+    with source_engine.connect() as connection:
+        for raw_path in connection.execute(select(paper_table.c.file_path)).scalars():
+            if not raw_path:
+                continue
+            file_path = Path(raw_path).resolve()
+            try:
+                file_path.relative_to(source_dir)
+            except ValueError as exc:
+                raise SystemExit(f"文献原件路径不在指定上传目录内：{raw_path}") from exc
+            if not file_path.is_file():
+                raise SystemExit(f"找不到文献原件：{file_path}")
 
     shutil.copytree(source_dir, destination_dir)
     return source_dir, destination_dir
-
-
-class _null_context:
-    def __enter__(self):
-        return None
-
-    def __exit__(self, *args):
-        return False
 
 
 def main():
@@ -119,7 +109,7 @@ def main():
 
     target_uploads = None
     if args.uploads_source:
-        target_uploads = migrate_uploads(Path(args.uploads_source), Path(args.uploads_destination), Paper.__table__)
+        target_uploads = migrate_uploads(Path(args.uploads_source), Path(args.uploads_destination), Paper.__table__, source_engine)
 
     copied = {}
     try:

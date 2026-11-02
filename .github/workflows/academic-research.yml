@@ -14,6 +14,22 @@ on:
 jobs:
   backend-check:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: academic
+          POSTGRES_PASSWORD: academic_test_password
+          POSTGRES_DB: academic_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U academic -d academic_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      ACADEMIC_DATABASE_URL: postgresql+psycopg://academic:academic_test_password@localhost:5432/academic_test
     steps:
       - name: 检出代码
         uses: actions/checkout@v4
@@ -52,6 +68,7 @@ jobs:
           missing = required - paths
           assert not missing, f"缺少接口: {missing}"
           assert engine is not None and Paper.__tablename__ == "papers"
+          assert engine.dialect.name == "postgresql", f"CI应使用PostgreSQL验证，实际为 {engine.dialect.name}"
           assert ResearchArea.__tablename__ == "research_areas"
           assert EvidenceCard.__tablename__ == "evidence_cards"
           assert ReviewProject.__tablename__ == "review_projects"

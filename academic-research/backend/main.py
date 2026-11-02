@@ -80,7 +80,7 @@ class EvidenceCard(Base):
     confidence: Mapped[str] = mapped_column(String(40), default="待核验")
     verification_status: Mapped[str] = mapped_column(String(40), default="待核验")
     notes: Mapped[str] = mapped_column(Text, default="")
-    theme_tag: Mapped[str] = mapped_column(String(120), default="", index=True)
+    theme_tag: Mapped[str] = mapped_column(String(120), default="")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 class ReviewProject(Base):

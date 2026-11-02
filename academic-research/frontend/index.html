@@ -10,7 +10,7 @@
 <header class="top"><h1>学术智库</h1><p>真实文献管理 · 学术资料检索 · 研究知识积累</p><div class="row"><input id="accountName" type="text" placeholder="账号名称" autocomplete="username" style="max-width:170px;background:#fff"><input id="accountPassword" type="password" placeholder="密码（至少10位）" autocomplete="current-password" style="max-width:210px;background:#fff"><input id="registrationCode" type="password" placeholder="管理员初始化口令 / 注册邀请码" style="max-width:250px;background:#fff"><button class="secondary" onclick="loginAccount()">登录</button><button class="secondary" onclick="registerAccount()">创建账号</button><button class="secondary" onclick="logoutAccount()">退出登录</button><span id="accountNotice" style="color:#e7edf8;font-size:13px">正在检查账号状态…</span></div><div class="row"><input id="accessToken" type="password" placeholder="旧版服务器共享访问口令（过渡使用）" style="max-width:420px;background:#fff"><button class="secondary" onclick="saveAccessToken()">保存共享口令</button><span id="securityNotice" style="color:#e7edf8;font-size:13px">正在检查访问保护…</span></div></header>
 <div class="wrap"><div class="grid">
 <aside class="panel nav">
-<button class="active" data-tab="overview">总览</button><button data-tab="writing">文献综述工作台</button><button data-tab="library">我的文献库</button><button data-tab="external">外部文献检索</button><button data-tab="review">证据综合分析</button><button data-tab="graph">文献知识图谱</button><button data-tab="themes">研究主题归纳</button><button data-tab="analysis">结论对照与研究空白</button><button data-tab="upload">上传论文</button><button data-tab="areas">研究领域管理</button>
+<button class="active" data-tab="overview">总览</button><button data-tab="writing">文献综述工作台</button><button data-tab="library">我的文献库</button><button data-tab="external">外部文献检索</button><button data-tab="review">证据综合分析</button><button data-tab="graph">文献知识图谱</button><button data-tab="themes">研究主题归纳</button><button data-tab="analysis">结论对照与研究空白</button><button data-tab="upload">上传论文</button><button data-tab="areas">研究领域管理</button><button data-tab="account">账号与安全</button>
 <div class="notice">来源透明：外部接口元数据不等于全文。当前未接入知网、万方授权服务。</div>
 </aside>
 <main class="main">
@@ -22,6 +22,7 @@
 <section id="external" class="panel hidden"><h2>外部文献检索</h2><p class="muted">调用 OpenAlex 或 Crossref 公开接口，显示接口真实返回结果。</p><div class="row"><input id="externalQ" type="text" placeholder="输入论文主题、关键词或题名"><select id="source"><option value="openalex">OpenAlex</option><option value="crossref">Crossref</option></select><button class="primary" onclick="searchExternal()">开始检索</button></div><div id="externalResults"></div></section>
 <section id="upload" class="panel hidden"><h2>上传论文</h2><p>支持 PDF、DOCX，单个文件最大40MB。扫描版PDF若无文本层，当前版本可能无法提取文字。</p><div class="row"><input id="file" type="file" accept=".pdf,.docx"><button class="primary" onclick="uploadFile()">上传并解析</button></div><div id="uploadResult" class="muted"></div></section>
 <section id="areas" class="panel hidden"><h2>研究领域管理</h2><p class="muted">第04领域保持空白；可在此添加你自己的方向。自动分类仅为初步建议，未命中文献进入待确认。</p><div id="areasList"></div><div class="row"><input id="areaName" type="text" placeholder="输入要新增的研究方向"><button class="primary" onclick="addArea()">新增领域</button></div></section>
+<section id="account" class="panel hidden"><h2>账号与安全</h2><p class="muted" id="accountDetail">正在读取账号信息…</p><h3>修改登录密码</h3><div class="row"><input id="currentPassword" type="password" placeholder="当前密码" autocomplete="current-password"><input id="newPassword" type="password" placeholder="新密码（至少10位）" autocomplete="new-password"><button class="primary" onclick="changeMyPassword()">修改密码</button></div><div id="passwordMessage" class="muted"></div><div id="adminTools" class="hidden"><h3>成员账号管理</h3><p class="muted">管理员可以查看账号、停用或重新启用成员。停用会撤销该账号的全部登录会话。</p><div class="row"><button class="secondary" onclick="loadAdminUsers()">刷新账号列表</button><button class="secondary" onclick="loadAuditLogs()">查看安全审计记录</button></div><div id="adminUsers"></div><h3>安全审计</h3><div id="auditLogs"></div></div></section>
 </main></div></div>
 <script>
 const $=id=>document.getElementById(id);
@@ -66,7 +67,7 @@ async function loadAccountStatus(){
   const status=await api('/api/auth/status');
   const token=sessionStorage.getItem('academic_account_token')||'';
   if(token){
-   try{const me=await api('/api/auth/me');$('accountNotice').textContent='已登录：'+me.username+'（'+(me.role==='admin'?'管理员':'成员')+'）';}
+   try{const me=await api('/api/auth/me');$('accountNotice').textContent='已登录：'+me.username+'（'+(me.role==='admin'?'管理员':'成员')+'）';$('accountDetail').textContent='当前账号：'+me.username+'；权限：'+(me.role==='admin'?'管理员':'普通成员');$('adminTools').classList.toggle('hidden',me.role!=='admin');if(me.role==='admin')loadAdminUsers();}
    catch(e){sessionStorage.removeItem('academic_account_token');$('accountNotice').textContent='登录已失效，请重新登录';}
   }else if(status.first_account_setup){
    $('accountNotice').textContent='首次使用：请用管理员初始化口令创建账号';
@@ -81,6 +82,32 @@ async function loadSecurityStatus(){
   $('securityNotice').textContent=d.mode+'；'+d.notice;
   $('securityNotice').style.color=d.accounts_enabled?'#c7f3d2':(d.access_control_enabled?'#c7f3d2':'#ffd7a1');
  }catch(e){$('securityNotice').textContent='无法读取安全状态'}
+}
+async function changeMyPassword(){
+ try{
+  await api('/api/auth/change-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({current_password:$('currentPassword').value,new_password:$('newPassword').value})});
+  $('passwordMessage').textContent='密码已修改。为保护账号，所有旧会话均已注销，请重新登录。';
+  $('currentPassword').value='';$('newPassword').value='';
+  sessionStorage.removeItem('academic_account_token');
+  $('accountNotice').textContent='密码已更新，请重新登录';
+ }catch(e){$('passwordMessage').textContent=e.message}
+}
+async function loadAdminUsers(){
+ try{
+  const users=await api('/api/admin/users');
+  $('adminUsers').innerHTML=users.map(u=>'<div class="paper"><b>'+esc(u.username)+'</b><span class="tag">'+esc(u.role==='admin'?'管理员':'成员')+'</span><span class="tag">'+(u.is_active?'正常':'已停用')+'</span><span class="muted">创建时间：'+esc(u.created_at||'')+'</span>'+(u.is_self?'':('<button class="secondary" onclick="setUserStatus('+u.id+','+(!u.is_active)+')">'+(u.is_active?'停用账号':'重新启用')+'</button>'))+'</div>').join('')||'<p class="muted">暂无账号</p>';
+ }catch(e){$('adminUsers').textContent=e.message}
+}
+async function setUserStatus(id,active){
+ const action=active?'重新启用':'停用';
+ if(!confirm('确定要'+action+'这个账号吗？'))return;
+ try{await api('/api/admin/users/'+id+'/status',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({is_active:active})});await loadAdminUsers();}catch(e){alert(e.message)}
+}
+async function loadAuditLogs(){
+ try{
+  const logs=await api('/api/admin/audit-logs?limit=100');
+  $('auditLogs').innerHTML=logs.map(v=>'<div class="paper"><b>'+esc(v.action)+'</b><span class="muted"> '+esc(v.created_at)+' · 操作者 '+esc(v.actor_user_id??'系统')+' · 目标 '+esc(v.target_user_id??'—')+' · IP '+esc(v.ip_address||'—')+'</span><div>'+esc(v.detail||'')+'</div></div>').join('')||'<p class="muted">暂无审计记录</p>';
+ }catch(e){$('auditLogs').textContent=e.message}
 }
 async function api(url,opts={}){
  const headers=new Headers(opts.headers||{});

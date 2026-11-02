@@ -109,7 +109,7 @@ jobs:
               env = os.environ.copy()
               env["ACADEMIC_DATABASE_URL"] = "sqlite:///" + str(db)
               backup_root = root / "backups"
-              subprocess.run([sys.executable, "backup_data.py", "backup", "--output", str(backup_root)], env=env, check=True)
+              subprocess.run([sys.executable, "backup_data.py", "backup", "--output", str(backup_root), "--uploads", str(uploads)], env=env, check=True)
               backup_dir = next(backup_root.iterdir())
               subprocess.run([sys.executable, "backup_data.py", "verify", "--backup-dir", str(backup_dir)], env=env, check=True)
               restored_db = root / "restored.db"

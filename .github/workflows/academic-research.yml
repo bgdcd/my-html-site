@@ -68,6 +68,15 @@ jobs:
           assert "access_control_enabled" in security_status()
           client = TestClient(app)
           assert client.get("/api/security/status").status_code == 200
+          import os
+          previous_token = os.environ.get("ACADEMIC_ACCESS_TOKEN")
+          os.environ["ACADEMIC_ACCESS_TOKEN"] = "ci-test-token-with-sufficient-length"
+          assert client.get("/api/stats").status_code == 401
+          assert client.get("/api/stats", headers={"Authorization": "Bearer ci-test-token-with-sufficient-length"}).status_code == 200
+          if previous_token is None:
+              os.environ.pop("ACADEMIC_ACCESS_TOKEN", None)
+          else:
+              os.environ["ACADEMIC_ACCESS_TOKEN"] = previous_token
           bad_pdf = client.post("/api/upload", files={"file": ("fake.pdf", b"not a PDF", "application/pdf")})
           assert bad_pdf.status_code == 400, bad_pdf.text
           bad_docx = client.post("/api/upload", files={"file": ("fake.docx", b"not a DOCX", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")})

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 import re
 import uuid
@@ -15,7 +16,7 @@ from fastapi import FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, create_engine, select, or_
+from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, create_engine, select, or_, inspect, text as sql_text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, sessionmaker
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -50,6 +51,7 @@ class Paper(Base):
     abstract_type: Mapped[str] = mapped_column(String(40), default="未识别")
     keywords: Mapped[str] = mapped_column(Text, default="")
     full_text: Mapped[str] = mapped_column(Text, default="")
+    text_segments: Mapped[str] = mapped_column(Text, default="[]")
     source: Mapped[str] = mapped_column(String(80), default="个人上传")
     source_url: Mapped[str] = mapped_column(Text, default="")
     file_path: Mapped[str] = mapped_column(Text, default="")
@@ -61,6 +63,14 @@ class Paper(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 Base.metadata.create_all(engine)
+
+def migrate_schema():
+    columns = {column['name'] for column in inspect(engine).get_columns('papers')}
+    if 'text_segments' not in columns:
+        with engine.begin() as connection:
+            connection.execute(sql_text("ALTER TABLE papers ADD COLUMN text_segments TEXT DEFAULT '[]'"))
+
+migrate_schema()
 
 def seed_areas():
     with SessionLocal() as db:

@@ -202,20 +202,61 @@ def rename_area(area_id: int, payload: AreaInput):
         db.commit()
         return {"id": item.id, "name": item.name, "parent_id": item.parent_id}
 
-def extract_pdf(path: Path) -> str:
+def extract_pdf_with_segments(path: Path):
     doc = fitz.open(path)
     try:
-        return "\n".join(page.get_text("text") for page in doc).strip()
+        chunks, segments = [], []
+        cursor = 0
+        for index, page in enumerate(doc):
+            value = page.get_text("text").strip()
+            if not value:
+                continue
+            if chunks:
+                cursor += 1
+            start = cursor
+            chunks.append(value)
+            cursor += len(value)
+            segments.append({"kind": "pdf_page", "page_number": index + 1,
+                             "char_start": start, "char_end": cursor, "text": value})
+        return "\n".join(chunks).strip(), segments
     finally:
         doc.close()
 
-def extract_docx(path: Path) -> str:
+def extract_docx_with_segments(path: Path):
     doc = Document(path)
-    chunks = [p.text for p in doc.paragraphs if p.text.strip()]
+    chunks, segments = [], []
+    cursor = 0
+    def add_segment(value, kind, number):
+        nonlocal cursor
+        value = (value or "").strip()
+        if not value:
+            return
+        if chunks:
+            cursor += 1
+        start = cursor
+        chunks.append(value)
+        cursor += len(value)
+        segments.append({"kind": kind, "number": number, "char_start": start,
+                         "char_end": cursor, "text": value})
+    paragraph_number = 0
+    for paragraph in doc.paragraphs:
+        if paragraph.text.strip():
+            paragraph_number += 1
+            add_segment(paragraph.text, "docx_paragraph", paragraph_number)
+    row_number = 0
     for table in doc.tables:
         for row in table.rows:
-            chunks.append(" | ".join(cell.text for cell in row.cells))
-    return "\n".join(chunks).strip()
+            value = " | ".join(cell.text for cell in row.cells)
+            if value.strip():
+                row_number += 1
+                add_segment(value, "docx_table_row", row_number)
+    return "\n".join(chunks).strip(), segments
+
+def extract_pdf(path: Path) -> str:
+    return extract_pdf_with_segments(path)[0]
+
+def extract_docx(path: Path) -> str:
+    return extract_docx_with_segments(path)[0]
 
 def guess_title(text: str, filename: str, metadata_title: str = "") -> str:
     candidate = re.sub(r"\s+", " ", (metadata_title or "")).strip()
@@ -286,7 +327,7 @@ async def upload_paper(file: UploadFile = File(...)):
     target = UPLOAD_DIR / f"{uuid.uuid4().hex}{suffix}"
     target.write_bytes(raw)
     try:
-        text = extract_pdf(target) if suffix == ".pdf" else extract_docx(target)
+        text, text_segments = extract_pdf_with_segments(target) if suffix == ".pdf" else extract_docx_with_segments(target)
     except Exception as exc:
         target.unlink(missing_ok=True)
         raise HTTPException(422, f"文件解析失败：{exc.__class__.__name__}")
@@ -301,7 +342,7 @@ async def upload_paper(file: UploadFile = File(...)):
         paper = Paper(title=title, authors=candidates["authors"], year=candidates["year"],
                       doi=candidates["doi"], abstract=candidates["abstract"],
                       abstract_type="自动提取候选" if candidates["abstract"] else "未识别",
-                      keywords=candidates["keywords"], full_text=text, file_path=str(target),
+                      keywords=candidates["keywords"], full_text=text, text_segments=json.dumps(text_segments, ensure_ascii=False), file_path=str(target),
                       file_name=filename, file_sha256=digest, fulltext_status="已解析" if text else "未提取到文本",
                       verification_status="自动提取候选，待人工核验", area_id=area_id, source="个人上传")
         db.add(paper); db.commit(); db.refresh(paper)

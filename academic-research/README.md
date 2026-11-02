@@ -73,6 +73,27 @@ ACADEMIC_LLM_BASE_URL=https://api.openai.com/v1
 
 AI草稿只接收用户明确勾选的证据卡片，要求模型逐句使用 `[证据#编号]` 标注，并在服务端拒绝未选择的证据编号或完全没有引用编号的输出。但编号校验不等于事实核验：模型仍可能误读原文，研究者必须逐条核对。模型调用会将所选证据的论点、原文摘录和文献元数据发送给所配置的模型服务，请先确认该服务的数据处理和隐私条款。未配置时，AI写作接口会明确返回服务未配置，不会生成模拟内容。
 
+## 数据备份、完整性校验与恢复
+
+项目提供 `backup_data.py` 命令行工具，备份 SQLite 数据库和个人上传原文件。SQLite 数据库使用 Python SQLite 在线备份 API 创建一致性快照；上传目录归档为 ZIP，并生成 SHA-256 清单。
+
+在项目目录（容器内为 `/app/academic-research`）执行：
+
+```bash
+# 创建备份，默认写入 data/backups/
+python backup_data.py backup
+
+# 校验指定备份目录中的数据库、归档及每个上传文件
+python backup_data.py verify --backup-dir data/backups/academic-backup-备份时间戳
+
+# 恢复到两个全新的目标路径（不会覆盖已有文件）
+python backup_data.py restore --backup-dir data/backups/academic-backup-备份时间戳 --database data/restore-test.db --uploads data/restore-test-uploads --yes
+```
+
+备份目录包含 `database.sqlite3`、`uploads.zip` 和 `manifest.json`。恢复前会校验哈希和 SQLite 完整性；恢复目标必须不存在，避免意外覆盖当前数据。恢复到生产环境时，应先停止服务、将数据恢复到新的路径、核对文件和数据库，再按维护流程切换挂载或配置；不要在运行中的实例上直接覆盖数据库。
+
+**重要限制：** 默认备份放在 `data/backups/`，与业务数据位于同一持久盘，只能用于误操作回滚或文件损坏时的辅助恢复，不能抵御磁盘丢失、账号被盗或云平台故障。请定期将备份目录复制到独立的异地/对象存储，并实际演练恢复。工具当前仅支持本地文件型 SQLite；如果设置 PostgreSQL 等数据库，必须改用相应数据库原生备份方案。上传文件在归档期间仍可能变化，高写入场景请暂停上传后备份。
+
 ## 数据保存
 首次运行后自动创建 `data/academic_library.db` 和 `data/uploads/`。请定期备份整个 `data` 目录。
 

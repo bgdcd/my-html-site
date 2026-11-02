@@ -91,7 +91,7 @@ async function downloadPersonalData(){
   const blob=await response.blob();
   const url=URL.createObjectURL(blob);
   const link=document.createElement('a');link.href=url;link.download='学术智库个人资料.zip';
-  document.body.appendChild(link);link.click();link.remove();URL.revokeObjectURL(url);
+  document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
   $('personalIntegrity').textContent='个人资料导出已开始。请妥善保管包含全文和原件的压缩包。';
  }catch(e){$('personalIntegrity').textContent=e.message}
 }

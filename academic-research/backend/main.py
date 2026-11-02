@@ -896,6 +896,62 @@ def export_review_project_docx(project_id: int, style: str = Query("gb", pattern
     return StreamingResponse(stream, media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         headers={"Content-Disposition": "attachment; filename*=UTF-8''" + filename})
 
+
+@app.get("/api/knowledge-graph")
+def knowledge_graph(paper_ids: str = Query(default="", description="可选，逗号分隔的文献编号")):
+    """基于真实文献和研究者证据卡片构建可追溯关系图，不推断论文间语义关系。"""
+    ids = []
+    if paper_ids.strip():
+        try:
+            ids = list(dict.fromkeys(int(value.strip()) for value in paper_ids.split(",") if value.strip()))
+        except ValueError:
+            raise HTTPException(400, "文献编号必须为数字")
+        if not ids or len(ids) > 100 or any(value < 1 for value in ids):
+            raise HTTPException(400, "请选择1至100篇有效文献")
+    with SessionLocal() as db:
+        paper_query = select(Paper).order_by(Paper.created_at.desc())
+        if ids:
+            paper_query = paper_query.where(Paper.id.in_(ids))
+        papers = db.scalars(paper_query.limit(100)).all()
+        paper_map = {paper.id: paper for paper in papers}
+        if ids:
+            missing = [paper_id for paper_id in ids if paper_id not in paper_map]
+            if missing:
+                raise HTTPException(404, "以下文献编号不存在：" + ", ".join(map(str, missing)))
+        if not paper_map:
+            return {"nodes": [], "edges": [], "paper_count": 0, "evidence_count": 0,
+                    "notice": "文献库中尚无文献。上传论文并建立证据卡片后，关系图才会出现内容。"}
+        cards = db.scalars(select(EvidenceCard).where(
+            EvidenceCard.paper_id.in_(list(paper_map))
+        ).order_by(EvidenceCard.paper_id, EvidenceCard.id)).all()
+        nodes = []
+        edges = []
+        type_ids = {}
+        for paper in papers:
+            pid = "paper-" + str(paper.id)
+            nodes.append({"id": pid, "node_type": "paper", "label": paper.title or "未命名文献",
+                          "paper_id": paper.id, "authors": paper.authors, "year": paper.year,
+                          "verification_status": paper.verification_status})
+        for card in cards:
+            eid = "evidence-" + str(card.id)
+            nodes.append({"id": eid, "node_type": "evidence", "label": card.claim,
+                          "paper_id": card.paper_id, "evidence_id": card.id,
+                          "evidence_type": card.evidence_type, "source_text": card.source_text,
+                          "locator": card.locator, "page_number": card.page_number,
+                          "paragraph_number": card.paragraph_number,
+                          "verification_status": card.verification_status})
+            edges.append({"source": "paper-" + str(card.paper_id), "target": eid,
+                          "relation": "包含证据"})
+            type_key = card.evidence_type or "未分类证据"
+            if type_key not in type_ids:
+                type_ids[type_key] = "type-" + str(len(type_ids) + 1)
+                nodes.append({"id": type_ids[type_key], "node_type": "evidence_type",
+                              "label": type_key})
+            edges.append({"source": eid, "target": type_ids[type_key], "relation": "证据类型"})
+        return {"nodes": nodes, "edges": edges, "paper_count": len(papers),
+                "evidence_count": len(cards), "type_count": len(type_ids),
+                "notice": "关系仅表示文献包含证据卡片、证据卡片属于某类。系统没有推断论文之间的因果、支持或矛盾关系；请依据原文和研究者判断进一步分析。"}
+
 @app.get("/api/stats")
 def stats():
     with SessionLocal() as db:

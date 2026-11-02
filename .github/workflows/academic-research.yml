@@ -349,6 +349,8 @@ jobs:
             -v /tmp/academic-research-ci-data:/app/academic-research/data \
             academic-research-ci
           trap 'docker logs academic-research-ci || true; docker rm -f academic-research-ci || true' EXIT
+          docker exec academic-research-ci python -m py_compile /app/academic-research/migrate_sqlite_to_postgres.py
+          docker exec academic-research-ci test -f /app/academic-research/backup_data.py
           for i in $(seq 1 30); do
             if curl --fail --silent http://127.0.0.1:8000/api/health; then
               echo "容器健康检查通过"

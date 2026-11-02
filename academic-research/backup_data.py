@@ -187,8 +187,12 @@ def restore_backup(backup_dir: Path, target_database: Path, target_uploads: Path
                 destination.parent.mkdir(parents=True, exist_ok=True)
                 with archive.open(info, "r") as source, destination.open("wb") as output:
                     shutil.copyfileobj(source, output)
-        db_temp.replace(target_database)
         uploads_temp.replace(target_uploads)
+        try:
+            db_temp.replace(target_database)
+        except Exception:
+            shutil.rmtree(target_uploads, ignore_errors=True)
+            raise
     except Exception:
         db_temp.unlink(missing_ok=True)
         shutil.rmtree(uploads_temp, ignore_errors=True)

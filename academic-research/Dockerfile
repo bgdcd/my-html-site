@@ -11,6 +11,7 @@ RUN python -m pip install --no-cache-dir --upgrade pip \
 
 COPY backend ./backend
 COPY frontend ./frontend
+COPY backup_data.py ./backup_data.py
 
 RUN mkdir -p /app/academic-research/data/uploads
 

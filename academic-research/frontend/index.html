@@ -206,22 +206,21 @@ async function addEvidence(paperId){
 }
 function backToLibrary(){document.querySelectorAll('main section').forEach(s=>s.classList.toggle('hidden',s.id!=='library'));loadPapers()}
 async function searchFulltext(){
- const q=$('libraryQ').value.trim();if(!q){$('fulltextResults').textContent='请先输入检索词';return}
+ const q=$('libraryQ').value.trim();
+ if(!q){$('fulltextResults').textContent='请先输入检索词';return}
  $('fulltextResults').textContent='正在检索已保存的全文…';
  try{
-  const d=await api('/api/search/fulltext?q='+encodeURIComponent(q));
-  const details=await Promise.all(d.results.map(r=>api('/api/papers/'+r.id)));
-  $('fulltextResults').innerHTML='<h3>全文命中结果（'+d.count+'篇）</h3>'+ (d.results.map((r,i)=>{
-   const segs=details[i].text_segments||[];
-   const hit=segs.find(x=>x.char_start<=r.first_match_offset && r.first_match_offset<x.char_end);
-   let location='旧记录：未保存页/段落定位';
-   if(hit&&hit.kind==='pdf_page')location='PDF第'+hit.page_number+'页';
-   else if(hit&&hit.kind==='docx_paragraph')location='DOCX第'+hit.number+'个正文段落';
-   else if(hit&&hit.kind==='docx_table_row')location='DOCX表格第'+hit.number+'行';
-   return '<div class="paper"><b>'+esc(r.title)+'</b><div class="muted">'+esc(r.authors)+' · '+esc(r.year||'')+' · 命中 '+r.match_count+' 处 · '+esc(location)+'</div><div class="snippet">'+esc(r.snippet)+'</div><div class="muted">全文字符位置：'+r.first_match_offset+'</div><button class="secondary" onclick="showPaper('+r.id+')">打开文献详情</button></div>'
-  }).join('')||'没有找到全文命中记录')
+  const d=await api('/api/search/fulltext?q='+encodeURIComponent(q)+'&limit=100&max_matches=10');
+  const renderMatch=m=>{
+   const local=m.offset-m.snippet_start;
+   const before=m.snippet.slice(0,local),hit=m.snippet.slice(local,local+q.length),after=m.snippet.slice(local+q.length);
+   return '<div class="notice"><b>'+esc(m.location)+'</b><div class="snippet">'+(local>0?'…':'')+esc(before)+'<mark>'+esc(hit)+'</mark>'+esc(after)+(m.snippet_end>m.offset+q.length?'…':'')+'</div><div class="muted">全文字符位置：'+m.offset+'</div></div>';
+  };
+  $('fulltextResults').innerHTML='<h3>全文命中结果（'+d.count+'篇）</h3><p class="muted">共扫描 '+d.scanned_documents+' 篇已保存全文；每篇最多展示 '+d.max_matches_per_document+' 处命中。页码和段落位置来自上传时保存的文本分段，旧记录或无法解析的文件仅显示字符位置。</p>'+
+   (d.results.map(r=>'<div class="paper"><b>'+esc(r.title)+'</b><div class="muted">'+esc(r.authors||'作者未记录')+' · '+esc(r.year||'年份未记录')+' · 命中 '+r.match_count+' 处</div>'+r.matches.map(renderMatch).join('')+(r.match_count>r.matches_returned?'<p class="muted">另有 '+(r.match_count-r.matches_returned)+' 处命中未展开。</p>':'')+'<button class="secondary" onclick="showPaper('+r.id+')">打开文献详情</button></div>').join('')||'没有找到全文命中记录');
  }catch(e){$('fulltextResults').textContent='全文检索失败：'+e.message}
 }
+
 async function uploadFile(){const f=$('file').files[0];if(!f){$('uploadResult').textContent='请先选择PDF或DOCX文件';return}const fd=new FormData();fd.append('file',f);$('uploadResult').textContent='正在上传和解析…';try{const d=await api('/api/upload',{method:'POST',body:fd});$('uploadResult').textContent='上传成功：'+d.title+'；提取字符数：'+d.characters_extracted+'；分类状态：'+d.classification;refresh()}catch(e){$('uploadResult').textContent='上传失败：'+e.message}}
 async function searchExternal(){const q=$('externalQ').value.trim();if(q.length<2){$('externalResults').textContent='请输入至少2个字符';return}$('externalResults').textContent='正在查询真实外部接口…';try{const d=await api('/api/search/external?q='+encodeURIComponent(q)+'&source='+$('source').value);$('externalResults').innerHTML=d.results.map((p,i)=>'<div class="paper"><b>'+esc(p.title)+'</b><span class="muted">'+esc(p.authors)+' · '+esc(p.journal)+' · '+esc(p.year||'')+'</span><div class="muted">DOI：'+esc(p.doi)+'；'+esc(p.fulltext_status)+'</div><button class="secondary" onclick="saveExternal('+i+')">保存到我的文献库</button></div>').join('')||'接口没有返回匹配记录';window.lastResults=d.results}catch(e){$('externalResults').textContent='检索失败：'+e.message}}
 async function saveExternal(i){try{const p=window.lastResults[i];const d=await api('/api/papers/external',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(p)});alert(d.duplicate?'该文献已存在':'已保存到个人文献库');refresh()}catch(e){alert(e.message)}}

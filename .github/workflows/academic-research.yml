@@ -136,6 +136,10 @@ jobs:
                   row = conn.execute("SELECT value FROM sample WHERE id=1").fetchone()
                   assert row and row[0] == "学术智库备份测试"
               assert (restored_uploads / "paper.txt").read_text(encoding="utf-8") == "备份原文件测试"
+              for _ in range(2):
+                  subprocess.run([sys.executable, "backup_data.py", "backup", "--output", str(backup_root), "--uploads", str(uploads)], env=env, check=True)
+              subprocess.run([sys.executable, "backup_data.py", "prune", "--backup-root", str(backup_root), "--keep", "2"], env=env, check=True)
+              assert len(list(backup_root.glob("academic-backup-*"))) == 2
               print("SQLite在线备份、上传归档、SHA-256校验及恢复往返测试通过")
           PY
 

@@ -131,6 +131,20 @@ jobs:
           assert client.get("/api/admin/users", headers={"Authorization": "Bearer " + token_login}).status_code == 200
           assert client.get("/api/admin/users", headers={"Authorization": "Bearer " + token_b}).status_code == 403
           assert client.get("/api/admin/audit-logs", headers={"Authorization": "Bearer " + token_login}).status_code == 200
+          reset = client.post("/api/admin/users/" + str(second.json()["user"]["id"]) + "/reset-password",
+                              headers={"Authorization": "Bearer " + token_login},
+                              json={"temporary_password": "Temporary#2026-Strong"})
+          assert reset.status_code == 200, reset.text
+          assert client.get("/api/stats", headers={"Authorization": "Bearer " + token_b}).status_code == 401
+          temp_login = client.post("/api/auth/login", json={"username": "account_beta", "password": "Temporary#2026-Strong"})
+          assert temp_login.status_code == 200, temp_login.text
+          assert client.get("/api/stats", headers={"Authorization": "Bearer " + temp_login.json()["access_token"]}).status_code == 403
+          temp_change = client.post("/api/auth/change-password", headers={"Authorization": "Bearer " + temp_login.json()["access_token"]},
+                                    json={"current_password": "Temporary#2026-Strong", "new_password": "BetaChanged#2026-Strong"})
+          assert temp_change.status_code == 200, temp_change.text
+          beta_relogin = client.post("/api/auth/login", json={"username": "account_beta", "password": "BetaChanged#2026-Strong"})
+          assert beta_relogin.status_code == 200, beta_relogin.text
+          token_b = beta_relogin.json()["access_token"]
           changed = client.post("/api/auth/change-password", headers={"Authorization": "Bearer " + token_login}, json={"current_password": "TestPass#2026-Strong", "new_password": "ChangedPass#2026-Strong"})
           assert changed.status_code == 200, changed.text
           assert client.get("/api/stats", headers={"Authorization": "Bearer " + token_login}).status_code == 401

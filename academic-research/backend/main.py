@@ -164,7 +164,7 @@ def apply_account_data_scope(execute_state):
         return
     for model in OWNED_MODELS:
         execute_state.statement = execute_state.statement.options(
-            with_loader_criteria(model, lambda entity: entity.owner_id == account_id, include_aliases=True)
+            with_loader_criteria(model, model.owner_id == account_id, include_aliases=True)
         )
 
 @event.listens_for(SQLAlchemySession, "before_flush")
@@ -259,13 +259,19 @@ def auth_status():
         count = db.scalar(select(User.id).limit(1))
         return {"accounts_enabled": count is not None, "first_account_setup": count is None,
                 "registration_code_required": count is not None,
-                "notice": "首次创建账号将接管现有未分配文献；后续账号必须提供服务器配置的注册邀请码。"}
+                "notice": "首次管理员注册需要 ACADEMIC_BOOTSTRAP_CODE；后续账号必须提供 ACADEMIC_REGISTRATION_CODE 邀请码。"}
 
 @app.post("/api/auth/register")
 def register_account(payload: AccountRegisterInput):
     with SessionLocal() as db:
         first_user = db.scalar(select(User.id).limit(1)) is None
-        if not first_user:
+        if first_user:
+            bootstrap = os.getenv("ACADEMIC_BOOTSTRAP_CODE", "").strip()
+            if not bootstrap:
+                raise HTTPException(503, "尚未配置管理员初始化口令。请先在服务器环境变量中设置 ACADEMIC_BOOTSTRAP_CODE。")
+            if not payload.registration_code or not secrets.compare_digest(payload.registration_code, bootstrap):
+                raise HTTPException(403, "管理员初始化口令不正确。")
+        else:
             invite = os.getenv("ACADEMIC_REGISTRATION_CODE", "").strip()
             if not invite or not payload.registration_code or not secrets.compare_digest(payload.registration_code, invite):
                 raise HTTPException(403, "当前不开放自由注册。请联系管理员获取有效注册邀请码。")
@@ -319,7 +325,7 @@ def security_status():
     users = account_count()
     return {"access_control_enabled": enabled, "accounts_enabled": users > 0,
             "mode": "个人账号登录与数据隔离" if users else ("单一共享访问口令" if enabled else "尚未设置访问保护"),
-            "notice": "个人账号启用后，文献、证据卡片、研究分类和综述项目按账号隔离。首次注册接管现有数据；后续注册需配置 ACADEMIC_REGISTRATION_CODE。" if users else "首次使用请先创建管理员账号。尚未创建账号时，旧版共享访问口令仍可用于过渡。"}
+            "notice": "个人账号启用后，文献、证据卡片、研究分类和综述项目按账号隔离。首次注册需 ACADEMIC_BOOTSTRAP_CODE；后续注册需 ACADEMIC_REGISTRATION_CODE。" if users else "首次使用请先创建管理员账号。尚未创建账号时，旧版共享访问口令仍可用于过渡。"}
 
 app.mount("/static", StaticFiles(directory=ROOT / "frontend"), name="static")
 

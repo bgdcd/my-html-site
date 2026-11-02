@@ -208,16 +208,16 @@ def extract_docx(path: Path) -> str:
     return "\n".join(chunks).strip()
 
 def guess_title(text: str, filename: str, metadata_title: str = "") -> str:
-    candidate = re.sub(r"\\s+", " ", (metadata_title or "")).strip()
+    candidate = re.sub(r"\s+", " ", (metadata_title or "")).strip()
     if 5 <= len(candidate) <= 500 and not re.match(r"(?i)^(untitled|microsoft word|扫描件)$", candidate):
         return candidate
-    for line in [re.sub(r"\\s+", " ", x).strip() for x in text.splitlines()[:45]]:
-        if 8 <= len(line) <= 180 and not re.match(r"^(第\\s*\\d+\\s*页|https?://|doi:)", line, re.I):
+    for line in [re.sub(r"\s+", " ", x).strip() for x in text.splitlines()[:45]]:
+        if 8 <= len(line) <= 180 and not re.match(r"^(第\s*\d+\s*页|https?://|doi:)", line, re.I):
             return line[:500]
     return Path(filename).stem[:500] or "未识别标题"
 
 def extract_doi(text: str) -> str:
-    match = re.search(r"\\b10\\.\\d{4,9}/[-._;()/:A-Z0-9]+", text, re.I)
+    match = re.search(r"\b10\.\d{4,9}/[-._;()/:A-Z0-9]+", text, re.I)
     return match.group(0).rstrip(".,;:)") if match else ""
 
 def extract_candidate_metadata(path: Path, suffix: str, text: str) -> dict:
@@ -229,7 +229,7 @@ def extract_candidate_metadata(path: Path, suffix: str, text: str) -> dict:
                 result["title"] = meta.get("title") or ""
                 result["authors"] = meta.get("author") or ""
                 date_text = meta.get("creationDate") or meta.get("modDate") or ""
-                year_match = re.search(r"(?:19|20)\\d{2}", date_text)
+                year_match = re.search(r"(?:19|20)\d{2}", date_text)
                 if year_match: result["year"] = int(year_match.group(0))
                 result["keywords"] = meta.get("keywords") or ""
         else:
@@ -241,11 +241,11 @@ def extract_candidate_metadata(path: Path, suffix: str, text: str) -> dict:
     except Exception:
         pass
     result["doi"] = extract_doi(text)
-    abstract_match = re.search(r"(?:摘要|abstract)\\s*[:：]?\\s*(.{80,1800}?)(?=\\n\\s*(?:关键词|关键字|引言|\\d+[.、]|key\\s*words)\\b)", text, re.I | re.S)
+    abstract_match = re.search(r"(?:摘要|abstract)\s*[:：]?\s*(.{80,1800}?)(?=\n\s*(?:关键词|关键字|引言|\d+[.、]|key\s*words)\b)", text, re.I | re.S)
     if abstract_match:
-        result["abstract"] = re.sub(r"\\s+", " ", abstract_match.group(1)).strip()
+        result["abstract"] = re.sub(r"\s+", " ", abstract_match.group(1)).strip()
     if not result["keywords"]:
-        kw_match = re.search(r"(?:关键词|关键字|key\\s*words)\\s*[:：]?\\s*([^\\n]{2,300})", text, re.I)
+        kw_match = re.search(r"(?:关键词|关键字|key\s*words)\s*[:：]?\s*([^\n]{2,300})", text, re.I)
         if kw_match: result["keywords"] = kw_match.group(1).strip()
     return result
 

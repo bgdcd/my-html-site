@@ -207,12 +207,47 @@ def extract_docx(path: Path) -> str:
             chunks.append(" | ".join(cell.text for cell in row.cells))
     return "\n".join(chunks).strip()
 
-def guess_title(text: str, filename: str) -> str:
-    for line in text.splitlines():
-        line = re.sub(r"\s+", " ", line).strip()
-        if len(line) >= 5:
+def guess_title(text: str, filename: str, metadata_title: str = "") -> str:
+    candidate = re.sub(r"\\s+", " ", (metadata_title or "")).strip()
+    if 5 <= len(candidate) <= 500 and not re.match(r"(?i)^(untitled|microsoft word|扫描件)$", candidate):
+        return candidate
+    for line in [re.sub(r"\\s+", " ", x).strip() for x in text.splitlines()[:45]]:
+        if 8 <= len(line) <= 180 and not re.match(r"^(第\\s*\\d+\\s*页|https?://|doi:)", line, re.I):
             return line[:500]
     return Path(filename).stem[:500] or "未识别标题"
+
+def extract_doi(text: str) -> str:
+    match = re.search(r"\\b10\\.\\d{4,9}/[-._;()/:A-Z0-9]+", text, re.I)
+    return match.group(0).rstrip(".,;:)") if match else ""
+
+def extract_candidate_metadata(path: Path, suffix: str, text: str) -> dict:
+    result = {"title": "", "authors": "", "year": None, "abstract": "", "keywords": "", "doi": ""}
+    try:
+        if suffix == ".pdf":
+            with fitz.open(path) as doc:
+                meta = doc.metadata or {}
+                result["title"] = meta.get("title") or ""
+                result["authors"] = meta.get("author") or ""
+                date_text = meta.get("creationDate") or meta.get("modDate") or ""
+                year_match = re.search(r"(?:19|20)\\d{2}", date_text)
+                if year_match: result["year"] = int(year_match.group(0))
+                result["keywords"] = meta.get("keywords") or ""
+        else:
+            props = Document(path).core_properties
+            result["title"] = props.title or ""
+            result["authors"] = props.author or ""
+            if props.created and props.created.year >= 1900: result["year"] = props.created.year
+            result["keywords"] = props.keywords or ""
+    except Exception:
+        pass
+    result["doi"] = extract_doi(text)
+    abstract_match = re.search(r"(?:摘要|abstract)\\s*[:：]?\\s*(.{80,1800}?)(?=\\n\\s*(?:关键词|关键字|引言|\\d+[.、]|key\\s*words)\\b)", text, re.I | re.S)
+    if abstract_match:
+        result["abstract"] = re.sub(r"\\s+", " ", abstract_match.group(1)).strip()
+    if not result["keywords"]:
+        kw_match = re.search(r"(?:关键词|关键字|key\\s*words)\\s*[:：]?\\s*([^\\n]{2,300})", text, re.I)
+        if kw_match: result["keywords"] = kw_match.group(1).strip()
+    return result
 
 def suggested_area(text: str) -> Optional[int]:
     t = text.lower()
@@ -245,19 +280,25 @@ async def upload_paper(file: UploadFile = File(...)):
     except Exception as exc:
         target.unlink(missing_ok=True)
         raise HTTPException(422, f"文件解析失败：{exc.__class__.__name__}")
+    candidates = extract_candidate_metadata(target, suffix, text)
+    title = guess_title(text, filename, candidates["title"])
     area_id = suggested_area(text)
     with SessionLocal() as db:
         existing = db.scalar(select(Paper).where(Paper.file_sha256 == digest))
         if existing:
             target.unlink(missing_ok=True)
             return {"id": existing.id, "duplicate": True, "message": "该文件已在文献库中"}
-        paper = Paper(title=guess_title(text, filename), full_text=text, file_path=str(target),
+        paper = Paper(title=title, authors=candidates["authors"], year=candidates["year"],
+                      doi=candidates["doi"], abstract=candidates["abstract"],
+                      abstract_type="自动提取候选" if candidates["abstract"] else "未识别",
+                      keywords=candidates["keywords"], full_text=text, file_path=str(target),
                       file_name=filename, file_sha256=digest, fulltext_status="已解析" if text else "未提取到文本",
-                      verification_status="待核验", area_id=area_id, source="个人上传")
+                      verification_status="自动提取候选，待人工核验", area_id=area_id, source="个人上传")
         db.add(paper); db.commit(); db.refresh(paper)
         return {"id": paper.id, "title": paper.title, "characters_extracted": len(text),
                 "area_id": area_id, "classification": "建议分类" if area_id else "待确认分类",
-                "fulltext_status": paper.fulltext_status}
+                "fulltext_status": paper.fulltext_status, "metadata_candidates": candidates,
+                "metadata_note": "自动提取结果仅为候选值，请核对原文后确认"}
 
 @app.get("/api/papers")
 def list_papers(q: str = "", limit: int = Query(100, ge=1, le=500)):
@@ -284,6 +325,32 @@ def get_paper(paper_id: int):
                 "keywords": p.keywords, "full_text": p.full_text, "source": p.source,
                 "source_url": p.source_url, "fulltext_status": p.fulltext_status,
                 "verification_status": p.verification_status, "area_id": p.area_id}
+
+class PaperMetadataUpdate(BaseModel):
+    title: Optional[str] = None
+    authors: Optional[str] = None
+    journal: Optional[str] = None
+    year: Optional[int] = None
+    doi: Optional[str] = None
+    abstract: Optional[str] = None
+    keywords: Optional[str] = None
+    verification_status: Optional[str] = None
+
+@app.patch("/api/papers/{paper_id}/metadata")
+def update_paper_metadata(paper_id: int, payload: PaperMetadataUpdate):
+    changes = payload.model_dump(exclude_unset=True)
+    if "title" in changes and not (changes["title"] or "").strip():
+        raise HTTPException(400, "题名不能为空")
+    with SessionLocal() as db:
+        paper = db.get(Paper, paper_id)
+        if paper is None: raise HTTPException(404, "文献不存在")
+        for key, value in changes.items():
+            setattr(paper, key, value.strip() if isinstance(value, str) else value)
+        if "verification_status" not in changes:
+            paper.verification_status = "人工核验"
+        db.commit()
+        return {"id": paper.id, "updated_fields": list(changes.keys()),
+                "verification_status": paper.verification_status}
 
 @app.get("/api/papers/{paper_id}/file")
 def download_original(paper_id: int):

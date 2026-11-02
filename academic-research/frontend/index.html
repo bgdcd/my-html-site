@@ -17,7 +17,7 @@
 <section id="overview" class="panel"><h2>研究资料总览</h2><div class="stats"><div class="card stat"><strong id="total">—</strong><span>文献总数</span></div><div class="card stat"><strong id="uploaded">—</strong><span>个人上传</span></div><div class="card stat"><strong id="pending">—</strong><span>待确认分类</span></div></div><p class="muted" id="health">正在连接数据库…</p><h3>研究领域</h3><div id="areaOverview"></div></section>
 <section id="article" class="panel hidden"><div id="articleContent">正在读取文献…</div></section>
 <section id="library" class="panel hidden"><h2>我的文献库</h2><div class="row"><input id="libraryQ" type="text" placeholder="检索题名、作者、摘要或全文"><button class="primary" onclick="loadPapers()">检索</button><button class="secondary" onclick="searchFulltext()">全文段落检索</button></div><div id="fulltextResults"></div><div id="papers"></div></section>
-<section id="writing" class="panel hidden"><h2>文献综述工作台</h2><p class="muted">建立综述项目，围绕主题组织段落，并把段落与已核验的证据卡片关联。当前提供人工撰写与引用追溯，不自动生成未经核验的论述。</p><div class="row"><input id="draftTitle" type="text" placeholder="综述项目名称"><input id="draftTopic" type="text" placeholder="研究主题/核心问题"><button class="primary" onclick="createReviewProject()">创建项目</button></div><div class="row"><select id="draftProject" onchange="openReviewProject()"><option value="">选择已有综述项目</option></select><button class="secondary" onclick="loadReviewProjects()">刷新项目</button><button class="secondary" onclick="exportReviewText()">导出文本</button></div><div id="draftWorkspace"><p class="muted">请先创建或选择一个综述项目。</p></div></section>
+<section id="writing" class="panel hidden"><h2>文献综述工作台</h2><p class="muted">建立综述项目，围绕主题组织段落，并把段落与已核验的证据卡片关联。当前提供人工撰写与引用追溯，不自动生成未经核验的论述。</p><div class="row"><input id="draftTitle" type="text" placeholder="综述项目名称"><input id="draftTopic" type="text" placeholder="研究主题/核心问题"><button class="primary" onclick="createReviewProject()">创建项目</button></div><div class="row"><select id="draftProject" onchange="openReviewProject()"><option value="">选择已有综述项目</option></select><button class="secondary" onclick="loadReviewProjects()">刷新项目</button><select id="citationStyle"><option value="gb">GB/T 7714 顺序编码制</option><option value="simple">简明作者-年份制</option></select><button class="secondary" onclick="exportReviewText()">导出综述与参考文献</button></div><div id="draftWorkspace"><p class="muted">请先创建或选择一个综述项目。</p></div></section>
 <section id="review" class="panel hidden"><h2>多篇文献证据综合分析</h2><p class="muted">勾选个人文献库中的论文，按研究目的、对象、方法、结论等证据类型汇总已录入的证据卡片。此处呈现真实记录，不会自动补写缺失结论。</p><div class="row"><input id="reviewQ" type="text" placeholder="筛选题名或作者" oninput="renderReviewChoices()"><button class="secondary" onclick="loadReviewChoices()">刷新文献列表</button><button class="primary" onclick="runEvidenceMatrix()">生成证据矩阵</button></div><div id="reviewChoices">正在读取文献…</div><div id="reviewMatrix"></div></section>
 <section id="external" class="panel hidden"><h2>外部文献检索</h2><p class="muted">调用 OpenAlex 或 Crossref 公开接口，显示接口真实返回结果。</p><div class="row"><input id="externalQ" type="text" placeholder="输入论文主题、关键词或题名"><select id="source"><option value="openalex">OpenAlex</option><option value="crossref">Crossref</option></select><button class="primary" onclick="searchExternal()">开始检索</button></div><div id="externalResults"></div></section>
 <section id="upload" class="panel hidden"><h2>上传论文</h2><p>支持 PDF、DOCX，单个文件最大40MB。扫描版PDF若无文本层，当前版本可能无法提取文字。</p><div class="row"><input id="file" type="file" accept=".pdf,.docx"><button class="primary" onclick="uploadFile()">上传并解析</button></div><div id="uploadResult" class="muted"></div></section>
@@ -87,10 +87,40 @@ async function deleteReviewParagraph(id){
  try{await api('/api/review/paragraphs/'+id,{method:'DELETE'});await openReviewProject()}
  catch(e){alert(e.message)}
 }
+function formatReference(c){
+ const authors=(c.authors||'作者信息缺失').trim().replace(/[，、；;]/g,', ');
+ const title=(c.title||'题名缺失').trim();
+ const journal=(c.journal||'').trim();
+ const year=c.year||'年份缺失';
+ const doi=(c.doi||'').trim();
+ if($('citationStyle').value==='simple')return authors+'（'+year+'）. '+title+'. '+(journal||'出版来源待核验')+(doi?' . DOI: '+doi:'')+'.';
+ return authors+'. '+title+(journal?'[J]. '+journal+', ':'[文献类型待核验]. ')+year+(doi?'. DOI: '+doi:'')+'.';
+}
 function exportReviewText(){
  if(!activeReviewProject){alert('请先选择综述项目');return}
- let out=activeReviewProject.title+'\n研究主题：'+activeReviewProject.topic+'\n\n';
- activeReviewProject.paragraphs.forEach((p,i)=>{out+=(p.heading||('第'+(i+1)+'部分'))+'\n'+p.content+'\n';p.citations.forEach(c=>{out+='['+c.evidence_id+'] '+c.authors+'（'+(c.year||'年份未记录')+'）《'+c.title+'》'+(c.locator?'，'+c.locator:'')+'。\n';});out+='\n'});
+ const style=$('citationStyle').value;
+ const bibliography=[],numberByPaper=new Map();
+ activeReviewProject.paragraphs.forEach(p=>p.citations.forEach(c=>{
+  if(!numberByPaper.has(c.paper_id)){
+   const n=numberByPaper.size+1;numberByPaper.set(c.paper_id,n);
+   bibliography.push({number:n,citation:c});
+  }
+ }));
+ let out=activeReviewProject.title+'\n研究主题：'+(activeReviewProject.topic||'未填写')+'\n\n';
+ activeReviewProject.paragraphs.forEach((p,i)=>{
+  const markers=[...new Set(p.citations.map(c=>numberByPaper.get(c.paper_id)).filter(Boolean))];
+  const suffix=markers.length?(style==='gb'?' ['+markers.join('][')+']':'（'+[...new Set(p.citations.map(c=>(c.authors||'作者未记录').split(/[，、,;]/)[0]+'，'+(c.year||'年份缺失)))].join('；')+'）'):'';
+  out+=(p.heading||('第'+(i+1)+'部分'))+'\n'+p.content+suffix+'\n\n';
+ });
+ out+='参考文献\n';
+ bibliography.forEach(x=>{
+  const c=x.citation;
+  const ref=formatReference(c);
+  out+=(style==='gb'?'['+x.number+'] ':'')+ref+'\n';
+  const locators=[...new Set(activeReviewProject.paragraphs.flatMap(p=>p.citations.filter(y=>y.paper_id===c.paper_id).map(y=>y.page_number?'第'+y.page_number+'页':(y.paragraph_number?'第'+y.paragraph_number+'段':'' )).filter(Boolean)))];
+  if(locators.length)out+='  引用定位：'+locators.join('；')+'\n';
+ });
+ out+='\n说明：参考文献条目依据个人文献库现有元数据生成。缺失的作者、年份、期刊或文献类型需要对照原文补充核验；本导出不代表元数据已完整。\n';
  const blob=new Blob([out],{type:'text/plain;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=(activeReviewProject.title||'文献综述')+'.txt';a.click();URL.revokeObjectURL(url);
 }
 let reviewPapers=[];

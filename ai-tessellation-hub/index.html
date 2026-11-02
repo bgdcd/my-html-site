@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#09051b"><title>密铺宇宙 · AI智能教学中枢</title>
+<style>
+:root{--bg:#08051a;--panel:rgba(20,14,48,.78);--line:rgba(130,111,255,.28);--cyan:#61eaff;--blue:#6d83ff;--violet:#a77bff;--pink:#f17bff;--text:#f2efff;--muted:#a9a1ce;--good:#67f5ce;--warn:#ffd27c}
+*{box-sizing:border-box}html,body{margin:0;min-height:100%;font-family:"Microsoft YaHei","PingFang SC",system-ui,sans-serif;color:var(--text);background:var(--bg)}
+body{overflow-x:hidden;background:radial-gradient(ellipse at 50% 0%,#24105a 0%,#100a2c 38%,#08051a 78%)}
+#stars{position:fixed;inset:0;width:100%;height:100%;z-index:0;pointer-events:none}
+.aurora{position:fixed;inset:-20%;z-index:0;pointer-events:none;background:radial-gradient(ellipse at 20% 40%,#5725b522,transparent 35%),radial-gradient(ellipse at 80% 25%,#087fa622,transparent 32%);filter:blur(35px);animation:drift 18s ease-in-out infinite alternate}
+@keyframes drift{to{transform:translate3d(3%,2%,0) scale(1.08)}}
+.app{position:relative;z-index:1;max-width:1600px;margin:auto;padding:22px clamp(14px,3vw,42px) 36px}
+header{display:flex;align-items:center;gap:16px;padding:7px 0 20px;border-bottom:1px solid #8974ff30}
+.brandmark{width:54px;height:54px;border-radius:17px;display:grid;place-items:center;font-size:27px;background:linear-gradient(145deg,#4d36a8,#101b50);box-shadow:0 0 30px #8068ff66,inset 0 0 15px #a4dfff44;border:1px solid #9b8bff77}
+.brand h1{margin:0;font-size:clamp(20px,3vw,30px);letter-spacing:2px;background:linear-gradient(90deg,#fff,#9eeaff,#cba9ff);color:transparent;background-clip:text}
+.brand p{margin:5px 0 0;color:var(--muted);font-size:12px;letter-spacing:2px}
+.headright{margin-left:auto;display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+.pill{border:1px solid var(--line);background:#171037aa;border-radius:99px;padding:8px 12px;color:#cfc7ff;font-size:12px}
+.statusdot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#ffb56e;box-shadow:0 0 10px #ffb56e;margin-right:6px}
+.hero{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(280px,.9fr);gap:24px;align-items:center;padding:34px 0 28px}
+.eyebrow{font-size:11px;letter-spacing:4px;color:var(--cyan);text-transform:uppercase}
+.hero h2{font-size:clamp(32px,5vw,60px);line-height:1.14;margin:12px 0;background:linear-gradient(100deg,#fff 10%,#9cefff 48%,#c39cff 82%);color:transparent;background-clip:text}
+.hero p{max-width:650px;color:#c3bddf;line-height:1.9;font-size:14px}
+.hero-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:22px}
+.btn{border:1px solid #8c7bff66;border-radius:12px;padding:11px 17px;color:#fff;background:linear-gradient(110deg,#4c36a9,#245c9e);font-weight:700;cursor:pointer;box-shadow:0 0 22px #6c59ff22;transition:.2s}
+.btn:hover{transform:translateY(-2px);box-shadow:0 0 26px #69dfff55}
+.btn.ghost{background:#161033aa;border-color:#7468b866;color:#dcd5ff}
+.btn.small{padding:8px 12px;font-size:12px}
+.orbit{position:relative;min-height:290px;display:grid;place-items:center;overflow:hidden}
+.orbit:before,.orbit:after{content:"";position:absolute;width:250px;height:250px;border:1px solid #8e83ff55;border-radius:50%;transform:rotateX(68deg);box-shadow:0 0 24px #725cff22;animation:spin 18s linear infinite}
+.orbit:after{width:310px;height:310px;border-color:#51dfff44;animation-direction:reverse;animation-duration:28s}
+@keyframes spin{to{transform:rotateX(68deg) rotateZ(360deg)}}
+.planet{width:164px;height:164px;border-radius:50%;position:relative;background:radial-gradient(circle at 30% 25%,#d5caff 0%,#8267ef 12%,#39227f 42%,#11123e 75%);box-shadow:inset -24px -18px 38px #03041d,0 0 40px #8d6bff99,0 0 100px #4e60ff55;animation:float 5s ease-in-out infinite}
+.planet:before{content:"";position:absolute;inset:28px -30px;border:8px solid #85eaffbb;border-left-color:#d6a4ff99;border-right-color:#7a73ff77;border-radius:50%;transform:rotate(-24deg);filter:drop-shadow(0 0 9px #66dcff)}
+.planet:after{content:"";position:absolute;inset:0;border-radius:50%;background:linear-gradient(125deg,transparent 35%,#ffffff24 49%,transparent 63%)}
+@keyframes float{50%{transform:translateY(-10px)}}
+.orbit-label{position:absolute;bottom:10px;color:#a9cfff;font-size:10px;letter-spacing:3px}
+.section-title{display:flex;align-items:end;justify-content:space-between;margin:20px 0 13px}
+.section-title h3{font-size:18px;margin:0;letter-spacing:1px}.section-title span{color:#8e83bd;font-size:11px;letter-spacing:2px}
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.module{position:relative;overflow:hidden;min-height:170px;text-align:left;border:1px solid var(--line);border-radius:18px;padding:19px;background:linear-gradient(145deg,#1b1440dd,#0d0b25ee);color:var(--text);cursor:pointer;transition:.25s}
+.module:before{content:"";position:absolute;width:160px;height:160px;right:-65px;top:-75px;border-radius:50%;background:var(--glow,#806aff);filter:blur(65px);opacity:.25}
+.module:hover{transform:translateY(-4px);border-color:#9d9affaa;box-shadow:0 10px 34px #5140a933}
+.module .num{font-size:10px;letter-spacing:2px;color:#8d83c8}.module .ico{font-size:27px;margin:13px 0 8px;filter:drop-shadow(0 0 9px var(--glow,#8d78ff))}
+.module h4{margin:0 0 7px;font-size:16px}.module p{margin:0;color:#aaa3cd;font-size:12px;line-height:1.7;max-width:340px}
+.module .tag{display:inline-block;margin-top:12px;color:var(--cyan);font-size:10px;border:1px solid #63dfff44;border-radius:30px;padding:4px 8px}
+.lower{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:18px}
+.panel{border:1px solid var(--line);border-radius:18px;background:var(--panel);padding:18px;backdrop-filter:blur(14px)}
+.panel h3{margin:0 0 12px;font-size:15px}.panel p{color:var(--muted);font-size:12px;line-height:1.7}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.field{background:#0c0924;border:1px solid #62569b88;border-radius:9px;color:#fff;padding:10px 11px;min-width:0;outline:none}.field:focus{border-color:var(--cyan);box-shadow:0 0 0 2px #61eaff22}
+.field.grow{flex:1}.roomstate{font-size:11px;color:var(--muted);margin-top:10px}
+footer{text-align:center;color:#756c9f;font-size:10px;letter-spacing:2px;padding:25px 0 4px}
+.modal{position:fixed;inset:0;z-index:10;display:none;place-items:center;padding:16px;background:#050313d9;backdrop-filter:blur(12px)}
+.modal.show{display:grid}.dialog{width:min(760px,100%);max-height:90vh;overflow:auto;border:1px solid #8276ed77;border-radius:20px;background:linear-gradient(145deg,#1c1642,#0a0922);box-shadow:0 0 70px #6453e044;padding:22px}
+.dialog-head{display:flex;align-items:center;justify-content:space-between;gap:10px}.dialog h3{margin:0;font-size:20px}.close{border:1px solid #655a9b;background:#171238;color:white;border-radius:9px;padding:7px 11px;cursor:pointer}
+.dialog-body{margin-top:16px}.dialog textarea{width:100%;min-height:105px;resize:vertical;background:#0b0921;border:1px solid #655a9b;border-radius:12px;padding:12px;color:white;font:inherit;line-height:1.7}
+.output{white-space:pre-wrap;line-height:1.8;color:#d9d4f6;background:#0b0921;border:1px solid #51467f;border-radius:12px;padding:14px;margin-top:13px;min-height:58px;font-size:13px}
+.note{font-size:11px;color:#9e95c9;line-height:1.7}.filepick{display:block;margin:12px 0;padding:14px;border:1px dashed #8072c9;border-radius:12px;color:#c9c0f2}
+.modebar{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.modebar button{background:#171238;border:1px solid #655a9b;color:#c9c2e9;padding:8px 11px;border-radius:9px;cursor:pointer}.modebar button.active{border-color:var(--cyan);color:var(--cyan);box-shadow:0 0 12px #61eaff22}
+@media(max-width:850px){.hero{grid-template-columns:1fr}.orbit{min-height:230px}.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.lower{grid-template-columns:1fr}}
+@media(max-width:560px){.app{padding:12px}.headright .pill:nth-child(2){display:none}.grid{grid-template-columns:1fr}.module{min-height:145px}.brand p{letter-spacing:0}.hero{padding-top:24px}}
+</style></head>
+<body>
+<canvas id="stars"></canvas><div class="aurora"></div>
+<div class="app">
+<header><div class="brandmark">✦</div><div class="brand"><h1>密铺宇宙 · AI智能教学中枢</h1><p>TESSELLATION INTELLIGENCE · MATH EXPLORATION SYSTEM</p></div><div class="headright"><span class="pill"><i class="statusdot" id="aiDot"></i><span id="aiStatus">AI模型未连接</span></span><span class="pill" id="roleBadge">教师控制台</span><button class="btn small ghost" onclick="openSettings()">系统配置</button></div></header>
+<section class="hero">
+<div><div class="eyebrow">MISSION 01 · ENTER THE GEOMETRY UNIVERSE</div><h2>让数学<br>在宇宙中发生</h2><p>以密铺为起点，连接几何实验、智能推理、视觉识别与艺术创造。教师发布探究任务，学生通过平板进入同一学习空间，让每一次猜想都留下数学证据。</p><div class="hero-actions"><button class="btn" onclick="openLab()">进入密铺实验室 ↗</button><button class="btn ghost" onclick="openAI('tutor')">唤醒AI学伴 ✧</button></div></div>
+<div class="orbit"><div class="planet"></div><div class="orbit-label">GEOMETRY CORE · 360°</div></div>
+</section>
+<div class="section-title"><h3>智能体实验舱</h3><span>AI AGENT CLUSTERS / 06 MODULES</span></div>
+<section class="grid">
+<button class="module" style="--glow:#69dfff" onclick="openAI('predict')"><div class="num">AGENT 01 / PREDICT</div><div class="ico">◈</div><h4>几何预言家</h4><p>输入图形边数、内角或猜想，让AI分析公共顶点处的360°条件，生成可检验的预测。</p><span class="tag">数学预测 · 条件分析</span></button>
+<button class="module" style="--glow:#8d75ff" onclick="openAI('tutor')"><div class="num">AGENT 02 / SOCRATIC</div><div class="ico">✧</div><h4>苏格拉底学伴</h4><p>不直接给结论，围绕学生的回答连续追问，引导观察、计算、解释和修正。</p><span class="tag">多轮追问 · 思维支架</span></button>
+<button class="module" style="--glow:#ff82e7" onclick="openAI('debate')"><div class="num">AGENT 03 / CHALLENGE</div><div class="ico">⟁</div><h4>反向挑战官</h4><p>AI提出有迷惑性的错误观点，学生用图形、角度和实验结果进行反驳。</p><span class="tag">人机辩论 · 证据推理</span></button>
+<button class="module" style="--glow:#62f0c5" onclick="openAI('vision')"><div class="num">AGENT 04 / VISION</div><div class="ico">◎</div><h4>空间视觉诊断</h4><p>上传学生拼摆照片，调用视觉模型分析空隙、重叠、公共顶点及可能的拼接问题。</p><span class="tag">图像理解 · 实验诊断</span></button>
+<button class="module" style="--glow:#ffc56f" onclick="openAI('creative')"><div class="num">AGENT 05 / CREATIVE</div><div class="ico">✺</div><h4>几何基因编辑</h4><p>围绕鱼、鸟、蝴蝶等艺术形象生成改造思路，再回到密铺实验室检验数学结构。</p><span class="tag">创意生成 · 数学验证</span></button>
+<button class="module" style="--glow:#81a8ff" onclick="openAI('review')"><div class="num">AGENT 06 / REVIEW</div><div class="ico">⌬</div><h4>智能作品顾问</h4><p>依据数学规范性、创意美观度和整体适配度，生成可操作的修改建议。</p><span class="tag">过程评价 · 迭代改进</span></button>
+</section>
+<section class="lower">
+<div class="panel"><h3>◉ 教师控制台 / 学生接入</h3><p>教师创建课堂房间，学生平板输入房间码加入。跨设备实时同步需要部署并配置课堂通信服务；此处先提供连接入口，不用本地假数据冒充在线同步。</p><div class="row"><input class="field" id="roomCode" value="TILE360" maxlength="16" aria-label="课堂房间码"><select class="field" id="userRole"><option value="teacher">教师端</option><option value="student">学生端</option></select><button class="btn small" onclick="connectRoom()">连接课堂</button></div><div class="row" style="margin-top:9px"><input class="field grow" id="wsUrl" placeholder="课堂通信服务 WebSocket 地址（wss://…）"><button class="btn small ghost" onclick="saveRoomConfig()">保存</button></div><div class="roomstate" id="roomState">尚未连接课堂通信服务。教师端与学生端暂未建立跨设备同步。</div></div>
+<div class="panel"><h3>◇ 原有教学工具 / 保持独立运行</h3><p>密铺实验室以原文件方式打开，不改动原有图形、吸附、裁切、拼接及密铺算法。投票系统保留原入口，待接入已确认的投票页面地址。</p><div class="row"><button class="btn small" onclick="openLab()">启动原版密铺实验室 ↗</button><button class="btn small ghost" onclick="setVoteUrl()">设置原投票入口</button></div><div class="roomstate" id="voteState">投票入口尚未绑定：未在仓库根目录清单中识别到独立投票页面。</div></div>
+</section>
+<footer>AI TILING UNIVERSE · DISCOVER THE RULES · PROVE WITH MATHEMATICS · CREATE WITHOUT LIMITS</footer>
+</div>
+<div class="modal" id="aiModal"><div class="dialog"><div class="dialog-head"><h3 id="modalTitle">AI智能体</h3><button class="close" onclick="closeModal()">关闭 ✕</button></div><div class="dialog-body" id="modalBody"></div></div></div>
+<div class="modal" id="settingsModal"><div class="dialog"><div class="dialog-head"><h3>系统连接配置</h3><button class="close" onclick="closeSettings()">关闭 ✕</button></div><div class="dialog-body">
+<p class="note">配置 OpenAI 兼容的模型服务。API密钥只保存在当前浏览器会话内，不写入网页文件；公开部署时，建议使用自有后端代理，不要把长期密钥发给学生平板。</p>
+<label class="note">API Base URL</label><input class="field" style="width:100%;margin:6px 0 12px" id="apiBase" placeholder="https://你的模型服务/v1">
+<label class="note">模型名称</label><input class="field" style="width:100%;margin:6px 0 12px" id="apiModel" placeholder="填写服务商提供的模型ID">
+<label class="note">API Key（仅当前会话）</label><input class="field" style="width:100%;margin:6px 0 12px" id="apiKey" type="password" placeholder="粘贴模型服务密钥">
+<label class="note">原投票系统完整网址</label><input class="field" style="width:100%;margin:6px 0 12px" id="voteUrl" placeholder="粘贴你现有的投票页面地址">
+<div class="row"><button class="btn" onclick="saveSettings()">保存配置并测试AI</button><button class="btn ghost" onclick="testAI()">测试连接</button></div><div class="output" id="testOutput">等待连接测试…</div>
+</div></div></div>
+<script>
+const LAB_URL="../密铺实验室_自定义多边形蓝点修正版7.html";
+const $=id=>document.getElementById(id);
+let activeAgent="tutor", roomSocket=null;
+const prompts={
+tutor:{title:"AI苏格拉底式数学学伴",placeholder:"把你的猜想或遇到的问题告诉AI，例如：为什么任意三角形都能密铺？",system:"你是小学数学《有趣的密铺》苏格拉底式学伴。严格依据小学数学知识。不要直接泄露结论，每次先回应学生，再提出一个最关键的启发性问题。围绕形状大小相同、不留空隙、不重叠、公共顶点角度和为360°、对应边能够重合等概念。语言适合小学高年级。"},
+predict:{title:"AI几何预言家",placeholder:"例如：正五边形内角108°，能否单独密铺？请分析理由。",system:"你是几何密铺预测智能体。分析时区分必要条件与充分条件，关注公共顶点处角度能否组成360°以及对应边能否完全重合。对正多边形可计算360°除以内角，判断是否为整数；对一般图形不要仅凭角度就断言一定能密铺。输出：预测、数学依据、还需要验证的条件、建议实验。适合小学高年级。"},
+debate:{title:"AI反向挑战官",placeholder:"点击生成挑战，或输入你想挑战的数学观点。",system:"你是《有趣的密铺》课堂中的反向挑战官。你要提出一个看似合理但实际错误或不严谨的观点，等待学生反驳。每轮只提出一个观点，不直接给答案。学生回应后，检查其证据是否充分，再追问。观点围绕密铺定义、边长、内角和、公共顶点360°、正五边形等。"},
+creative:{title:"AI几何基因编辑师",placeholder:"例如：我想把正六边形边缘改造成小鱼的轮廓，怎样设计？",system:"你是数学与艺术融合创意助手。帮助学生思考如何在不破坏平移、旋转或轴对称拼接关系的前提下，把基础图形的边界改造成鱼、鸟、蝴蝶等形象。给出可在密铺实验室中尝试的分步操作和需要验证的数学条件。不要声称未经验证的图形必然密铺。"},
+review:{title:"AI密铺作品顾问",placeholder:"描述作品结构、拼接方式、颜色和展示场景，AI给出诊断建议。",system:"你是小学数学密铺作品评价顾问。按数学规范性（不留空隙、不重叠、铺满平面、拼接关系合理）、创意美观度、整体适配度三个维度评价。必须区分学生提供的事实和无法从文字确认的部分；不能看到作品图时，不得声称已经识别到具体空隙。给出具体可执行的改进建议。"}
+};
+function openAI(agent){activeAgent=agent;$("modalTitle").textContent=(prompts[agent]||{}).title||"空间视觉诊断";const body=$("modalBody");if(agent==="vision"){body.innerHTML='<p class="note">上传学生实际拼摆照片，模型将基于图像进行分析。图像识别结果属于AI辅助判断，仍需回到密铺实验室和角度计算中验证。</p><label class="filepick">选择拼摆照片 <input type="file" id="visionFile" accept="image/*" style="display:block;margin-top:10px"></label><textarea id="aiInput" placeholder="补充说明：图形名称、拼接方式、你怀疑的问题……"></textarea><div class="row" style="margin-top:10px"><button class="btn" onclick="runVision()">启动视觉诊断</button></div><div class="output" id="aiOutput">等待上传图像…</div>'; }else{body.innerHTML='<div class="modebar"><button class="active" onclick="quickPrompt(this,\\'请给我一个关于公共顶点360°的思考问题。\\')">思维热身</button><button onclick="quickPrompt(this,\\'请围绕正五边形提出一个需要我反驳的观点。\\')">生成挑战</button><button onclick="quickPrompt(this,\\'请帮我设计一个可以在密铺实验室验证的实验。\\')">设计实验</button></div><textarea id="aiInput" placeholder="'+(prompts[agent]?.placeholder||"请输入问题")+'"></textarea><div class="row" style="margin-top:10px"><button class="btn" onclick="runAI()">发送给AI智能体</button><button class="btn ghost" onclick="clearOutput()">清空</button></div><div class="output" id="aiOutput">AI智能体待命。连接模型服务后即可进行真实多轮对话。</div>';} $("aiModal").classList.add("show");}
+function quickPrompt(btn,text){document.querySelectorAll(".modebar button").forEach(x=>x.classList.remove("active"));btn.classList.add("active");$("aiInput").value=text;}
+function clearOutput(){$("aiOutput").textContent="";}
+function closeModal(){$("aiModal").classList.remove("show");}
+function openSettings(){$("apiBase").value=sessionStorage.getItem("aiBase")||"";$("apiModel").value=sessionStorage.getItem("aiModel")||"";$("apiKey").value=sessionStorage.getItem("aiKey")||"";$("voteUrl").value=localStorage.getItem("voteUrl")||"";$("settingsModal").classList.add("show");}
+function closeSettings(){$("settingsModal").classList.remove("show");}
+function saveSettings(){sessionStorage.setItem("aiBase",$("apiBase").value.trim().replace(/\\/$/,""));sessionStorage.setItem("aiModel",$("apiModel").value.trim());sessionStorage.setItem("aiKey",$("apiKey").value.trim());localStorage.setItem("voteUrl",$("voteUrl").value.trim());updateAIStatus();updateVoteState();$("testOutput").textContent="配置已保存到当前浏览器会话。正在测试模型连接…";testAI();}
+function updateAIStatus(){const ok=!!(sessionStorage.getItem("aiBase")&&sessionStorage.getItem("aiModel")&&sessionStorage.getItem("aiKey"));$("aiStatus").textContent=ok?"模型参数已配置":"AI模型未连接";$("aiDot").style.background=ok?"#67f5ce":"#ffb56e";$("aiDot").style.boxShadow=ok?"0 0 10px #67f5ce":"0 0 10px #ffb56e";}
+function updateVoteState(){const u=localStorage.getItem("voteUrl");$("voteState").textContent=u?"已绑定原投票入口："+u:"投票入口尚未绑定：需要填入现有投票页面网址，系统不会另造一套投票逻辑。";}
+async function callModel(messages,imageData){const base=sessionStorage.getItem("aiBase"),model=sessionStorage.getItem("aiModel"),key=sessionStorage.getItem("aiKey");if(!base||!model||!key)throw Error("尚未配置模型服务。请先打开“系统配置”，填写模型服务地址、模型名称和API Key。");const msgs=messages.map(m=>({role:m.role,content:m.content}));if(imageData){const last=msgs[msgs.length-1];last.content=[{type:"text",text:last.content},{type:"image_url",image_url:{url:imageData}}];}const res=await fetch(base+"/chat/completions",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+key},body:JSON.stringify({model,messages:msgs,temperature:.55})});if(!res.ok)throw Error("模型服务返回 "+res.status+"："+(await res.text()).slice(0,500));const data=await res.json();return data.choices?.[0]?.message?.content||"模型没有返回可显示内容。";}
+async function runAI(){const input=$("aiInput").value.trim();if(!input)return;const out=$("aiOutput");out.textContent="AI正在分析……";try{const p=prompts[activeAgent];const answer=await callModel([{role:"system",content:p.system},{role:"user",content:input}]);out.textContent=answer;}catch(e){out.textContent="连接失败："+e.message;}}
+async function runVision(){const f=$("visionFile")?.files?.[0];if(!f){$("aiOutput").textContent="请先选择一张拼摆照片。";return;}if(f.size>8*1024*1024){$("aiOutput").textContent="图片过大，请压缩到8MB以内。";return;}const reader=new FileReader();reader.onload=async()=>{const prompt="请分析这张学生密铺拼摆照片。尝试指出图形类型、可能的公共顶点、可见空隙或重叠、边是否对齐。若照片角度或清晰度不足，请明确说明无法判断的部分。不要把视觉猜测当成数学证明。补充说明："+($("aiInput").value||"无");$("aiOutput").textContent="图像已读取，正在调用视觉模型……";try{const ans=await callModel([{role:"system",content:"你是小学数学密铺图像诊断助手。只报告图像中有依据的观察；不确定时说明不确定。数学结论需要学生用角度与拼摆验证。"},{role:"user",content:prompt}],reader.result);$("aiOutput").textContent=ans;}catch(e){$("aiOutput").textContent="视觉诊断失败："+e.message;}};reader.readAsDataURL(f);}
+async function testAI(){const out=$("testOutput");if(!out)return;out.textContent="正在请求模型服务……";try{const a=await callModel([{role:"user",content:"请只回复：密铺宇宙连接成功。"}]);out.textContent="连接成功： "+a;updateAIStatus();}catch(e){out.textContent="测试未通过："+e.message;}}
+function openLab(){window.open(LAB_URL,"_blank","noopener");}
+function setVoteUrl(){openSettings();$("voteUrl").focus();}
+function openVote(){const u=localStorage.getItem("voteUrl");if(u)window.open(u,"_blank","noopener");else setVoteUrl();}
+function saveRoomConfig(){localStorage.setItem("roomWs",$("wsUrl").value.trim());localStorage.setItem("roomCode",$("roomCode").value.trim());$("roomState").textContent="课堂连接参数已保存。尚未连接；请配置已部署的WebSocket课堂服务地址。";}
+function connectRoom(){const role=$("userRole").value,code=$("roomCode").value.trim(),url=$("wsUrl").value.trim();$("roleBadge").textContent=role==="teacher"?"教师控制台":"学生接入端";if(!url){$("roomState").textContent="缺少课堂通信服务地址。仅输入房间码不能让不同设备自动互通。";return;}try{if(roomSocket)roomSocket.close();roomSocket=new WebSocket(url);$("roomState").textContent="正在连接课堂服务……";roomSocket.onopen=()=>{roomSocket.send(JSON.stringify({type:"join",role,room:code}));$("roomState").textContent="已连接课堂服务。房间："+code+"；身份："+(role==="teacher"?"教师":"学生");};roomSocket.onmessage=e=>{let d;try{d=JSON.parse(e.data)}catch{return}if(d.type==="classroom-event")$("roomState").textContent="收到课堂消息："+JSON.stringify(d.payload);};roomSocket.onerror=()=>$("roomState").textContent="课堂服务连接出错，请检查WebSocket地址和服务端配置。";roomSocket.onclose=()=>$("roomState").textContent="课堂连接已关闭。";}catch(e){$("roomState").textContent="连接失败："+e.message;}}
+function initStars(){const c=$("stars"),ctx=c.getContext("2d");let w,h,stars=[];function resize(){w=c.width=innerWidth*devicePixelRatio;h=c.height=innerHeight*devicePixelRatio;stars=Array.from({length:Math.min(180,Math.floor(innerWidth/7))},()=>({x:Math.random()*w,y:Math.random()*h,r:Math.random()*1.5+.25,a:Math.random()*.7+.2,s:Math.random()*.25+.04}));}function draw(){ctx.clearRect(0,0,w,h);for(const p of stars){p.y+=p.s*devicePixelRatio;if(p.y>h)p.y=0;ctx.globalAlpha=p.a;ctx.fillStyle="#c9d7ff";ctx.beginPath();ctx.arc(p.x,p.y,p.r*devicePixelRatio,0,Math.PI*2);ctx.fill();}requestAnimationFrame(draw);}resize();addEventListener("resize",resize);draw();}
+initStars();updateAIStatus();updateVoteState();$("wsUrl").value=localStorage.getItem("roomWs")||"";$("roomCode").value=localStorage.getItem("roomCode")||"TILE360";
+</script></body></html>

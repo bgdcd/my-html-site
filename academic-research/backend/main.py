@@ -62,6 +62,21 @@ class Paper(Base):
     area_id: Mapped[Optional[int]] = mapped_column(ForeignKey("research_areas.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
 
+class EvidenceCard(Base):
+    __tablename__ = "evidence_cards"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    paper_id: Mapped[int] = mapped_column(ForeignKey("papers.id"), nullable=False, index=True)
+    evidence_type: Mapped[str] = mapped_column(String(80), default="研究结论")
+    claim: Mapped[str] = mapped_column(Text, nullable=False)
+    source_text: Mapped[str] = mapped_column(Text, default="")
+    locator: Mapped[str] = mapped_column(String(300), default="")
+    page_number: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    paragraph_number: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    confidence: Mapped[str] = mapped_column(String(40), default="待核验")
+    verification_status: Mapped[str] = mapped_column(String(40), default="待核验")
+    notes: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+
 Base.metadata.create_all(engine)
 
 def migrate_schema():
@@ -508,6 +523,58 @@ def search_fulltext(q: str = Query(min_length=1), limit: int = Query(50, ge=1, l
             })
         return {"query": keyword, "count": len(results), "results": results}
 
+
+class EvidenceCardInput(BaseModel):
+    evidence_type: str = Field(default="研究结论", min_length=1, max_length=80)
+    claim: str = Field(min_length=1, max_length=5000)
+    source_text: str = Field(default="", max_length=12000)
+    locator: str = Field(default="", max_length=300)
+    page_number: Optional[int] = Field(default=None, ge=1)
+    paragraph_number: Optional[int] = Field(default=None, ge=1)
+    confidence: str = Field(default="待核验", max_length=40)
+    verification_status: str = Field(default="待核验", max_length=40)
+    notes: str = Field(default="", max_length=5000)
+
+@app.get("/api/papers/{paper_id}/evidence")
+def list_evidence_cards(paper_id: int):
+    with SessionLocal() as db:
+        if db.get(Paper, paper_id) is None:
+            raise HTTPException(404, "文献不存在")
+        rows = db.scalars(select(EvidenceCard).where(EvidenceCard.paper_id == paper_id).order_by(EvidenceCard.created_at.desc())).all()
+        return [{"id": x.id, "paper_id": x.paper_id, "evidence_type": x.evidence_type,
+                 "claim": x.claim, "source_text": x.source_text, "locator": x.locator,
+                 "page_number": x.page_number, "paragraph_number": x.paragraph_number,
+                 "confidence": x.confidence, "verification_status": x.verification_status,
+                 "notes": x.notes, "created_at": x.created_at.isoformat()} for x in rows]
+
+@app.post("/api/papers/{paper_id}/evidence")
+def create_evidence_card(paper_id: int, payload: EvidenceCardInput):
+    with SessionLocal() as db:
+        if db.get(Paper, paper_id) is None:
+            raise HTTPException(404, "文献不存在")
+        item = EvidenceCard(paper_id=paper_id, **payload.model_dump())
+        db.add(item); db.commit(); db.refresh(item)
+        return {"id": item.id, "paper_id": paper_id, "saved": True}
+
+@app.patch("/api/evidence/{evidence_id}")
+def update_evidence_card(evidence_id: int, payload: EvidenceCardInput):
+    with SessionLocal() as db:
+        item = db.get(EvidenceCard, evidence_id)
+        if item is None:
+            raise HTTPException(404, "证据卡片不存在")
+        for key, value in payload.model_dump().items():
+            setattr(item, key, value)
+        db.commit()
+        return {"id": item.id, "updated": True}
+
+@app.delete("/api/evidence/{evidence_id}")
+def delete_evidence_card(evidence_id: int):
+    with SessionLocal() as db:
+        item = db.get(EvidenceCard, evidence_id)
+        if item is None:
+            raise HTTPException(404, "证据卡片不存在")
+        db.delete(item); db.commit()
+        return {"id": evidence_id, "deleted": True}
 
 @app.get("/api/stats")
 def stats():

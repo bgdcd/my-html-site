@@ -60,6 +60,7 @@ jobs:
           python - <<'PY'
           from backend.main import app, engine, Paper, ResearchArea, EvidenceCard, ReviewProject, ReviewParagraph, EvidenceDraftInput, AIReviewDraftInput, SessionLocal, User
           from fastapi.testclient import TestClient
+          from sqlalchemy import select
           paths = {route.path for route in app.routes}
           required = {"/", "/api/health", "/api/areas", "/api/areas/{area_id}/move",
                       "/api/areas/{area_id}/merge", "/api/upload", "/api/papers",
@@ -98,6 +99,7 @@ jobs:
           assert bad_pdf.status_code == 400, bad_pdf.text
           bad_docx = client.post("/api/upload", files={"file": ("fake.docx", b"not a DOCX", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")})
           assert bad_docx.status_code == 400, bad_docx.text
+          assert client.get("/api/stats").status_code == 503
           previous_bootstrap = os.environ.get("ACADEMIC_BOOTSTRAP_CODE")
           previous_invite = os.environ.get("ACADEMIC_REGISTRATION_CODE")
           os.environ["ACADEMIC_BOOTSTRAP_CODE"] = "ci-bootstrap-secret-2026"

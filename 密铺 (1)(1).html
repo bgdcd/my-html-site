@@ -312,10 +312,10 @@ window.__tiling={decomp,pose,layTiles,solve,norm,canSum360,interior,isSimple,sha
    // 聚焦单元：五边形与下方正方形作为组合研究对象
    svg.appendChild(make('path',{d:'M350 42V370',stroke:'#6ceaff','stroke-opacity':.25,'stroke-dasharray':'4 8'}));
    const p=pent(350,145,88,-90);poly(p,'#344f9d','#8df0ff',0);
-   const q=[[280,244],[420,244],[420,384],[280,384]];poly(q,'#7955b5','#d0a4ff',260);
+   const q=[[298,216],[402,216],[402,320],[298,320]];poly(q,'#7955b5','#d0a4ff',260);
    const line=make('path',{d:'M350 232V245',stroke:'#fff','stroke-width':3,'stroke-dasharray':'3 4'});svg.appendChild(line);
    const a=make('text',{x:350,y:132,fill:'#fff','font-size':17,'text-anchor':'middle'});a.textContent='正五边形';svg.appendChild(a);
-   const b=make('text',{x:350,y:322,fill:'#fff','font-size':17,'text-anchor':'middle'});b.textContent='正方形';svg.appendChild(b);
+   const b=make('text',{x:350,y:270,fill:'#fff','font-size':17,'text-anchor':'middle'});b.textContent='正方形';svg.appendChild(b);
    const ring=make('circle',{cx:350,cy:145,r:103,fill:'none',stroke:'#75eaff','stroke-width':1.5,'stroke-dasharray':'4 8',class:'tile-glow'});svg.appendChild(ring);
   }else{
    // 正二十面体截角构造：真实的12个五边形与20个六边形足球拓扑
@@ -348,7 +348,7 @@ window.__tiling={decomp,pose,layTiles,solve,norm,canSum360,interior,isSimple,sha
  const data=[
   ['实验室启动 · SYSTEM ONLINE','欢迎进入几何构造空间','从一面几何墙开始，观察图形如何彼此连接、不断延展，并最终走向三维空间。','几何构造引擎已就绪。准备开启密铺探索。'],
   ['第一类 · 平面密铺','五边形与菱形，组成几何图案墙','镜头沿着由五边形与菱形构成的组合图案墙推进。观察不同图形如何排列、连接与重复，感受平面图案的节奏与秩序。','数学辨析：这是组合图案展示，不代表正五边形与菱形已经实现严格无缝密铺；判断密铺还要检验边界、空隙与重叠。'],
-  ['第二类 · 图形组合','镜头聚焦：正五边形与正方形','镜头从整面墙推进到一个局部单元。镜头抽取一个五边形单元，再将正方形移动到它的边旁，形成可观察的组合关系。','观察重点：正方形与五边形怎样靠边连接？连接处的角度与边长有什么关系？'],
+  ['第二类 · 图形组合','镜头聚焦：正五边形与正方形','镜头从整面墙推进，抽取一个五边形单元，再将正方形沿着它的底边精准拼接，形成可观察的组合关系。','观察重点：正方形与五边形怎样靠边连接？连接处的角度与边长有什么关系？'],
   ['第三类 · 走向立体','正五边形与正六边形，构成足球','镜头进入立体空间，观察足球表面的多边形组合。经典足球外形由12个正五边形和20个正六边形组成，图形沿球面连接成封闭结构。','数学提示：这是球面镶嵌，不是把多边形铺满整个三维空间。']
  ];
  function render(){

@@ -27,6 +27,17 @@ jobs:
           pip install -r academic-research/requirements.txt
       - name: 检查 Python 语法
         run: python -m compileall -q academic-research/backend
+      - name: 检查前端脚本语法
+        run: |
+          python - <<'PY'
+          import re
+          from pathlib import Path
+          html = Path("academic-research/frontend/index.html").read_text(encoding="utf-8")
+          scripts = re.findall(r"<script>(.*?)</script>", html, re.S)
+          assert scripts, "未找到前端脚本"
+          Path("/tmp/academic-research-frontend.js").write_text("\\n".join(scripts), encoding="utf-8")
+          PY
+          node --check /tmp/academic-research-frontend.js
       - name: 检查应用可导入和路由
         working-directory: academic-research
         run: |

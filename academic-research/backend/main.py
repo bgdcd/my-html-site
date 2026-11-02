@@ -82,9 +82,68 @@ def home():
 @app.get("/api/health")
 def health():
     with SessionLocal() as db:
-        paper_count = db.scalar(select(Paper.id).count()) if False else len(db.scalars(select(Paper.id)).all())
+        paper_count = len(db.scalars(select(Paper.id)).all())
         area_count = len(db.scalars(select(ResearchArea.id)).all())
     return {"status": "ok", "database": "connected", "papers": paper_count, "areas": area_count}
+
+class AreaMove(BaseModel):
+    parent_id: Optional[int] = None
+
+class AreaMerge(BaseModel):
+    target_area_id: int
+
+@app.post("/api/areas/{area_id}/move")
+def move_area(area_id: int, payload: AreaMove):
+    with SessionLocal() as db:
+        item = db.get(ResearchArea, area_id)
+        if item is None: raise HTTPException(404, "分类不存在")
+        if payload.parent_id == area_id: raise HTTPException(400, "分类不能移动到自身下面")
+        if payload.parent_id is not None and db.get(ResearchArea, payload.parent_id) is None: raise HTTPException(404, "上级分类不存在")
+        parent_id = payload.parent_id
+        while parent_id is not None:
+            if parent_id == area_id: raise HTTPException(400, "不能移动到自己的下级分类")
+            parent = db.get(ResearchArea, parent_id)
+            parent_id = parent.parent_id if parent else None
+        item.parent_id = payload.parent_id
+        db.commit()
+        return {"id": item.id, "name": item.name, "parent_id": item.parent_id}
+
+@app.post("/api/areas/{area_id}/merge")
+def merge_area(area_id: int, payload: AreaMerge):
+    with SessionLocal() as db:
+        source = db.get(ResearchArea, area_id)
+        target = db.get(ResearchArea, payload.target_area_id)
+        if source is None or target is None: raise HTTPException(404, "待合并分类不存在")
+        if source.id == target.id: raise HTTPException(400, "不能与自身合并")
+        papers = db.scalars(select(Paper).where(Paper.area_id == source.id)).all()
+        for paper in papers: paper.area_id = target.id
+        children = db.scalars(select(ResearchArea).where(ResearchArea.parent_id == source.id)).all()
+        for child in children: child.parent_id = target.id
+        db.delete(source); db.commit()
+        return {"merged_area_id": area_id, "target_area_id": target.id, "moved_papers": len(papers), "moved_subareas": len(children)}
+
+@app.delete("/api/areas/{area_id}")
+def delete_area(area_id: int):
+    with SessionLocal() as db:
+        item = db.get(ResearchArea, area_id)
+        if item is None: raise HTTPException(404, "分类不存在")
+        pc = len(db.scalars(select(Paper.id).where(Paper.area_id == area_id)).all())
+        cc = len(db.scalars(select(ResearchArea.id).where(ResearchArea.parent_id == area_id)).all())
+        if pc or cc: raise HTTPException(409, "分类仍有关联文献或下级分类，请先移动或合并")
+        db.delete(item); db.commit()
+        return {"deleted": True, "id": area_id}
+
+class PaperAreaInput(BaseModel):
+    area_id: Optional[int] = None
+
+@app.patch("/api/papers/{paper_id}/area")
+def assign_paper_area(paper_id: int, payload: PaperAreaInput):
+    with SessionLocal() as db:
+        paper = db.get(Paper, paper_id)
+        if paper is None: raise HTTPException(404, "文献不存在")
+        if payload.area_id is not None and db.get(ResearchArea, payload.area_id) is None: raise HTTPException(404, "目标分类不存在")
+        paper.area_id = payload.area_id; db.commit()
+        return {"id": paper.id, "area_id": paper.area_id, "classification": "待确认" if paper.area_id is None else "已归类"}
 
 @app.get("/api/areas")
 def list_areas():
@@ -222,7 +281,7 @@ def download_original(paper_id: int):
 
 @app.get("/api/search/external")
 async def search_external(q: str = Query(min_length=2), source: str = "openalex", limit: int = Query(10, ge=1, le=30)):
-    headers = {"User-Agent": "AcademicResearchLibrary/0.1 (mailto:contact@example.org)"}
+    headers = {"User-Agent": "AcademicResearchLibrary/0.1 (no-contact-email-configured)"}
     async with httpx.AsyncClient(timeout=20, headers=headers) as client:
         try:
             if source == "crossref":

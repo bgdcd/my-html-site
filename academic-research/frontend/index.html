@@ -39,7 +39,35 @@ async function showPaper(id){
  $('articleContent').innerHTML='<div class="detail-head"><h2>'+esc(p.title)+'</h2><div class="row"><button class="secondary" onclick="backToLibrary()">返回文献库</button><button class="secondary" onclick="verifyMetadata('+p.id+')">核验/编辑元数据</button>'+(p.file_name?'<button class="secondary" onclick="downloadOriginal('+p.id+')">下载原件</button>':'')+'</div></div>'+
  '<div class="detail-meta"><div><b>作者</b><br>'+esc(p.authors||'未记录')+'</div><div><b>期刊/来源</b><br>'+esc(p.journal||'未记录')+'</div><div><b>年份</b><br>'+esc(p.year||'未记录')+'</div><div><b>DOI</b><br>'+esc(p.doi||'未记录')+'</div><div><b>文献来源</b><br>'+esc(p.source||'未记录')+'</div><div><b>核验状态</b><br>'+esc(p.verification_status||'未核验')+'</div><div><b>全文状态</b><br>'+esc(p.fulltext_status||'未获取')+'</div></div>'+
  '<h3>'+esc(abstractLabel)+'</h3><p>'+esc(p.abstract||'暂无摘要记录')+'</p><h3>关键词</h3><p>'+esc(p.keywords||'未记录')+'</p><h3>全文内容</h3><p class="muted">PDF按解析时的原始页序展示；DOCX按正文段落和表格行展示。复杂双栏、图片文字和扫描页仍需对照原始文件核验。</p>'+(p.text_segments&&p.text_segments.length?p.text_segments.map(seg=>'<div class="paper"><b>'+esc(seg.kind==='pdf_page'?'PDF第'+seg.page_number+'页':(seg.kind==='docx_paragraph'?'正文段落 '+seg.number:'表格行 '+seg.number))+'</b><pre class="detail-body">'+esc(seg.text)+'</pre></div>').join(''):'<pre class="detail-body">'+esc(p.full_text||'尚未获得全文文本')+'</pre>')+
- (p.source_url?'<p><a href="'+esc(p.source_url)+'" target="_blank" rel="noopener">查看来源页面</a></p>':'');
+ (p.source_url?'<p><a href="'+esc(p.source_url)+'" target="_blank" rel="noopener">查看来源页面</a></p>':'')+
+ '<hr><h3>文献证据卡片</h3><p class="muted">记录研究论点、原文摘录及页码/段落位置。自动整理的内容必须对照原文核验后再用于综述。</p><button class="primary" onclick="addEvidence('+p.id+')">新增证据卡片</button><div id="evidenceCards">正在读取证据卡片…</div>';
+ loadEvidence(p.id);
+}
+async function loadEvidence(paperId){
+ const target=$('evidenceCards');if(!target)return;
+ try{
+  const rows=await api('/api/papers/'+paperId+'/evidence');
+  target.innerHTML=rows.length?rows.map(x=>'<div class="paper"><b>'+esc(x.evidence_type)+'：'+esc(x.claim)+'</b><p>'+esc(x.source_text||'未填写原文摘录')+'</p><div class="muted">出处：'+esc(x.locator||'未填写')+' · '+(x.page_number?'第'+x.page_number+'页':'')+' '+(x.paragraph_number?'第'+x.paragraph_number+'段':'')+' · 核验：'+esc(x.verification_status)+' · 可信度：'+esc(x.confidence)+'</div>'+(x.notes?'<p class="muted">备注：'+esc(x.notes)+'</p>':'')+'</div>').join(''):'尚未建立证据卡片';
+ }catch(e){target.textContent='证据卡片读取失败：'+e.message}
+}
+async function addEvidence(paperId){
+ const types=['研究目的','研究对象','研究方法','样本特征','研究结论','局限性','理论观点','其他'];
+ const type=prompt('证据类型：'+types.join(' / '),'研究结论');if(type===null)return;
+ const claim=prompt('用自己的话概括该证据所支持的论点（不要直接当作原文）','');if(!claim?.trim())return;
+ const sourceText=prompt('粘贴对应的原文摘录（可留空，但建议填写）','');if(sourceText===null)return;
+ const locator=prompt('原文出处，如 PDF第3页 / DOCX第12个正文段落','');if(locator===null)return;
+ const pageText=prompt('PDF页码（非PDF或未知请留空）','');if(pageText===null)return;
+ const paragraphText=prompt('DOCX正文段落编号（未知请留空）','');if(paragraphText===null)return;
+ const notes=prompt('研究者备注（可留空）','');if(notes===null)return;
+ try{
+  await api('/api/papers/'+paperId+'/evidence',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+   evidence_type:type,claim:claim.trim(),source_text:sourceText,locator,
+   page_number:pageText.trim()?Number(pageText):null,
+   paragraph_number:paragraphText.trim()?Number(paragraphText):null,
+   confidence:'待核验',verification_status:'待核验',notes
+  })});
+  await loadEvidence(paperId);
+ }catch(e){alert('保存证据卡片失败：'+e.message)}
 }
 function backToLibrary(){document.querySelectorAll('main section').forEach(s=>s.classList.toggle('hidden',s.id!=='library'));loadPapers()}
 async function searchFulltext(){

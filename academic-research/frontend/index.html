@@ -67,7 +67,7 @@ async function loadAccountStatus(){
   const status=await api('/api/auth/status');
   const token=sessionStorage.getItem('academic_account_token')||'';
   if(token){
-   try{const me=await api('/api/auth/me');$('accountNotice').textContent='已登录：'+me.username+'（'+(me.role==='admin'?'管理员':'成员')+'）';$('accountDetail').textContent='当前账号：'+me.username+'；权限：'+(me.role==='admin'?'管理员':'普通成员');$('adminTools').classList.toggle('hidden',me.role!=='admin');if(me.role==='admin')loadAdminUsers();}
+   try{const me=await api('/api/auth/me');$('accountNotice').textContent='已登录：'+me.username+'（'+(me.role==='admin'?'管理员':'成员')+'）'+(me.force_password_change?' · 请先修改密码':'');$('accountDetail').textContent='当前账号：'+me.username+'；权限：'+(me.role==='admin'?'管理员':'普通成员')+(me.force_password_change?'；管理员要求你先修改临时密码':'');$('adminTools').classList.toggle('hidden',me.role!=='admin');if(me.role==='admin')loadAdminUsers();}
    catch(e){sessionStorage.removeItem('academic_account_token');$('accountNotice').textContent='登录已失效，请重新登录';}
   }else if(status.first_account_setup){
    $('accountNotice').textContent='首次使用：请用管理员初始化口令创建账号';

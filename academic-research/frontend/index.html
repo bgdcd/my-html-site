@@ -38,15 +38,26 @@ async function showPaper(id){
  const abstractLabel=p.abstract_type==='人工核验'?'人工核验摘要':(p.abstract_type==='来源提供'?'来源提供摘要':(p.abstract_type==='自动提取候选'?'自动提取候选摘要':'摘要（未标明来源类型）'));
  $('articleContent').innerHTML='<div class="detail-head"><h2>'+esc(p.title)+'</h2><div class="row"><button class="secondary" onclick="backToLibrary()">返回文献库</button><button class="secondary" onclick="verifyMetadata('+p.id+')">核验/编辑元数据</button>'+(p.file_name?'<button class="secondary" onclick="downloadOriginal('+p.id+')">下载原件</button>':'')+'</div></div>'+
  '<div class="detail-meta"><div><b>作者</b><br>'+esc(p.authors||'未记录')+'</div><div><b>期刊/来源</b><br>'+esc(p.journal||'未记录')+'</div><div><b>年份</b><br>'+esc(p.year||'未记录')+'</div><div><b>DOI</b><br>'+esc(p.doi||'未记录')+'</div><div><b>文献来源</b><br>'+esc(p.source||'未记录')+'</div><div><b>核验状态</b><br>'+esc(p.verification_status||'未核验')+'</div><div><b>全文状态</b><br>'+esc(p.fulltext_status||'未获取')+'</div></div>'+
- '<h3>'+esc(abstractLabel)+'</h3><p>'+esc(p.abstract||'暂无摘要记录')+'</p><h3>关键词</h3><p>'+esc(p.keywords||'未记录')+'</p><h3>全文内容</h3><p class="muted">以下为上传文件解析后保存的文本。文本位置不等同于PDF页码；如需核对版面，请打开原始文件。</p><pre class="detail-body">'+esc(p.full_text||'尚未获得全文文本')+'</pre>'+
+ '<h3>'+esc(abstractLabel)+'</h3><p>'+esc(p.abstract||'暂无摘要记录')+'</p><h3>关键词</h3><p>'+esc(p.keywords||'未记录')+'</p><h3>全文内容</h3><p class="muted">PDF按解析时的原始页序展示；DOCX按正文段落和表格行展示。复杂双栏、图片文字和扫描页仍需对照原始文件核验。</p>'+(p.text_segments&&p.text_segments.length?p.text_segments.map(seg=>'<div class="paper"><b>'+esc(seg.kind==='pdf_page'?'PDF第'+seg.page_number+'页':(seg.kind==='docx_paragraph'?'正文段落 '+seg.number:'表格行 '+seg.number))+'</b><pre class="detail-body">'+esc(seg.text)+'</pre></div>').join(''):'<pre class="detail-body">'+esc(p.full_text||'尚未获得全文文本')+'</pre>')+
  (p.source_url?'<p><a href="'+esc(p.source_url)+'" target="_blank" rel="noopener">查看来源页面</a></p>':'');
 }
 function backToLibrary(){document.querySelectorAll('main section').forEach(s=>s.classList.toggle('hidden',s.id!=='library'));loadPapers()}
 async function searchFulltext(){
  const q=$('libraryQ').value.trim();if(!q){$('fulltextResults').textContent='请先输入检索词';return}
  $('fulltextResults').textContent='正在检索已保存的全文…';
- try{const d=await api('/api/search/fulltext?q='+encodeURIComponent(q));$('fulltextResults').innerHTML='<h3>全文命中结果（'+d.count+'篇）</h3>'+ (d.results.map(r=>'<div class="paper"><b>'+esc(r.title)+'</b><div class="muted">'+esc(r.authors)+' · '+esc(r.year||'')+' · 命中 '+r.match_count+' 处</div><div class="snippet">'+esc(r.snippet)+'</div><div class="muted">'+esc(r.location_note)+'；起始字符位置：'+r.snippet_start+'</div><button class="secondary" onclick="showPaper('+r.id+')">打开文献详情</button></div>').join('')||'没有找到全文命中记录')}
- catch(e){$('fulltextResults').textContent='全文检索失败：'+e.message}
+ try{
+  const d=await api('/api/search/fulltext?q='+encodeURIComponent(q));
+  const details=await Promise.all(d.results.map(r=>api('/api/papers/'+r.id)));
+  $('fulltextResults').innerHTML='<h3>全文命中结果（'+d.count+'篇）</h3>'+ (d.results.map((r,i)=>{
+   const segs=details[i].text_segments||[];
+   const hit=segs.find(x=>x.char_start<=r.first_match_offset && r.first_match_offset<x.char_end);
+   let location='旧记录：未保存页/段落定位';
+   if(hit&&hit.kind==='pdf_page')location='PDF第'+hit.page_number+'页';
+   else if(hit&&hit.kind==='docx_paragraph')location='DOCX第'+hit.number+'个正文段落';
+   else if(hit&&hit.kind==='docx_table_row')location='DOCX表格第'+hit.number+'行';
+   return '<div class="paper"><b>'+esc(r.title)+'</b><div class="muted">'+esc(r.authors)+' · '+esc(r.year||'')+' · 命中 '+r.match_count+' 处 · '+esc(location)+'</div><div class="snippet">'+esc(r.snippet)+'</div><div class="muted">全文字符位置：'+r.first_match_offset+'</div><button class="secondary" onclick="showPaper('+r.id+')">打开文献详情</button></div>'
+  }).join('')||'没有找到全文命中记录')
+ }catch(e){$('fulltextResults').textContent='全文检索失败：'+e.message}
 }
 async function uploadFile(){const f=$('file').files[0];if(!f){$('uploadResult').textContent='请先选择PDF或DOCX文件';return}const fd=new FormData();fd.append('file',f);$('uploadResult').textContent='正在上传和解析…';try{const d=await api('/api/upload',{method:'POST',body:fd});$('uploadResult').textContent='上传成功：'+d.title+'；提取字符数：'+d.characters_extracted+'；分类状态：'+d.classification;refresh()}catch(e){$('uploadResult').textContent='上传失败：'+e.message}}
 async function searchExternal(){const q=$('externalQ').value.trim();if(q.length<2){$('externalResults').textContent='请输入至少2个字符';return}$('externalResults').textContent='正在查询真实外部接口…';try{const d=await api('/api/search/external?q='+encodeURIComponent(q)+'&source='+$('source').value);$('externalResults').innerHTML=d.results.map((p,i)=>'<div class="paper"><b>'+esc(p.title)+'</b><span class="muted">'+esc(p.authors)+' · '+esc(p.journal)+' · '+esc(p.year||'')+'</span><div class="muted">DOI：'+esc(p.doi)+'；'+esc(p.fulltext_status)+'</div><button class="secondary" onclick="saveExternal('+i+')">保存到我的文献库</button></div>').join('')||'接口没有返回匹配记录';window.lastResults=d.results}catch(e){$('externalResults').textContent='检索失败：'+e.message}}

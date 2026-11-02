@@ -42,12 +42,12 @@ jobs:
         working-directory: academic-research
         run: |
           python - <<'PY'
-          from backend.main import app, engine, Paper, ResearchArea, EvidenceCard, ReviewProject, ReviewParagraph
+          from backend.main import app, engine, Paper, ResearchArea, EvidenceCard, ReviewProject, ReviewParagraph, EvidenceDraftInput
           paths = {route.path for route in app.routes}
           required = {"/", "/api/health", "/api/areas", "/api/areas/{area_id}/move",
                       "/api/areas/{area_id}/merge", "/api/upload", "/api/papers",
                       "/api/papers/{paper_id}/metadata", "/api/papers/{paper_id}/area", "/api/search/fulltext",
-                      "/api/search/external", "/api/papers/{paper_id}/evidence", "/api/evidence/{evidence_id}", "/api/review/evidence-matrix", "/api/review/projects", "/api/review/projects/{project_id}", "/api/review/projects/{project_id}/paragraphs", "/api/review/paragraphs/{paragraph_id}", "/api/review/projects/{project_id}/export.docx", "/api/knowledge-graph", "/api/research-themes", "/api/research-analysis", "/api/stats"}
+                      "/api/search/external", "/api/papers/{paper_id}/evidence", "/api/evidence/{evidence_id}", "/api/review/evidence-matrix", "/api/review/projects", "/api/review/projects/{project_id}", "/api/review/projects/{project_id}/paragraphs", "/api/review/paragraphs/{paragraph_id}", "/api/review/projects/{project_id}/export.docx", "/api/knowledge-graph", "/api/research-themes", "/api/research-analysis", "/api/review/evidence-draft", "/api/stats"}
           missing = required - paths
           assert not missing, f"缺少接口: {missing}"
           assert engine is not None and Paper.__tablename__ == "papers"
@@ -59,6 +59,8 @@ jobs:
           assert any(route.path == "/api/knowledge-graph" for route in app.routes)
           assert any(route.path == "/api/research-themes" for route in app.routes)
           assert any(route.path == "/api/research-analysis" for route in app.routes)
+          assert any(route.path == "/api/review/evidence-draft" for route in app.routes)
+          assert EvidenceDraftInput.model_fields["evidence_ids"].metadata
           from backend.main import extract_doi, guess_title
           assert extract_doi("DOI: 10.1234/example.2024") == "10.1234/example.2024"
           assert guess_title("页眉\n一个足够明确的论文题名\n正文", "paper.pdf") == "一个足够明确的论文题名"

@@ -1,0 +1,43 @@
+name: 学术智库基础检查
+
+on:
+  push:
+    paths:
+      - "academic-research/**"
+      - ".github/workflows/academic-research.yml"
+  pull_request:
+    paths:
+      - "academic-research/**"
+      - ".github/workflows/academic-research.yml"
+  workflow_dispatch:
+
+jobs:
+  backend-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+      - name: 配置 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: 安装依赖
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r academic-research/requirements.txt
+      - name: 检查 Python 语法
+        run: python -m compileall -q academic-research/backend
+      - name: 检查应用可导入和路由
+        working-directory: academic-research
+        run: |
+          python - <<'PY'
+          from backend.main import app, engine, Paper, ResearchArea
+          paths = {route.path for route in app.routes}
+          required = {"/", "/api/health", "/api/areas", "/api/upload",
+                      "/api/papers", "/api/search/external", "/api/stats"}
+          missing = required - paths
+          assert not missing, f"缺少接口: {missing}"
+          assert engine is not None and Paper.__tablename__ == "papers"
+          assert ResearchArea.__tablename__ == "research_areas"
+          print("应用导入成功，基础路由和数据模型检查通过")
+          PY

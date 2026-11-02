@@ -58,13 +58,13 @@ jobs:
         working-directory: academic-research
         run: |
           python - <<'PY'
-          from backend.main import app, engine, Paper, ResearchArea, EvidenceCard, ReviewProject, ReviewParagraph, EvidenceDraftInput, AIReviewDraftInput
+          from backend.main import app, engine, Paper, ResearchArea, EvidenceCard, ReviewProject, ReviewParagraph, EvidenceDraftInput, AIReviewDraftInput, SessionLocal, User
           from fastapi.testclient import TestClient
           paths = {route.path for route in app.routes}
           required = {"/", "/api/health", "/api/areas", "/api/areas/{area_id}/move",
                       "/api/areas/{area_id}/merge", "/api/upload", "/api/papers",
                       "/api/papers/{paper_id}/metadata", "/api/papers/{paper_id}/area", "/api/search/fulltext",
-                      "/api/search/external", "/api/papers/{paper_id}/evidence", "/api/evidence/{evidence_id}", "/api/review/evidence-matrix", "/api/review/projects", "/api/review/projects/{project_id}", "/api/review/projects/{project_id}/paragraphs", "/api/review/paragraphs/{paragraph_id}", "/api/review/projects/{project_id}/export.docx", "/api/knowledge-graph", "/api/research-themes", "/api/research-analysis", "/api/review/evidence-draft", "/api/ai/status", "/api/ai/review-draft", "/api/security/status", "/api/stats"}
+                      "/api/search/external", "/api/papers/{paper_id}/evidence", "/api/evidence/{evidence_id}", "/api/review/evidence-matrix", "/api/review/projects", "/api/review/projects/{project_id}", "/api/review/projects/{project_id}/paragraphs", "/api/review/paragraphs/{paragraph_id}", "/api/review/projects/{project_id}/export.docx", "/api/knowledge-graph", "/api/research-themes", "/api/research-analysis", "/api/review/evidence-draft", "/api/ai/status", "/api/ai/review-draft", "/api/security/status", "/api/auth/status", "/api/auth/register", "/api/auth/login", "/api/auth/me", "/api/auth/logout", "/api/stats"}
           missing = required - paths
           assert not missing, f"缺少接口: {missing}"
           assert engine is not None and Paper.__tablename__ == "papers"
@@ -98,6 +98,42 @@ jobs:
           assert bad_pdf.status_code == 400, bad_pdf.text
           bad_docx = client.post("/api/upload", files={"file": ("fake.docx", b"not a DOCX", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")})
           assert bad_docx.status_code == 400, bad_docx.text
+          previous_bootstrap = os.environ.get("ACADEMIC_BOOTSTRAP_CODE")
+          previous_invite = os.environ.get("ACADEMIC_REGISTRATION_CODE")
+          os.environ["ACADEMIC_BOOTSTRAP_CODE"] = "ci-bootstrap-secret-2026"
+          os.environ["ACADEMIC_REGISTRATION_CODE"] = "ci-invite-secret-2026"
+          first = client.post("/api/auth/register", json={"username": "account_alpha", "password": "TestPass#2026-Strong", "registration_code": "ci-bootstrap-secret-2026"})
+          assert first.status_code == 200, first.text
+          token_a = first.json()["access_token"]
+          assert first.json()["user"]["role"] == "admin"
+          with SessionLocal() as db:
+              user_a = db.scalar(select(User).where(User.username == "account_alpha"))
+              private_paper = Paper(owner_id=user_a.id, title="仅账号甲可见的论文")
+              db.add(private_paper)
+              db.commit()
+              private_paper_id = private_paper.id
+          second = client.post("/api/auth/register", json={"username": "account_beta", "password": "TestPass#2026-Another", "registration_code": "ci-invite-secret-2026"})
+          assert second.status_code == 200, second.text
+          token_b = second.json()["access_token"]
+          papers_a = client.get("/api/papers", headers={"Authorization": "Bearer " + token_a})
+          papers_b = client.get("/api/papers", headers={"Authorization": "Bearer " + token_b})
+          assert any(item["id"] == private_paper_id for item in papers_a.json()), papers_a.text
+          assert all(item["id"] != private_paper_id for item in papers_b.json()), papers_b.text
+          assert client.get(f"/api/papers/{private_paper_id}", headers={"Authorization": "Bearer " + token_b}).status_code == 404
+          assert client.get("/api/areas", headers={"Authorization": "Bearer " + token_b}).json() == []
+          assert len(client.get("/api/areas", headers={"Authorization": "Bearer " + token_a}).json()) >= 4
+          login = client.post("/api/auth/login", json={"username": "account_alpha", "password": "TestPass#2026-Strong"})
+          assert login.status_code == 200, login.text
+          assert client.get("/api/auth/me", headers={"Authorization": "Bearer " + login.json()["access_token"]}).json()["username"] == "account_alpha"
+          assert client.get("/api/stats").status_code == 401
+          if previous_bootstrap is None:
+              os.environ.pop("ACADEMIC_BOOTSTRAP_CODE", None)
+          else:
+              os.environ["ACADEMIC_BOOTSTRAP_CODE"] = previous_bootstrap
+          if previous_invite is None:
+              os.environ.pop("ACADEMIC_REGISTRATION_CODE", None)
+          else:
+              os.environ["ACADEMIC_REGISTRATION_CODE"] = previous_invite
           assert AIReviewDraftInput.model_fields["evidence_ids"].metadata
           from backend.main import academic_ai_status
           assert "configured" in academic_ai_status()

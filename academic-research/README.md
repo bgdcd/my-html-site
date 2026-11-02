@@ -86,6 +86,9 @@ python backup_data.py backup
 # 校验指定备份目录中的数据库、归档及每个上传文件
 python backup_data.py verify --backup-dir data/backups/academic-backup-备份时间戳
 
+# 只保留最近7份校验通过的备份；校验失败的目录不会被自动删除
+python backup_data.py prune --backup-root data/backups --keep 7
+
 # 恢复到两个全新的目标路径（不会覆盖已有文件）
 python backup_data.py restore --backup-dir data/backups/academic-backup-备份时间戳 --database data/restore-test.db --uploads data/restore-test-uploads --yes
 ```

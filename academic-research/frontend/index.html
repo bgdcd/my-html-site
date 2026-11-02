@@ -215,7 +215,7 @@ async function loadEvidence(paperId){
  const target=$('evidenceCards');if(!target)return;
  try{
   const rows=await api('/api/papers/'+paperId+'/evidence');
-  target.innerHTML=rows.length?rows.map(x=>'<div class="paper"><b>'+esc(x.evidence_type)+'：'+esc(x.claim)+'</b><p>'+esc(x.source_text||'未填写原文摘录')+'</p><div class="muted">出处：'+esc(x.locator||'未填写')+' · '+(x.page_number?'第'+x.page_number+'页':'')+' '+(x.paragraph_number?'第'+x.paragraph_number+'段':'')+' · 核验：'+esc(x.verification_status)+' · 可信度：'+esc(x.confidence)+'</div>'+(x.notes?'<p class="muted">备注：'+esc(x.notes)+'</p>':'')+'</div>').join(''):'尚未建立证据卡片';
+  target.innerHTML=rows.length?rows.map(x=>'<div class="paper"><b>'+esc(x.evidence_type)+'：'+esc(x.claim)+'</b><p>'+esc(x.source_text||'未填写原文摘录')+'</p><div class="muted">研究主题：'+esc(x.theme_tag||'未标注')+' · 出处：'+esc(x.locator||'未填写')+' · '+(x.page_number?'第'+x.page_number+'页':'')+' '+(x.paragraph_number?'第'+x.paragraph_number+'段':'')+' · 核验：'+esc(x.verification_status)+' · 可信度：'+esc(x.confidence)+'</div>'+(x.notes?'<p class="muted">备注：'+esc(x.notes)+'</p>':'')+'</div>').join(''):'尚未建立证据卡片';
  }catch(e){target.textContent='证据卡片读取失败：'+e.message}
 }
 async function addEvidence(paperId){

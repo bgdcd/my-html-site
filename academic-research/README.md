@@ -117,19 +117,19 @@ python backup_data.py restore --backup-dir data/backups/academic-backup-备份�
 
 应用默认使用 SQLite；如需迁移到 PostgreSQL，可在部署平台配置：
 
-\`\`\`text
+```text
 ACADEMIC_DATABASE_URL=postgresql+psycopg://用户名:密码@主机:5432/数据库名
-\`\`\`
+```
 
-请将真实连接串作为平台 Secret/环境变量保存。切换连接串不会自动迁移旧 SQLite 数据。项目提供 \`migrate_sqlite_to_postgres.py\`，会基于当前应用模型先检查并补齐源 SQLite 结构，再把所有应用表的数据按外键依赖顺序迁移到一个**全新的空 PostgreSQL 数据库**，保留主键值并校准自增序列。
+请将真实连接串作为平台 Secret/环境变量保存。切换连接串不会自动迁移旧 SQLite 数据。项目提供 `migrate_sqlite_to_postgres.py`，会基于当前应用模型先检查并补齐源 SQLite 结构，再把所有应用表的数据按外键依赖顺序迁移到一个**全新的空 PostgreSQL 数据库**，保留主键值并校准自增序列。
 
 **迁移前必须停止应用写入，并保留源数据库副本。** 示例：
 
-\`\`\`bash
+```bash
 python migrate_sqlite_to_postgres.py --source-db data/academic_library.db --target-url "postgresql+psycopg://用户名:密码@主机:5432/新数据库" --uploads-source data/uploads --uploads-destination /目标持久化磁盘/data/uploads
-\`\`\`
+```
 
-使用 \`--uploads-source\` 和 \`--uploads-destination\` 时，工具会先验证每篇文献的原件路径都位于源上传目录且文件存在，再复制上传文件，并把迁移后数据库中的 \`file_path\` 改为目标目录。目标上传目录必须不存在，工具不会覆盖。若不传这两个参数，数据库中的原件路径保持原样；只有在目标运行环境仍能从同一绝对路径读取原件时，才应省略文件复制参数。
+使用 `--uploads-source` 和 `--uploads-destination` 时，工具会先验证每篇文献的原件路径都位于源上传目录且文件存在，再复制上传文件，并把迁移后数据库中的 `file_path` 改为目标目录。目标上传目录必须不存在，工具不会覆盖。若不传这两个参数，数据库中的原件路径保持原样；只有在目标运行环境仍能从同一绝对路径读取原件时，才应省略文件复制参数。
 
 迁移工具不会清空或覆盖已有 PostgreSQL 数据：只要目标表中已有记录，就会停止。迁移结束后仍需核对逐表记录数、抽样查看文献、证据和综述，并确认原件能打开；切换正式连接前保留 SQLite 文件作为回滚副本。不要在生产实例仍写入时迁移，也不要把密码写入仓库、命令历史或聊天。
 
@@ -137,7 +137,7 @@ python migrate_sqlite_to_postgres.py --source-db data/academic_library.db --targ
 
 ## 个人数据导出与完整性检查
 
-登录后进入“账号与安全”页面，可下载个人资料 ZIP。压缩包包含文献元数据及提取全文、研究分类、证据卡片、综述项目和段落、最近审计记录，以及上传目录中实际存在且路径安全的原始 PDF/DOCX 文件。密码哈希和登录令牌不会导出。压缩包的 \`manifest.json\` 会记录导出数量、原件状态、文件大小与 SHA-256。原件缺失或路径异常会在清单中说明，不会伪装成已成功导出。
+登录后进入“账号与安全”页面，可下载个人资料 ZIP。压缩包包含文献元数据及提取全文、研究分类、证据卡片、综述项目和段落、最近审计记录，以及上传目录中实际存在且路径安全的原始 PDF/DOCX 文件。密码哈希和登录令牌不会导出。压缩包的 `manifest.json` 会记录导出数量、原件状态、文件大小与 SHA-256。原件缺失或路径异常会在清单中说明，不会伪装成已成功导出。
 
 “检查数据完整性”会检查个人文献原件是否缺失、原件路径是否越出上传目录、分类引用和综述证据引用是否有效，以及个人库中是否存在重复文件哈希。该检查是应用层一致性检查，不等同于数据库底层存储校验，也不能证明论文内容本身正确。
 

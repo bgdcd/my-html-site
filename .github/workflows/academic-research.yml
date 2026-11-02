@@ -155,6 +155,16 @@ jobs:
               assert "仅账号甲可见的论文" not in archive.read("papers.json").decode("utf-8")
           integrity = client.get("/api/account/integrity", headers={"Authorization": "Bearer " + token_a})
           assert integrity.status_code == 200 and integrity.json()["passed"], integrity.text
+          with SessionLocal() as db:
+              user_a = db.scalar(select(User).where(User.username == "account_alpha"))
+              project_a = db.scalar(select(ReviewProject).where(ReviewProject.title == "账号甲的综述项目"))
+              db.add(ReviewParagraph(owner_id=user_a.id, project_id=project_a.id,
+                                     heading="损坏引用测试", content="完整性检查边界测试",
+                                     evidence_ids='["not-an-id", 0, 999999]'))
+              db.commit()
+          broken_integrity = client.get("/api/account/integrity", headers={"Authorization": "Bearer " + token_a})
+          assert broken_integrity.status_code == 200 and not broken_integrity.json()["passed"]
+          assert broken_integrity.json()["reference_integrity"]["invalid_evidence_links"]
           audit_actions = {row["action"] for row in client.get("/api/admin/audit-logs", headers={"Authorization": "Bearer " + token_a}).json()}
           assert {"paper_uploaded", "personal_data_exported", "personal_data_integrity_checked"} <= audit_actions, audit_actions
           assert client.get(f"/api/papers/{private_paper_id}", headers={"Authorization": "Bearer " + token_b}).status_code == 404

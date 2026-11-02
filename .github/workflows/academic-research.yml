@@ -61,6 +61,7 @@ jobs:
           from backend.main import app, engine, Paper, ResearchArea, EvidenceCard, ReviewProject, ReviewParagraph, EvidenceDraftInput, AIReviewDraftInput, SessionLocal, User, AuditLog
           from fastapi.testclient import TestClient
           from sqlalchemy import select
+          import json
           paths = {route.path for route in app.routes}
           required = {"/", "/api/health", "/api/areas", "/api/areas/{area_id}/move",
                       "/api/areas/{area_id}/merge", "/api/upload", "/api/papers",
@@ -132,7 +133,14 @@ jobs:
           papers_b = client.get("/api/papers", headers={"Authorization": "Bearer " + token_b})
           assert any(item["id"] == private_paper_id for item in papers_a.json()), papers_a.text
           assert all(item["id"] != private_paper_id for item in papers_b.json()), papers_b.text
-          import io, zipfile
+          import io, zipfile, fitz
+          pdf_doc = fitz.open()
+          page = pdf_doc.new_page()
+          page.insert_text((72, 72), "Personal export original file verification")
+          pdf_bytes = pdf_doc.tobytes()
+          pdf_doc.close()
+          uploaded_original = client.post("/api/upload", headers={"Authorization": "Bearer " + token_a}, files={"file": ("account-export-original.pdf", pdf_bytes, "application/pdf")})
+          assert uploaded_original.status_code == 200, uploaded_original.text
           export_a = client.get("/api/account/export.zip", headers={"Authorization": "Bearer " + token_a})
           assert export_a.status_code == 200 and export_a.headers["content-type"] == "application/zip"
           with zipfile.ZipFile(io.BytesIO(export_a.content)) as archive:
@@ -141,6 +149,7 @@ jobs:
               assert "仅账号甲可见的论文" in archive.read("papers.json").decode("utf-8")
               assert "账号甲的真实证据记录" in archive.read("evidence_cards.json").decode("utf-8")
               assert "账号甲的综述项目" in archive.read("review_projects.json").decode("utf-8")
+              assert any(name.startswith("original_files/") and name.endswith("account-export-original.pdf") for name in names)
           export_b = client.get("/api/account/export.zip", headers={"Authorization": "Bearer " + token_b})
           with zipfile.ZipFile(io.BytesIO(export_b.content)) as archive:
               assert "仅账号甲可见的论文" not in archive.read("papers.json").decode("utf-8")
@@ -238,6 +247,96 @@ jobs:
               subprocess.run([sys.executable, "backup_data.py", "prune", "--backup-root", str(backup_root), "--keep", "2"], env=env, check=True)
               assert len(list(backup_root.glob("academic-backup-*"))) == 2
               print("SQLite在线备份、上传归档、SHA-256校验及恢复往返测试通过")
+          PY
+
+      - name: SQLite迁移至PostgreSQL与原件复制测试
+        working-directory: academic-research
+        run: |
+          python - <<'PY'
+          import os, subprocess, sys, tempfile, uuid
+          from pathlib import Path
+          import fitz
+          import psycopg
+          from psycopg import sql
+          from sqlalchemy.engine import make_url
+
+          root = Path(tempfile.mkdtemp(prefix="academic-migration-ci-"))
+          source_db = root / "source.sqlite3"
+          uploads = root / "source_uploads"
+          uploads.mkdir()
+          pdf = fitz.open()
+          pdf.new_page().insert_text((72, 72), "Migration fixture")
+          (uploads / "source-paper.pdf").write_bytes(pdf.tobytes())
+          pdf.close()
+          source_env = os.environ.copy()
+          source_env["ACADEMIC_DATABASE_URL"] = "sqlite:///" + source_db.as_posix()
+          source_env["MIGRATION_UPLOAD_DIR"] = str(uploads)
+          fixture = r"""
+          import json, os
+          from pathlib import Path
+          from sqlalchemy import select
+          from backend.main import SessionLocal, User, ResearchArea, Paper, EvidenceCard, ReviewProject, ReviewParagraph, password_digest
+          upload = Path(os.environ["MIGRATION_UPLOAD_DIR"]) / "source-paper.pdf"
+          with SessionLocal() as db:
+              user = User(username="migration_owner", password_hash=password_digest("MigrationPass#2026"))
+              db.add(user)
+              db.flush()
+              area = db.scalar(select(ResearchArea).limit(1))
+              area.owner_id = user.id
+              paper = Paper(owner_id=user.id, title="迁移验证论文", authors="测试作者",
+                            file_name="source-paper.pdf", file_path=str(upload),
+                            file_sha256="migration-fixture-hash", full_text="迁移全文")
+              db.add(paper)
+              db.flush()
+              evidence = EvidenceCard(owner_id=user.id, paper_id=paper.id,
+                                      claim="迁移证据论点", source_text="迁移原文摘录")
+              db.add(evidence)
+              db.flush()
+              project = ReviewProject(owner_id=user.id, title="迁移综述", topic="迁移主题")
+              db.add(project)
+              db.flush()
+              db.add(ReviewParagraph(owner_id=user.id, project_id=project.id,
+                                     heading="迁移段落", content="迁移正文",
+                                     evidence_ids=json.dumps([evidence.id])))
+              db.commit()
+          """
+          subprocess.run([sys.executable, "-c", fixture], env=source_env, check=True)
+
+          base_url = make_url(os.environ["ACADEMIC_DATABASE_URL"])
+          database_name = "academic_migration_" + uuid.uuid4().hex[:10]
+          with psycopg.connect(host=base_url.host, port=base_url.port or 5432,
+              dbname="postgres", user=base_url.username, password=base_url.password, autocommit=True) as admin:
+              with admin.cursor() as cursor:
+                  cursor.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier(database_name)))
+          target_url = base_url.set(database=database_name).render_as_string(hide_password=False)
+          migrated_uploads = root / "migrated_uploads"
+          try:
+              subprocess.run([sys.executable, "migrate_sqlite_to_postgres.py",
+                  "--source-db", str(source_db), "--target-url", target_url,
+                  "--uploads-source", str(uploads), "--uploads-destination", str(migrated_uploads)],
+                  env=source_env, check=True)
+              with psycopg.connect(host=base_url.host, port=base_url.port or 5432,
+                  dbname=database_name, user=base_url.username, password=base_url.password) as connection:
+                  with connection.cursor() as cursor:
+                      for table in ("users", "papers", "evidence_cards", "review_projects", "review_paragraphs"):
+                          cursor.execute(sql.SQL("SELECT COUNT(*) FROM {}").format(sql.Identifier(table)))
+                          assert cursor.fetchone()[0] == 1, table
+                      cursor.execute("SELECT file_path FROM papers WHERE title=%s", ("迁移验证论文",))
+                      migrated_path = Path(cursor.fetchone()[0])
+                      assert migrated_path == migrated_uploads / "source-paper.pdf"
+                      assert migrated_path.read_bytes() == (uploads / "source-paper.pdf").read_bytes()
+                      cursor.execute("SELECT COUNT(*) FROM research_areas WHERE owner_id IS NOT NULL")
+                      assert cursor.fetchone()[0] == 1
+              rerun = subprocess.run([sys.executable, "migrate_sqlite_to_postgres.py",
+                  "--source-db", str(source_db), "--target-url", target_url],
+                  env=source_env, capture_output=True, text=True)
+              assert rerun.returncode != 0 and "并非空库" in rerun.stderr + rerun.stdout
+              print("SQLite到PostgreSQL数据、外键关系、主键序列和上传原件迁移测试通过")
+          finally:
+              with psycopg.connect(host=base_url.host, port=base_url.port or 5432,
+                  dbname="postgres", user=base_url.username, password=base_url.password, autocommit=True) as admin:
+                  with admin.cursor() as cursor:
+                      cursor.execute(sql.SQL("DROP DATABASE IF EXISTS {}").format(sql.Identifier(database_name)))
           PY
 
       - name: Docker镜像构建与容器健康检查

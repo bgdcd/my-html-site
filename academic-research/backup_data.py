@@ -81,7 +81,7 @@ def archive_uploads(source_dir: Path, destination: Path) -> list[dict]:
     return files
 
 
-def make_backup(output_root: Path) -> Path:
+def make_backup(output_root: Path, uploads_source: Path = UPLOAD_DIR) -> Path:
     database = sqlite_database_path()
     output_root.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
@@ -91,7 +91,7 @@ def make_backup(output_root: Path) -> Path:
         db_copy = temp_dir / DB_NAME
         uploads_zip = temp_dir / UPLOADS_NAME
         snapshot_sqlite(database, db_copy)
-        upload_files = archive_uploads(UPLOAD_DIR, uploads_zip)
+        upload_files = archive_uploads(uploads_source, uploads_zip)
         manifest = {
             "format_version": 1,
             "created_at_utc": datetime.now(timezone.utc).isoformat(),
@@ -200,6 +200,7 @@ def main() -> int:
     sub = parser.add_subparsers(dest="command", required=True)
     backup_parser = sub.add_parser("backup", help="创建 SQLite 与上传文件备份")
     backup_parser.add_argument("--output", type=Path, default=DEFAULT_BACKUP_DIR, help="备份输出目录")
+    backup_parser.add_argument("--uploads", type=Path, default=UPLOAD_DIR, help="要归档的上传文件目录")
     verify_parser = sub.add_parser("verify", help="校验备份完整性")
     verify_parser.add_argument("--backup-dir", type=Path, required=True)
     restore_parser = sub.add_parser("restore", help="恢复到新的目标路径，不覆盖现有文件")
@@ -210,7 +211,7 @@ def main() -> int:
     args = parser.parse_args()
     try:
         if args.command == "backup":
-            result = make_backup(args.output.resolve())
+            result = make_backup(args.output.resolve(), args.uploads.resolve())
             manifest = verify_backup(result)
             print(json.dumps({"status": "success", "backup_dir": str(result), "upload_file_count": manifest["upload_file_count"]}, ensure_ascii=False))
         elif args.command == "verify":

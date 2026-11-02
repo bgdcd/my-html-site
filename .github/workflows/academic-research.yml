@@ -66,7 +66,7 @@ jobs:
           required = {"/", "/api/health", "/api/areas", "/api/areas/{area_id}/move",
                       "/api/areas/{area_id}/merge", "/api/upload", "/api/papers",
                       "/api/papers/{paper_id}/metadata", "/api/papers/{paper_id}/area", "/api/search/fulltext",
-                      "/api/search/external", "/api/papers/{paper_id}/evidence", "/api/evidence/{evidence_id}", "/api/review/evidence-matrix", "/api/review/projects", "/api/review/projects/{project_id}", "/api/review/projects/{project_id}/paragraphs", "/api/review/paragraphs/{paragraph_id}", "/api/review/projects/{project_id}/export.docx", "/api/knowledge-graph", "/api/research-themes", "/api/research-analysis", "/api/review/evidence-draft", "/api/ai/status", "/api/ai/review-draft", "/api/security/status", "/api/auth/status", "/api/auth/register", "/api/auth/login", "/api/auth/me", "/api/auth/logout", "/api/auth/change-password", "/api/admin/users", "/api/admin/users/{user_id}/status", "/api/admin/users/{user_id}/reset-password", "/api/admin/audit-logs", "/api/stats"}
+                      "/api/search/external", "/api/papers/{paper_id}/evidence", "/api/evidence/{evidence_id}", "/api/review/evidence-matrix", "/api/review/projects", "/api/review/projects/{project_id}", "/api/review/projects/{project_id}/paragraphs", "/api/review/paragraphs/{paragraph_id}", "/api/review/projects/{project_id}/export.docx", "/api/knowledge-graph", "/api/research-themes", "/api/research-analysis", "/api/review/evidence-draft", "/api/ai/status", "/api/ai/review-draft", "/api/security/status", "/api/auth/status", "/api/auth/register", "/api/auth/login", "/api/auth/me", "/api/auth/logout", "/api/auth/change-password", "/api/account/integrity", "/api/account/export.zip", "/api/admin/users", "/api/admin/users/{user_id}/status", "/api/admin/users/{user_id}/reset-password", "/api/admin/audit-logs", "/api/stats"}
           missing = required - paths
           assert not missing, f"缺少接口: {missing}"
           assert engine is not None and Paper.__tablename__ == "papers"
@@ -155,6 +155,8 @@ jobs:
               assert "仅账号甲可见的论文" not in archive.read("papers.json").decode("utf-8")
           integrity = client.get("/api/account/integrity", headers={"Authorization": "Bearer " + token_a})
           assert integrity.status_code == 200 and integrity.json()["passed"], integrity.text
+          audit_actions = {row["action"] for row in client.get("/api/admin/audit-logs", headers={"Authorization": "Bearer " + token_a}).json()}
+          assert {"paper_uploaded", "personal_data_exported", "personal_data_integrity_checked"} <= audit_actions, audit_actions
           assert client.get(f"/api/papers/{private_paper_id}", headers={"Authorization": "Bearer " + token_b}).status_code == 404
           assert client.get("/api/areas", headers={"Authorization": "Bearer " + token_b}).json() == []
           assert len(client.get("/api/areas", headers={"Authorization": "Bearer " + token_a}).json()) >= 4

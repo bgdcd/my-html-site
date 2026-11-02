@@ -36,7 +36,7 @@ jobs:
           required = {"/", "/api/health", "/api/areas", "/api/areas/{area_id}/move",
                       "/api/areas/{area_id}/merge", "/api/upload", "/api/papers",
                       "/api/papers/{paper_id}/metadata", "/api/papers/{paper_id}/area", "/api/search/fulltext",
-                      "/api/search/external", "/api/papers/{paper_id}/evidence", "/api/evidence/{evidence_id}", "/api/stats"}
+                      "/api/search/external", "/api/papers/{paper_id}/evidence", "/api/evidence/{evidence_id}", "/api/review/evidence-matrix", "/api/stats"}
           missing = required - paths
           assert not missing, f"缺少接口: {missing}"
           assert engine is not None and Paper.__tablename__ == "papers"

@@ -889,7 +889,7 @@ def generate_ai_review_draft(payload: AIReviewDraftInput):
         raise HTTPException(502, "AI服务返回错误状态：" + str(exc.response.status_code))
     except (httpx.HTTPError, KeyError, IndexError, TypeError, ValueError):
         raise HTTPException(502, "AI服务调用失败或返回格式无法识别，请检查模型服务配置")
-    cited_ids = [int(value) for value in re.findall(r"\\[证据#(\\d+)\\]", draft)]
+    cited_ids = [int(value) for value in re.findall(r"\[证据#(\d+)\]", draft)]
     allowed_ids = {item["evidence_id"] for item in evidence}
     invented = sorted(set(cited_ids) - allowed_ids)
     if invented:

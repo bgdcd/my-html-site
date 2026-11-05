@@ -1,0 +1,8 @@
+html { background: #f8f9fc; }
+body { max-width: 900px; margin: 0 auto; padding: 28px 24px 56px; color: #1f2937; background: #fff; font-family: "Noto Sans CJK SC", "Microsoft YaHei", sans-serif; font-size: 17px; line-height: 1.85; overflow-wrap: anywhere; }
+h1,h2,h3 { color: #111827; line-height: 1.45; }
+p { margin: .65em 0; }
+table { width: 100%; border-collapse: collapse; margin: 1em 0; }
+th,td { border: 1px solid #cbd5e1; padding: 8px 10px; vertical-align: top; }
+img { max-width: 100%; height: auto; }
+@media (max-width: 600px) { body { padding: 18px 16px 40px; font-size: 16px; } table { display: block; overflow-x: auto; } }

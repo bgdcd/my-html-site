@@ -1,0 +1,63 @@
+name: Build 密钥 Document APK
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/build-miji-apk.yml'
+      - 'android-miji/**'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          cmdline-tools-version: 11076708
+          packages: platform-tools platforms;android-35 build-tools;35.0.0
+
+      - name: Install Pandoc
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pandoc
+
+      - name: Restore original Word document
+        run: |
+          base64 --decode android-miji/source/密钥.docx.b64 > android-miji/source/密钥.docx
+          test -s android-miji/source/密钥.docx
+          file android-miji/source/密钥.docx
+
+      - name: Convert Word document to offline HTML
+        run: |
+          cd android-miji/app/src/main/assets
+          pandoc ../../../../source/密钥.docx --from=docx --to=html5 --standalone --extract-media=. --css=reader.css -o index.html
+          test -s index.html
+          grep -q '<body' index.html
+
+      - name: Build APK
+        working-directory: android-miji
+        run: gradle --no-daemon assembleDebug
+
+      - name: Upload installable APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: miji-document-apk
+          path: android-miji/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 30
